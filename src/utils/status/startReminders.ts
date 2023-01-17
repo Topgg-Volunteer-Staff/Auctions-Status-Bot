@@ -58,7 +58,7 @@ export default function startReminders(client: Client) {
 
   // Every Tuesday at 20:00 UTC - Announce ads are going live
   cron.schedule(
-    '0 0 20 * * Tue',
+    '0 01 20 * * Tue',
     () => {
       publish(adsNowLive, client, false, true)
     },
