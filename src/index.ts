@@ -1,5 +1,6 @@
 import { Client, Partials, GatewayIntentBits } from 'discord.js'
 import startReminders from './utils/status/startReminders'
+import commandHandler from './commandHandler'
 
 // Configure client
 const client = new Client({
@@ -37,5 +38,8 @@ client.on('ready', async () => {
   })
   startReminders(client)
 })
+
+// Register commands
+commandHandler(client)
 
 client.login(process.env.DISCORD_TOKEN)
