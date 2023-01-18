@@ -1,5 +1,5 @@
 import { Client, MessageOptions, TextChannel } from 'discord.js'
-import { announcementChannelId, pingRoleId } from '../../globals'
+import { channelIds, roleIds } from '../../globals'
 
 export default function publish(
   message: MessageOptions,
@@ -8,9 +8,9 @@ export default function publish(
   crosspost: boolean
 ) {
   const channel = client.channels.cache.get(
-    announcementChannelId
+    channelIds.auctionsStatus
   ) as TextChannel
-  if (ping) message.content = `<@&${pingRoleId}>`
+  if (ping) message.content = `<@&${roleIds.auctionsStatus}>`
   channel.send(message).then((msg) => {
     if (crosspost) msg.crosspost()
   })
