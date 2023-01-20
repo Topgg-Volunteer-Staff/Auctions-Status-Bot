@@ -40,7 +40,7 @@ export const execute = async (
   //     .setName(`${resolvedFlag} ${interaction.channel.name})
   //     .catch(console.error)
 
-  interaction.channel.setAutoArchiveDuration(4320, 'Ticket resolved!')
+  interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
 
   interaction.reply({
     embeds: [
