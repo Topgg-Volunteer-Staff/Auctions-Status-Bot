@@ -10,6 +10,12 @@ type IntRange<F extends number, T extends number> = Exclude<
   Enumerate<F>
 >
 
+const now = {
+  get time() {
+    return new Date()
+  },
+}
+
 export default function getNextDayTime(
   day: 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun',
   hour: IntRange<0, 24>
@@ -23,7 +29,7 @@ export default function getNextDayTime(
     Sat: 6,
     Sun: 0,
   }
-  const d = new Date()
+  const d = now.time
   d.setUTCDate(d.getUTCDate() + ((7 + days[day] - d.getUTCDay()) % 7))
   d.setUTCHours(hour, 0, 0, 0)
   if (d < new Date()) {
