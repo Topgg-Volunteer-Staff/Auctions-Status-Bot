@@ -3,12 +3,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  MessageOptions,
+  BaseMessageOptions,
 } from 'discord.js'
 import AuctionsTime from '../../times/AuctionsTime'
 import { emoji } from '../../emojis'
 
-export const adsNowLive: MessageOptions = {
+export const adsNowLive: BaseMessageOptions = {
   embeds: [
     new EmbedBuilder()
       .setTitle(`${emoji.rocket} Ads are now live!`)

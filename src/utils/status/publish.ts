@@ -1,8 +1,8 @@
-import { Client, MessageOptions, TextChannel } from 'discord.js'
+import { Client, BaseMessageOptions, TextChannel } from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
 
 export default function publish(
-  message: MessageOptions,
+  message: BaseMessageOptions,
   client: Client,
   ping: boolean,
   crosspost: boolean

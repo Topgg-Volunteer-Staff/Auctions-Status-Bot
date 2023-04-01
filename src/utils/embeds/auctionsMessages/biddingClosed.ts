@@ -3,12 +3,12 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  MessageOptions,
+  BaseMessageOptions,
 } from 'discord.js'
 import AuctionsTime from '../../times/AuctionsTime'
 import { emoji } from '../../emojis'
 
-export const biddingClosed: MessageOptions = {
+export const biddingClosed: BaseMessageOptions = {
   embeds: [
     new EmbedBuilder()
       .setTitle(`${emoji.hammer} Auctions have ended!`)
