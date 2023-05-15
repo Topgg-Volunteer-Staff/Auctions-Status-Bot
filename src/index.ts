@@ -45,7 +45,7 @@ commandHandler(client)
 
 // Restart the bot every Monday at 00:00, so the time on the reminders is correct
 cron.schedule('0 0 * * 1', () => {
-  process.exit();
+  process.exit()
 })
 
 client.login(process.env.DISCORD_TOKEN)
