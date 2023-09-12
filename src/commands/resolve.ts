@@ -35,12 +35,12 @@ export const execute = async (
       ephemeral: true,
     })
 
+  await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
+
   // We can't rename threads due to rate limits
   interaction.channel
     .setName(`${resolvedFlag} ${interaction.channel.name}`)
     .catch(console.error)
-
-  interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
 
   interaction.reply({
     embeds: [
