@@ -24,20 +24,14 @@ export const execute = async (
   ) as TextChannel
   const openTicket =
     (await auctionsTickets.threads.fetchActive()).threads.filter(
-      (t) =>
-        t.name ===
-        `${interaction.user.username}-${interaction.user.discriminator}`
+      (t) => t.name === `${interaction.user.username}`
     ).size >= 1
       ? true
       : false
 
   if (openTicket) {
     const yourTicket = (await auctionsTickets.threads.fetchActive()).threads
-      .filter(
-        (t) =>
-          t.name ===
-          `${interaction.user.username}-${interaction.user.discriminator}`
-      )
+      .filter((t) => t.name === `${interaction.user.username}`)
       .first()
     return interaction.reply({
       embeds: [
@@ -65,7 +59,7 @@ export const execute = async (
 
   channel.threads
     .create({
-      name: `${interaction.user.username}-${interaction.user.discriminator}`,
+      name: `${interaction.user.username}`,
       autoArchiveDuration: 10080,
       type: ChannelType.PrivateThread,
     })
