@@ -35,7 +35,7 @@ export const execute = async (
       ephemeral: true,
     })
 
-  await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
+  interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
 
   // We can't rename threads due to rate limits
   interaction.channel
