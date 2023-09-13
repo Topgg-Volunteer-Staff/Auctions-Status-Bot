@@ -8,6 +8,6 @@ const roleIds = {
   auctionsStatus: '1064947337207746640',
 }
 
-const resolvedFlag = '[Resolved] '
+const resolvedFlag = '[Resolved]'
 
 export { channelIds, roleIds, resolvedFlag }
