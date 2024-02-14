@@ -1,6 +1,6 @@
 type Enumerate<
   N extends number,
-  Acc extends Array<number> = []
+  Acc extends Array<number> = [],
 > = Acc['length'] extends N
   ? Acc[number]
   : Enumerate<N, [...Acc, Acc['length']]>
