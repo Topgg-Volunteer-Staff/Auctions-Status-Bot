@@ -24,7 +24,10 @@ export const execute = async (
   ) as TextChannel
   const openTicket =
     (await auctionsTickets.threads.fetchActive()).threads.filter(
-      (t) => t.name === `${interaction.user.username}`
+      (t) => 
+        t.name === `${interaction.user.username}` 
+        && t.archived === false
+        && t.members.filter((m) => m.id === interaction.user.id).size >= 1
     ).size >= 1
       ? true
       : false
@@ -42,7 +45,6 @@ export const execute = async (
       ],
       ephemeral: true,
     })
-    return
   }
   const embed = new EmbedBuilder()
     .setTitle(
