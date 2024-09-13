@@ -44,12 +44,21 @@ export const execute = async (
     })
     return
   }
+
+  let description = `Please state your question or what you are having an issue with in this thread.\n\n${emoji.dotred} If your issue is related to payments you have made, please make sure to include your FastSpring order ID starting with \`DBOTSBV••••\`. You can find the invoice ID in the payment confirmation email you received from FastSpring.`
+  const date = new Date()
+  if (date.getDay() === 6 || date.getDay() === 0) { // if the day is Saturday or Sunday
+    description += `\n\n${emoji.warning} Please note that weekend support is limited. A Support Team member will be with you as soon as possible on Monday morning!`
+  } else {
+    description += `\n\nA Support Team member will be with you as soon as possible!`
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(
       `This is your Private Top.gg Auctions Support Thread, ${interaction.user.username}!`
     )
     .setDescription(
-      `Please state your question or what you are having an issue with in this thread.\n\n${emoji.dotred} If your issue is related to payments you have made, please make sure to include your FastSpring order ID starting with \`DBOTSBV••••\`. You can find the invoice ID in the payment confirmation email you received from FastSpring.\n\nA Support Team member will be with you as soon as possible!`
+      description
     )
     .setColor('#ff3366')
 
