@@ -10,8 +10,8 @@ import {
 import { roleIds } from '../globals'
 
 export const command = new SlashCommandBuilder()
-  .setName('createticket')
-  .setDescription('Post the create ticket message')
+  .setName('createauctionsticket')
+  .setDescription('Post the create auctions ticket message')
   .setDMPermission(false)
   .setDefaultMemberPermissions('0')
 
