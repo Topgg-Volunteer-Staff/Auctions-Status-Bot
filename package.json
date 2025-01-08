@@ -22,7 +22,7 @@
         "lint:fix": "eslint --fix .",
         "test": "echo \"Todo: add tests\" && exit 0",
         "clean": "rm -rf dist",
-        "build": "npm run clean && tsc",
+        "build": "npx tsc",
         "start": "node -r dotenv/config dist/index.js",
         "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext \"ts,json\""
     },
