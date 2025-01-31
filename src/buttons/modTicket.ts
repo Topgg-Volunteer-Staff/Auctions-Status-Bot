@@ -30,7 +30,7 @@ export const execute = async (
       : false
 
   if (openTicket) {
-    const yourTicket = (await auctionsTickets.threads.fetchActive()).threads
+    const yourTicket = (await modTickets.threads.fetchActive()).threads
       .filter((t) => t.name === `${interaction.user.username}`)
       .first()
     return interaction.reply({
