@@ -8,10 +8,11 @@ import {
   SlashCommandBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
+import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
-  .setName('createticket')
-  .setDescription('Post the create ticket message')
+  .setName('createmodticket')
+  .setDescription('Post the create mod ticket message')
   .setDMPermission(false)
   .setDefaultMemberPermissions('0')
 
@@ -29,13 +30,13 @@ export const execute = async (
     new ButtonBuilder()
       .setLabel(`Create Ticket`)
       .setStyle(ButtonStyle.Primary)
-      .setCustomId(`auctionsTicket_${interaction.id}`)
+      .setCustomId(`modTicket_${interaction.id}`)
   )
 
   const embed = new EmbedBuilder()
-    .setTitle('Private Auctions Support')
+    .setTitle('Contact a Top.gg Moderator')
     .setDescription(
-      `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.supportTeam}>, official employees of Top.gg.\n\nFeel free to open a private ticket for any reason, but especially for any issue that may contain confidential information, such as order IDs or email addresses.`
+      `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.moderator}>, official moderators of Top.gg.\n\nUtilize these tickets to report users, request an ownership transfer, discuss a bot or review report, or any other reason that you might need to contact a Top.gg Moderator.\n\n${emoji.warning}**Note**: This is not the place to discuss review declines.`
     )
     .setColor('#ff3366')
 
