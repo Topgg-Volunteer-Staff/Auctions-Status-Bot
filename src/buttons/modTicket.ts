@@ -19,11 +19,11 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  const auctionsTickets = interaction.client.channels.cache.get(
+  const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
   ) as TextChannel
   const openTicket =
-    (await auctionsTickets.threads.fetchActive()).threads.filter(
+    (await modTickets.threads.fetchActive()).threads.filter(
       (t) => t.name === `${interaction.user.username}`
     ).size >= 1
       ? true
