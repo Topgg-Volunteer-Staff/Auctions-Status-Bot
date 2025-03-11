@@ -11,8 +11,6 @@ const roleIds = {
   moderator: '304313580025544704'
 }
 
-const topGGGuildId = '264445053596991498'
-
 const resolvedFlag = '[Resolved]'
 
-export { channelIds, roleIds, resolvedFlag, topGGGuildId }
+export { channelIds, roleIds, resolvedFlag }
