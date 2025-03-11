@@ -4,7 +4,7 @@ import {
   CommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
-  PermissionFlagsBits
+  PermissionFlagsBits,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -13,7 +13,7 @@ import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
-  .setDescription('Mark this ticket as resolved')
+  .setDescription('Mark this auctions or mod ticket as resolved')
   .setContexts(InteractionContextType.Guild)
   .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
 
