@@ -124,8 +124,7 @@ const hasNonSyncedChanges = async (): Promise<boolean> => {
     if (
       remoteCommand.name !== localCommand.name ||
       remoteCommand.description !== localCommand.description ||
-      remoteCommand.dm_permission !== localCommand.dm_permission ||
-      remoteCommand.default_member_permissions !== localCommand.default_member_permissions
+      remoteCommand.dm_permission !== localCommand.dm_permission
     ) {
       return true
     }
