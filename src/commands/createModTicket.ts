@@ -5,6 +5,7 @@ import {
   Client,
   CommandInteraction,
   EmbedBuilder,
+  InteractionContextType,
   SlashCommandBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
@@ -13,7 +14,7 @@ import { emoji } from '../utils/emojis'
 export const command = new SlashCommandBuilder()
   .setName('createmodticket')
   .setDescription('Post the create mod ticket message')
-  .setDMPermission(false)
+  .setContexts(InteractionContextType.Guild)
   .setDefaultMemberPermissions('0')
 
 export const execute = async (
@@ -40,7 +41,7 @@ export const execute = async (
     )
     .setColor('#ff3366')
 
-  interaction.channel?.send({
+  interaction.reply({
     embeds: [embed],
     components: [embedButtons],
   })
