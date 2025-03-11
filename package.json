@@ -22,13 +22,13 @@
         "lint:fix": "eslint --fix .",
         "test": "echo \"Todo: add tests\" && exit 0",
         "clean": "rm -rf dist",
-        "build": "npm run clean && tsc",
+        "build": "tsc",
         "start": "node -r dotenv/config dist/index.js",
         "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext \"ts,json\""
     },
     "dependencies": {
         "@discordjs/rest": "1.6.0",
-        "discord.js": "14.8.0",
+        "discord.js": "14.18.0",
         "dotenv": "16.0.3",
         "node-cron": "3.0.2"
     },

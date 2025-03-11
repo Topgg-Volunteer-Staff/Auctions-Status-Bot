@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { REST } from '@discordjs/rest'
 import { Client, SlashCommandBuilder, Routes } from 'discord.js'
+import { topGGGuildId } from './globals'
 
 const commandsPath = path.join(__dirname, 'commands')
 const rest = new REST({ version: '10' }).setToken(
@@ -24,9 +25,9 @@ const commandHandler = async (client: Client) => {
 
   const commandsData = commands.map((command) => command.data)
 
-  if (await hasNonSyncedChanges()) {
+  if (true) {
     rest
-      .put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || ''), {
+      .put(Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID || '', topGGGuildId), {
         body: commandsData,
       })
       .then(() => {
@@ -82,57 +83,58 @@ const commandHandler = async (client: Client) => {
   })
 }
 
-const hasNonSyncedChanges = async (): Promise<boolean> => {
-  const remoteCommands = (await rest.get(
-    Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || '')
-  )) as Array<SlashCommandBuilder>
-  const localCommands = commands.map((command) => command.data)
+// const hasNonSyncedChanges = async (): Promise<boolean> => {
+//   const remoteCommands = (await rest.get(
+//     Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID || '', topGGGuildId)
+//   )) as Array<SlashCommandBuilder>
+//   const localCommands = commands.map((command) => command.data)
 
-  // If the number of commands is different, we need to sync
-  if (remoteCommands.length !== localCommands.length) return true
+//   // If the number of commands is different, we need to sync
+//   if (remoteCommands.length !== localCommands.length) return true
 
-  // If any of the local commands are missing, we need to sync
-  for (const localCommand of localCommands) {
-    if (
-      !remoteCommands.find(
-        (remoteCommand) => remoteCommand.name === localCommand.name
-      )
-    ) {
-      return true
-    }
-  }
+//   // If any of the local commands are missing, we need to sync
+//   for (const localCommand of localCommands) {
+//     if (
+//       !remoteCommands.find(
+//         (remoteCommand) => remoteCommand.name === localCommand.name
+//       )
+//     ) {
+//       return true
+//     }
+//   }
 
-  // Check if any of the remote commands are missing locally (deleted commands)
-  for (const remoteCommand of remoteCommands) {
-    if (
-      !localCommands.find(
-        (localCommand) => localCommand.name === remoteCommand.name
-      )
-    ) {
-      return true
-    }
-  }
+//   // Check if any of the remote commands are missing locally (deleted commands)
+//   for (const remoteCommand of remoteCommands) {
+//     if (
+//       !localCommands.find(
+//         (localCommand) => localCommand.name === remoteCommand.name
+//       )
+//     ) {
+//       return true
+//     }
+//   }
 
-  // check if command properties are different
-  for (const localCommand of localCommands) {
-    const remoteCommand = remoteCommands.find(
-      (remoteCommand) => remoteCommand.name === localCommand.name
-    )
+//   // check if command properties are different
+//   for (const localCommand of localCommands) {
+//     const remoteCommand = remoteCommands.find(
+//       (remoteCommand) => remoteCommand.name === localCommand.name
+//     )
 
-    if (!remoteCommand) return true
+//     if (!remoteCommand) return true
 
-    if (
-      remoteCommand.name !== localCommand.name ||
-      remoteCommand.description !== localCommand.description ||
-      remoteCommand.dm_permission !== localCommand.dm_permission
-    ) {
-      return true
-    }
+//     if (
+//       remoteCommand.name !== localCommand.name ||
+//       remoteCommand.description !== localCommand.description ||
+//       remoteCommand.dm_permission !== localCommand.dm_permission ||
+//       remoteCommand.default_member_permissions !== localCommand.default_member_permissions
+//     ) {
+//       return true
+//     }
 
-    // TODO: Check if options are different
-  }
+//     // TODO: Check if options are different
+//   }
 
-  return false
-}
+//   return false
+// }
 
 export default commandHandler

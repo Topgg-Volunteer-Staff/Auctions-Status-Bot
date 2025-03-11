@@ -3,16 +3,18 @@ import {
   Client,
   CommandInteraction,
   SlashCommandBuilder,
+  InteractionContextType,
   PermissionFlagsBits
 } from 'discord.js'
+
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
-  .setDescription('Mark this auctions ticket as resolved')
-  .setDMPermission(false)
+  .setDescription('Mark this ticket as resolved')
+  .setContexts(InteractionContextType.Guild)
   .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
 
 export const execute = async (
