@@ -2,7 +2,6 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { REST } from '@discordjs/rest'
 import { Client, SlashCommandBuilder, Routes } from 'discord.js'
-import { topGGGuildId } from './globals'
 
 const commandsPath = path.join(__dirname, 'commands')
 const rest = new REST({ version: '10' }).setToken(
