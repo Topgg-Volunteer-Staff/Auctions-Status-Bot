@@ -49,7 +49,7 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 00 17 * * Tue',
     () => {
-      publish(paymentReminder, client, false, true)
+      publish(paymentReminder, client, true, true)
     },
     {
       timezone: 'Etc/UTC',
