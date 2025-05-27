@@ -59,7 +59,6 @@ export const execute = async (
   channel.threads
     .create({
       name: `${interaction.user.username}`,
-      autoArchiveDuration: 10080,
       type: ChannelType.PrivateThread,
     })
     .then((thread) => {
