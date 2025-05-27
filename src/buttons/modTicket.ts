@@ -21,7 +21,8 @@ export const execute = async (
 
   const modTickets = interaction.client.channels.cache.get(channelIds.modTickets) as TextChannel | undefined
   if (!modTickets) {
-    throw new Error('Mod tickets channel not found')
+    console.warn('Mod tickets channel not found');
+    return;
   }
 
   const activeThreads = await modTickets.threads.fetchActive()
