@@ -36,7 +36,9 @@ export const execute = async (
 
   const embed = new EmbedBuilder()
     .setTitle('Contact a Top.gg Moderator')
-  .setDescription(`Click the button below to **open a private ticket** with the <@&${roleIds.moderator}>, official moderators of Top.gg.\n\nUse this to:\n- Report users, reviews, or entities\n- Request ownership transfer if you are unable to\n- Any other reason!\n\n:warning: This is not the place to discuss decline decisions. Please DM the Reviewer directly.`)
+    .setDescription(
+      `Click the button below to **open a private ticket** with the <@&${roleIds.moderator}>, official moderators of Top.gg.\n\nUse this to:\n- Report users, reviews, or entities\n- Request ownership transfer if you are unable to\n- Any other reason!\n\n:warning: This is not the place to discuss decline decisions. Please DM the Reviewer directly.`
+    )
     .setColor('#ff3366')
 
   interaction.reply({

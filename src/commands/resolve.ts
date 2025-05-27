@@ -33,11 +33,14 @@ export const execute = async (
       ephemeral: true,
     })
 
-    if (interaction.channel.parent?.id !== channelIds.auctionsTickets && interaction.channel.parent?.id !== channelIds.modTickets)
-      return interaction.reply({
-        embeds: [errorEmbed(`This thread is not resolvable!`)],
-        ephemeral: true,
-      })
+  if (
+    interaction.channel.parent?.id !== channelIds.auctionsTickets &&
+    interaction.channel.parent?.id !== channelIds.modTickets
+  )
+    return interaction.reply({
+      embeds: [errorEmbed(`This thread is not resolvable!`)],
+      ephemeral: true,
+    })
 
   interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
 
@@ -46,20 +49,16 @@ export const execute = async (
     .setName(`${resolvedFlag} ${interaction.channel.name}`)
     .catch(console.error)
 
-    let resolveString = "If your issue persists or if you need help with a seperate issue, please open a new ticket in"
-    if (interaction.channel.parent?.id == channelIds.auctionsTickets) {
-          resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.topggthumbsup}`
-    } else if (interaction.channel.parent?.id == channelIds.modTickets) {
-          resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.topggthumbsup}`
-    }
+  let resolveString =
+    'If your issue persists or if you need help with a seperate issue, please open a new ticket in'
+  if (interaction.channel.parent?.id == channelIds.auctionsTickets) {
+    resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.topggthumbsup}`
+  } else if (interaction.channel.parent?.id == channelIds.modTickets) {
+    resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.topggthumbsup}`
+  }
 
   interaction.reply({
-    embeds: [
-      successEmbed(
-        `Ticket Resolved!`,
-        `${resolveString}`
-      ),
-    ],
+    embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
   })
   return
 }
