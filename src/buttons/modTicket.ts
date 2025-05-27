@@ -51,9 +51,7 @@ export const execute = async (
     .setTitle(
       `This is your Private Top.gg Moderator Support Thread, ${interaction.user.username}!`
     )
-    .setDescription(
-      description
-    )
+    .setDescription(description)
     .setColor('#ff3366')
 
   const channel = interaction.client.channels.cache.get(
