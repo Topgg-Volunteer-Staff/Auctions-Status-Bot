@@ -45,7 +45,7 @@ export const execute = async (
     return
   }
 
-  let description = `Please state your question, report, or what you are having an issue with in this thread.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
+  const description = `Please state your question, report, or what you are having an issue with in this thread.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
 
   const embed = new EmbedBuilder()
     .setTitle(

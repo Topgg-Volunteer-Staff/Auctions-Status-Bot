@@ -9,7 +9,6 @@ import {
   SlashCommandBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
-import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
   .setName('createmodticket')

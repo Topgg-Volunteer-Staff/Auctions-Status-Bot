@@ -51,9 +51,9 @@ export const execute = async (
 
   let resolveString =
     'If your issue persists or if you need help with a seperate issue, please open a new ticket in'
-  if (interaction.channel.parent?.id == channelIds.auctionsTickets) {
+  if (interaction.channel.parent.id == channelIds.auctionsTickets) {
     resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.topggthumbsup}`
-  } else if (interaction.channel.parent?.id == channelIds.modTickets) {
+  } else if (interaction.channel.parent.id == channelIds.modTickets) {
     resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.topggthumbsup}`
   }
 
