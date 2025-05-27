@@ -40,7 +40,7 @@ export const execute = async (
     )
     .setColor('#ff3366')
 
-  interaction.reply({
+  interaction.channel?.send({
     embeds: [embed],
     components: [embedButtons],
   })
