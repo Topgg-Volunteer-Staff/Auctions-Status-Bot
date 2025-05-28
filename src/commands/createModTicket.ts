@@ -7,9 +7,9 @@ import {
   EmbedBuilder,
   InteractionContextType,
   SlashCommandBuilder,
+  TextChannel
 } from 'discord.js'
 import { roleIds } from '../globals'
-import { TextChannel } from 'discord.js'
 
 export const command = new SlashCommandBuilder()
   .setName('createmodticket')
