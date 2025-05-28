@@ -7,7 +7,7 @@ import {
   EmbedBuilder,
   InteractionContextType,
   SlashCommandBuilder,
-  TextChannel
+  TextChannel,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
