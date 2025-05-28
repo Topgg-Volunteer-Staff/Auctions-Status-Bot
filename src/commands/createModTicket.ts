@@ -7,9 +7,9 @@ import {
   EmbedBuilder,
   InteractionContextType,
   SlashCommandBuilder,
+  TextChannel,
 } from 'discord.js'
 import { roleIds } from '../globals'
-import { TextChannel } from 'discord.js'
 
 export const command = new SlashCommandBuilder()
   .setName('createmodticket')
@@ -41,7 +41,7 @@ export const execute = async (
     )
     .setColor('#ff3366')
 
-  const channel = interaction.channel as TextChannel;
+  const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
     components: [embedButtons],

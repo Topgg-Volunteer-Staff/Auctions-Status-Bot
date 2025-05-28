@@ -21,13 +21,16 @@ export const execute = async (
 
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
-  ) as TextChannel
-  const openTicket =
-    (await modTickets.threads.fetchActive()).threads.filter(
-      (t) => t.name === `${interaction.user.username}`
-    ).size >= 1
-      ? true
-      : false
+  ) as TextChannel | undefined
+  if (!modTickets) {
+    console.warn('Mod tickets channel not found')
+    return
+  }
+
+  const activeThreads = await modTickets.threads.fetchActive()
+  const openTicket = activeThreads.threads.some(
+    (t) => t.name === interaction.user.username
+  )
 
   if (openTicket) {
     const yourTicket = (await modTickets.threads.fetchActive()).threads
@@ -61,7 +64,6 @@ export const execute = async (
   channel.threads
     .create({
       name: `${interaction.user.username}`,
-      autoArchiveDuration: 10080,
       type: ChannelType.PrivateThread,
     })
     .then((thread) => {
