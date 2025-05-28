@@ -41,7 +41,7 @@ export const execute = async (
     )
     .setColor('#ff3366')
 
-  const channel = interaction.channel as TextChannel;
+  const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
     components: [embedButtons],

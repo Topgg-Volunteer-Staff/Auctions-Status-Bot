@@ -19,14 +19,18 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  const modTickets = interaction.client.channels.cache.get(channelIds.modTickets) as TextChannel | undefined
+  const modTickets = interaction.client.channels.cache.get(
+    channelIds.modTickets
+  ) as TextChannel | undefined
   if (!modTickets) {
-    console.warn('Mod tickets channel not found');
-    return;
+    console.warn('Mod tickets channel not found')
+    return
   }
 
   const activeThreads = await modTickets.threads.fetchActive()
-  const openTicket = activeThreads.threads.some(t => t.name === interaction.user.username)
+  const openTicket = activeThreads.threads.some(
+    (t) => t.name === interaction.user.username
+  )
 
   if (openTicket) {
     const yourTicket = (await modTickets.threads.fetchActive()).threads
