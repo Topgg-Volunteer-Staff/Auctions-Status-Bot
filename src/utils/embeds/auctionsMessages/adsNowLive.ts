@@ -14,7 +14,7 @@ if (nextMonday.getDay() !== 1) {
     nextMonday.getDate() + ((8 - nextMonday.getDay()) % 7 || 7)
   )
 }
-nextMonday.setHours(20)
+nextMonday.setHours(19)
 nextMonday.setMinutes(0)
 
 // checks if today isnt tuesday
@@ -24,7 +24,7 @@ if (nextTuesday.getDay() !== 2) {
     nextTuesday.getDate() + ((9 - nextTuesday.getDay()) % 7 || 7)
   )
 }
-nextTuesday.setHours(20)
+nextTuesday.setHours(19)
 nextTuesday.setMinutes(0)
 
 export const adsNowLive: BaseMessageOptions = {
