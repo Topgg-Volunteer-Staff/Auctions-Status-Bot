@@ -34,8 +34,8 @@ export const adsNowLive: BaseMessageOptions = {
       .setColor('#ff3366')
       .setDescription(
         `This week's winning auctions bids are starting to go live and will run until <t:${Math.floor(
-          nextMonday.getTime() / 1000
-        )}:f> (<t:${Math.floor(nextMonday.getTime() / 1000)}:R>)!
+          nextTuesday.getTime() / 1000
+        )}:f> (<t:${Math.floor(nextTuesday.getTime() / 1000)}:R>)
         \n\n[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on<t:${Math.floor(
           nextMonday.getTime() / 1000
         )}:f> (<t:${Math.floor(nextMonday.getTime() / 1000)}:R>)!
