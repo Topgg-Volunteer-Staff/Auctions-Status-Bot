@@ -1,8 +1,6 @@
 import { Client, Partials, GatewayIntentBits } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
-import cron from 'node-cron'
-
 // Configure client
 const client = new Client({
   intents: [
@@ -42,10 +40,5 @@ client.on('ready', async () => {
 
 // Register commands
 commandHandler(client)
-
-// Restart the bot every Monday at 00:00, so the time on the reminders is correct
-cron.schedule('0 0 * * 1', () => {
-  process.exit()
-})
 
 client.login(process.env.DISCORD_TOKEN)
