@@ -7,24 +7,27 @@ import {
 } from 'discord.js'
 import { emoji } from '../../emojis'
 
-    const now = new Date();
+const now = new Date()
 
-    const getNextUtcDate = (targetDay: number, hourUTC: number) => {
-        const result = new Date(now);
-        const currentDay = now.getUTCDay();
+const getNextUtcDate = (targetDay: number, hourUTC: number) => {
+  const result = new Date(now)
+  const currentDay = now.getUTCDay()
 
-        let daysUntilTarget = targetDay - currentDay;
-        if (daysUntilTarget < 0 || (daysUntilTarget === 0 && now.getUTCHours() >= hourUTC)) {
-            daysUntilTarget += 7;
-        }
+  let daysUntilTarget = targetDay - currentDay
+  if (
+    daysUntilTarget < 0 ||
+    (daysUntilTarget === 0 && now.getUTCHours() >= hourUTC)
+  ) {
+    daysUntilTarget += 7
+  }
 
-        result.setUTCDate(now.getUTCDate() + daysUntilTarget);
-        result.setUTCHours(hourUTC, 0, 0, 0);
-        return result;
-    };
-    
-    const tuesday19UTC = getNextUtcDate(2, 19); // Tuesday @ 19:00 UTC
-    const tuesday20UTC = getNextUtcDate(2, 20); // Tuesday @ 20:00 UTC
+  result.setUTCDate(now.getUTCDate() + daysUntilTarget)
+  result.setUTCHours(hourUTC, 0, 0, 0)
+  return result
+}
+
+const tuesday19UTC = getNextUtcDate(2, 19) // Tuesday @ 19:00 UTC
+const tuesday20UTC = getNextUtcDate(2, 20) // Tuesday @ 20:00 UTC
 
 export const adsNowLive: BaseMessageOptions = {
   embeds: [
