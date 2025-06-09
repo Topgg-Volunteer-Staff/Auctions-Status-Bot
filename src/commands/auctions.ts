@@ -10,7 +10,6 @@ export const command = new SlashCommandBuilder()
   .setName('auctions')
   .setDescription(`Get useful information about Top.gg's Auctions.`)
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions(null)
 
 export const execute = async (
   _client: Client,
