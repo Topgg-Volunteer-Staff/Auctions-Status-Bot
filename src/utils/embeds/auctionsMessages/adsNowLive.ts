@@ -7,9 +7,8 @@ import {
 } from 'discord.js'
 import { emoji } from '../../emojis'
 
-const now = new Date()
-
 const getNextUtcDate = (targetDay: number, hourUTC: number) => {
+  const now = new Date() // Fresh now per call
   const result = new Date(now)
   const currentDay = now.getUTCDay()
 
@@ -26,8 +25,8 @@ const getNextUtcDate = (targetDay: number, hourUTC: number) => {
   return result
 }
 
-const tuesday19UTC = getNextUtcDate(2, 19) // Tuesday @ 19:00 UTC
-const tuesday20UTC = getNextUtcDate(2, 20) // Tuesday @ 20:00 UTC
+const adsEndUTC = getNextUtcDate(2, 20) // Tuesday @ 20:00 UTC — ads run until
+const biddingEndsUTC = getNextUtcDate(1, 19) // Monday @ 19:00 UTC — bidding ends
 
 export const adsNowLive: BaseMessageOptions = {
   embeds: [
@@ -36,11 +35,13 @@ export const adsNowLive: BaseMessageOptions = {
       .setColor('#ff3366')
       .setDescription(
         `This week's winning auctions bids are starting to go live and will run until <t:${Math.floor(
-          tuesday20UTC.getTime() / 1000
-        )}:f> (<t:${Math.floor(tuesday20UTC.getTime() / 1000)}:R>)
-        \n\n[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on<t:${Math.floor(
-          tuesday19UTC.getTime() / 1000
-        )}:f> (<t:${Math.floor(tuesday19UTC.getTime() / 1000)}:R>)!
+          adsEndUTC.getTime() / 1000
+        )}:f> (<t:${Math.floor(adsEndUTC.getTime() / 1000)}:R>)
+        
+        \n\n[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on <t:${Math.floor(
+          biddingEndsUTC.getTime() / 1000
+        )}:f> (<t:${Math.floor(biddingEndsUTC.getTime() / 1000)}:R>)!
+        
         \n\nThanks for using Top.gg Auctions! ${emoji.topggthumbsup}`
       ),
   ],
