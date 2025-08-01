@@ -21,10 +21,10 @@
         "lint": "eslint .",
         "lint:fix": "eslint --fix .",
         "test": "echo \"Todo: add tests\" && exit 0",
-        "clean": "rm -rf dist",
+        "clean": "rimraf dist",
         "build": "npm run clean && tsc",
         "start": "node -r dotenv/config dist/index.js",
-        "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext \"ts,json\""
+        "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext ts,json"
     },
     "dependencies": {
         "@discordjs/rest": "1.6.0",
@@ -40,6 +40,7 @@
         "eslint-config-prettier": "8.8.0",
         "nodemon": "2.0.22",
         "prettier": "2.8.7",
+        "rimraf": "6.0.1",
         "typescript": "5.0.3"
     }
 }
