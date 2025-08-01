@@ -1,7 +1,7 @@
 const channelIds = {
-  auctionsTickets: '1369280368238395394',
+  auctionsTickets: '1012032743250595921',
   auctionsStatus: '1064940583266820106',
-  modTickets: '1369280368238395394',
+  modTickets: '1285771377160491049',
 }
 
 const roleIds = {
