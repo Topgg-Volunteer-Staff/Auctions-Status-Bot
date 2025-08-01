@@ -4,6 +4,8 @@ import { REST } from '@discordjs/rest'
 import { Client, SlashCommandBuilder, Routes } from 'discord.js'
 
 const commandsPath = path.join(__dirname, 'commands')
+const buttonsPath = path.join(__dirname, 'buttons')
+const modalsPath = path.join(__dirname, 'modals')
 const rest = new REST({ version: '10' }).setToken(
   process.env.DISCORD_TOKEN || ''
 )
@@ -14,83 +16,78 @@ const commands: Array<{
   function: Function
 }> = []
 
+const buttons: Array<{
+  name: string
+  function: Function
+}> = []
+
+const modals: Array<{
+  name: string
+  function: Function
+}> = []
+
 const commandHandler = async (client: Client) => {
   // Load commands
-  fs.readdirSync(commandsPath).forEach((file) => {
-    const { command, execute } = require(path.join(commandsPath, file))
+  const commandFiles = fs.readdirSync(commandsPath)
+  for (const file of commandFiles) {
+    const { command, execute } = await import(path.join(commandsPath, file))
     commands.push({ name: command.name, data: command, function: execute })
     console.log('Registered command:', command.name)
-  })
+  }
 
+  // Register commands with Discord if needed
   const commandsData = commands.map((command) => command.data)
-
   if (await hasNonSyncedChanges()) {
-    rest
-      .put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || ''), {
-        body: commandsData,
-      })
-      .then(() => {
-        console.log('All commands registered with Discord.')
-      })
-      .catch(console.error)
+    try {
+      await rest.put(
+        Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || ''),
+        {
+          body: commandsData,
+        }
+      )
+      console.log('All commands registered with Discord.')
+    } catch (error) {
+      console.error(error)
+    }
   } else {
     console.log('No commands to register with Discord.')
   }
 
   // Load buttons
-  const buttonsPath = path.join(__dirname, 'buttons')
-  const buttons: Array<{
-    name: string
-    function: Function
-  }> = []
-
-  fs.readdirSync(buttonsPath).forEach((file) => {
-    const { button, execute } = require(path.join(buttonsPath, file))
+  const buttonFiles = fs.readdirSync(buttonsPath)
+  for (const file of buttonFiles) {
+    const { button, execute } = await import(path.join(buttonsPath, file))
     buttons.push({ name: button.name, function: execute })
     console.log('Registered button:', button.name)
-  })
-
-  // Load modals
-  const modalsPath = path.join(__dirname, 'modals')
-  const modals: Array<{
-    name: string
-    function: Function
-  }> = []
-
-  if (fs.existsSync(modalsPath)) {
-    fs.readdirSync(modalsPath).forEach((file) => {
-      const { modal, execute } = require(path.join(modalsPath, file))
-      modals.push({ name: modal.name, function: execute })
-      console.log('Registered modal:', modal.name)
-    })
   }
 
-  // Handle interactions
-  client.on('interactionCreate', async (interaction) => {
-    // Slash commands
-    if (interaction.isChatInputCommand()) {
-      const { commandName } = interaction
-      const cmd = commands.find((c) => c.name === commandName)
-      if (cmd) cmd.function(client, interaction)
+  // Load modals if folder exists
+  if (fs.existsSync(modalsPath)) {
+    const modalFiles = fs.readdirSync(modalsPath)
+    for (const file of modalFiles) {
+      const { modal, execute } = await import(path.join(modalsPath, file))
+      modals.push({ name: modal.name, function: execute })
+      console.log('Registered modal:', modal.name)
     }
+  }
 
-    // Buttons
-    if (interaction.isButton()) {
+  // Interaction handler
+  client.on('interactionCreate', async (interaction) => {
+    if (interaction.isChatInputCommand()) {
+      const cmd = commands.find((c) => c.name === interaction.commandName)
+      if (cmd) await cmd.function(client, interaction)
+    } else if (interaction.isButton()) {
       const buttonType = interaction.customId.split('_')[0]
       const btn = buttons.find((b) => b.name === buttonType)
-      if (btn) btn.function(client, interaction)
-    }
-
-    // Modals
-    if (interaction.isModalSubmit()) {
+      if (btn) await btn.function(client, interaction)
+    } else if (interaction.isModalSubmit()) {
       const modalType = interaction.customId.split('_')[0]
       const mdl = modals.find((m) => m.name === modalType)
-      if (mdl) mdl.function(client, interaction)
+      if (mdl) await mdl.function(client, interaction)
     }
   })
 }
 
-// Existing sync checker
 const hasNonSyncedChanges = async (): Promise<boolean> => {
   const remoteCommands = (await rest.get(
     Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || '')
