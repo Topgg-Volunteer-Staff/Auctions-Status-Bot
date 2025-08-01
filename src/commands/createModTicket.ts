@@ -21,17 +21,11 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
-  //   if (
-  //     interaction.channel?.id !==
-  //     _client.channels.cache.get(channelIds.auctionsTickets)
-  //   )
-  //     return
-
   const embedButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel(`Create Ticket`)
       .setStyle(ButtonStyle.Primary)
-      .setCustomId(`modTicket_${interaction.id}`)
+      .setCustomId(`modTicket`) // simple ID to match button handler
   )
 
   const embed = new EmbedBuilder()
@@ -45,5 +39,10 @@ export const execute = async (
   await channel.send({
     embeds: [embed],
     components: [embedButtons],
+  })
+
+  await interaction.reply({
+    content: 'Moderator ticket message sent.',
+    ephemeral: true,
   })
 }

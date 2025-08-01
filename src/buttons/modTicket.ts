@@ -1,13 +1,11 @@
 import {
+  ActionRowBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   ButtonInteraction,
-  ChannelType,
   Client,
-  EmbedBuilder,
-  TextChannel,
 } from 'discord.js'
-import { channelIds, roleIds } from '../globals'
-import { emoji } from '../utils/emojis'
-import { errorEmbed, successEmbed } from '../utils/embeds'
 
 export const button = {
   name: 'modTicket',
@@ -19,68 +17,22 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  const modTickets = interaction.client.channels.cache.get(
-    channelIds.modTickets
-  ) as TextChannel | undefined
-  if (!modTickets) {
-    console.warn('Mod tickets channel not found')
-    return
-  }
+  const modal = new ModalBuilder()
+    .setCustomId('modModal') // modal custom id
+    .setTitle('Moderator Support Ticket')
 
-  const activeThreads = await modTickets.threads.fetchActive()
-  const openTicket = activeThreads.threads.some(
-    (t) => t.name === interaction.user.username
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('modReason')
+    .setLabel('What do you need a moderator for?')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(true)
+    .setMaxLength(1000)
+    .setPlaceholder('E.g. reporting a user, ownership help, etc.')
+
+  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    reasonInput
   )
+  modal.addComponents(row)
 
-  if (openTicket) {
-    const yourTicket = (await modTickets.threads.fetchActive()).threads
-      .filter((t) => t.name === `${interaction.user.username}`)
-      .first()
-    return interaction.reply({
-      embeds: [
-        errorEmbed(
-          `Can't open a new ticket!`,
-          `You already have an open Moderator Support ticket. Please go to <#${yourTicket?.id}> for help.`
-        ),
-      ],
-      ephemeral: true,
-    })
-    return
-  }
-
-  const description = `Please state your question, report, or what you are having an issue with in this thread.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
-
-  const embed = new EmbedBuilder()
-    .setTitle(
-      `This is your Private Top.gg Moderator Support Thread, ${interaction.user.username}!`
-    )
-    .setDescription(description)
-    .setColor('#ff3366')
-
-  const channel = interaction.client.channels.cache.get(
-    channelIds.modTickets
-  ) as TextChannel
-
-  channel.threads
-    .create({
-      name: `${interaction.user.username}`,
-      type: ChannelType.PrivateThread,
-    })
-    .then((thread) => {
-      thread.send({
-        content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
-        embeds: [embed],
-      })
-
-      interaction.reply({
-        embeds: [
-          successEmbed(
-            `Ticket opened!`,
-            `Your ticket has been created at <#${thread.id}>, please head there for assistance!`
-          ),
-        ],
-        ephemeral: true,
-      })
-    })
-  return
+  await interaction.showModal(modal)
 }
