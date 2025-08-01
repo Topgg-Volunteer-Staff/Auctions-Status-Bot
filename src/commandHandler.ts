@@ -6,7 +6,9 @@ import { Client, SlashCommandBuilder, Routes } from 'discord.js'
 const commandsPath = path.join(__dirname, 'commands')
 const buttonsPath = path.join(__dirname, 'buttons')
 const modalsPath = path.join(__dirname, 'modals')
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN || '')
+const rest = new REST({ version: '10' }).setToken(
+  process.env.DISCORD_TOKEN || ''
+)
 
 const commands: Array<{
   name: string
@@ -37,9 +39,12 @@ const commandHandler = async (client: Client) => {
   const commandsData = commands.map((command) => command.data)
   if (await hasNonSyncedChanges()) {
     try {
-      await rest.put(Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || ''), {
-        body: commandsData,
-      })
+      await rest.put(
+        Routes.applicationCommands(process.env.DISCORD_CLIENT_ID || ''),
+        {
+          body: commandsData,
+        }
+      )
       console.log('All commands registered with Discord.')
     } catch (error) {
       console.error(error)
@@ -93,15 +98,19 @@ const hasNonSyncedChanges = async (): Promise<boolean> => {
   if (remoteCommands.length !== localCommands.length) return true
 
   for (const localCommand of localCommands) {
-    if (!remoteCommands.find((remote) => remote.name === localCommand.name)) return true
+    if (!remoteCommands.find((remote) => remote.name === localCommand.name))
+      return true
   }
 
   for (const remoteCommand of remoteCommands) {
-    if (!localCommands.find((local) => local.name === remoteCommand.name)) return true
+    if (!localCommands.find((local) => local.name === remoteCommand.name))
+      return true
   }
 
   for (const localCommand of localCommands) {
-    const remoteCommand = remoteCommands.find((r) => r.name === localCommand.name)
+    const remoteCommand = remoteCommands.find(
+      (r) => r.name === localCommand.name
+    )
     if (
       !remoteCommand ||
       remoteCommand.name !== localCommand.name ||
