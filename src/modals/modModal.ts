@@ -82,6 +82,9 @@ export const execute = async (
     threadId: thread.id,
   })
 
+  // Delete webhook after use !!
+  await webhook.delete()
+
   await interaction.editReply({
     embeds: [
       successEmbed(
