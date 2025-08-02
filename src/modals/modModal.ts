@@ -66,7 +66,7 @@ export const execute = async (
   })
 
   await thread.send({
-    content: `<@&${roleIds.moderator}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
+    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
     embeds: [embed],
   })
 
