@@ -5,6 +5,7 @@ import {
   EmbedBuilder,
   TextChannel,
 } from 'discord.js'
+import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 
@@ -55,9 +56,9 @@ export const execute = async (
       `This is your Private Top.gg Moderator Support Thread, ${interaction.user.username}!`
     )
     .setDescription(
-      `Please provide any additional context or evidence if applicable.`
+      `Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
     )
-    .setColor('#ff9900')
+    .setColor('#ff3366')
 
   const thread = await modTickets.threads.create({
     name: interaction.user.username,
@@ -66,7 +67,7 @@ export const execute = async (
   })
 
   await thread.send({
-    content: `<@&${roleIds.moderator}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
+    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
     embeds: [embed],
   })
 
@@ -80,6 +81,9 @@ export const execute = async (
     content: userInput,
     threadId: thread.id,
   })
+
+  // Delete webhook after use !!
+  await webhook.delete()
 
   await interaction.editReply({
     embeds: [
