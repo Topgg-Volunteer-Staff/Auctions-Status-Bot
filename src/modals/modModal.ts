@@ -95,7 +95,7 @@ export const execute = async (
 
 let messageContent = userInput
 if (entityID.trim()) {
-  messageContent += `\nEntity ID: ${entityID}`
+  messageContent += `\n\nEntity ID: ${entityID}`
 }
 
 await webhook.send({

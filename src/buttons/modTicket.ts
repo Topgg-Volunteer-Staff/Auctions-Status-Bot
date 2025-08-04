@@ -32,17 +32,17 @@ export const execute = async (
 
 const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Provide bot/server ID')
+    .setLabel('Bot/Server ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setMaxLength(1000)
     .setPlaceholder('E.g. 264811613708746752')
 
 
-  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reasonInput, entityID
-  )
-  modal.addComponents(row)
+const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(reasonInput)
+const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(entityID)
+
+modal.addComponents(reasonInputRow, entityIDRow)
 
   await interaction.showModal(modal)
 }
