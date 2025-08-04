@@ -23,16 +23,28 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('What is the reason for your ticket?')
+    .setLabel('How can we help you?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. reporting a user, ownership help, etc.')
 
-  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(
+  const entityID = new TextInputBuilder()
+    .setCustomId('entityID')
+    .setLabel('Bot/Server ID')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(1000)
+    .setPlaceholder('E.g. 264811613708746752')
+
+  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
   )
-  modal.addComponents(row)
+  const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    entityID
+  )
+
+  modal.addComponents(reasonInputRow, entityIDRow)
 
   await interaction.showModal(modal)
 }

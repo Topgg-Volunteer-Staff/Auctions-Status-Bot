@@ -42,23 +42,31 @@ export const execute = async (
       ephemeral: true,
     })
 
-  interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
-
-  // We can't rename threads due to rate limits
-  interaction.channel
-    .setName(`${resolvedFlag} ${interaction.channel.name}`)
-    .catch(console.error)
+  try {
+    await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
+    await interaction.channel.setName(
+      `${resolvedFlag} ${interaction.channel.name}`
+    )
+    await interaction.channel.setLocked(true, 'Ticket resolved and locked')
+    await interaction.channel.setArchived(true, 'Ticket resolved and archived')
+  } catch (err) {
+    console.error('Failed to modify thread:', err)
+    return interaction.reply({
+      embeds: [errorEmbed(`Failed to resolve ticket. Please try again later.`)],
+      ephemeral: true,
+    })
+  }
 
   let resolveString =
-    'If your issue persists or if you need help with a seperate issue, please open a new ticket in'
+    'If your issue persists or if you need help with a separate issue, please open a new ticket in'
+
   if (interaction.channel.parent.id == channelIds.auctionsTickets) {
     resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.topggthumbsup}`
   } else if (interaction.channel.parent.id == channelIds.modTickets) {
     resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.topggthumbsup}`
   }
 
-  interaction.reply({
+  return interaction.reply({
     embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
   })
-  return
 }

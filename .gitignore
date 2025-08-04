@@ -71,6 +71,7 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
+.env.info
 
 # Authentication files for third-party APIs
 src/auth/*
