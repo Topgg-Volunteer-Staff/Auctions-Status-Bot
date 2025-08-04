@@ -74,18 +74,17 @@ export const execute = async (
     embeds: [embed],
   })
 
-const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
-  new ButtonBuilder()
-    .setCustomId(`closeModTicket_${interaction.user.id}`)
-    .setLabel('Close Ticket')
-    .setStyle(ButtonStyle.Danger)
-)
+  const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`closeModTicket_${interaction.user.id}`)
+      .setLabel('Close Ticket')
+      .setStyle(ButtonStyle.Danger)
+  )
 
-await thread.send({
-  content: `If this ticket was opened by mistake, you can close it below.`,
-  components: [closeButton],
-})
-
+  await thread.send({
+    content: `If this ticket was opened by mistake, you can close it below.`,
+    components: [closeButton],
+  })
 
   // Create webhook on parent channel to mimic user message in thread
   const webhook = await modTickets.createWebhook({

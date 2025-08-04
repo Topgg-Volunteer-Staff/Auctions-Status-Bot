@@ -27,7 +27,9 @@ export const execute = async (
   const [, userId] = interaction.customId.split('_')
 
   const isOpener = interaction.user.id === userId
-  const isModerator = interaction.member.permissions.has(PermissionsBitField.Flags.ManageThreads)
+  const isModerator = interaction.member.permissions.has(
+    PermissionsBitField.Flags.ManageThreads
+  )
 
   if (!isOpener && !isModerator) {
     await interaction.reply({
@@ -46,7 +48,7 @@ export const execute = async (
     if (!thread.name.startsWith('[Resolved]')) {
       await thread.setName(`[Resolved] ${thread.name}`)
     }
-    
+
     await thread.setLocked(true, 'Ticket closed')
     await thread.setArchived(true, 'Ticket closed by user')
   } catch (err) {

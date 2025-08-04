@@ -44,7 +44,9 @@ export const execute = async (
 
   try {
     await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
-    await interaction.channel.setName(`${resolvedFlag} ${interaction.channel.name}`)
+    await interaction.channel.setName(
+      `${resolvedFlag} ${interaction.channel.name}`
+    )
     await interaction.channel.setLocked(true, 'Ticket resolved and locked')
     await interaction.channel.setArchived(true, 'Ticket resolved and archived')
   } catch (err) {
@@ -68,4 +70,3 @@ export const execute = async (
     embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
   })
 }
-
