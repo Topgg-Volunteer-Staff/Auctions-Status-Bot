@@ -32,7 +32,7 @@ export const execute = async (
 
 const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Enter the bot/server ID you are questioning about')
+    .setLabel('Provide bot/server ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setMaxLength(1000)
