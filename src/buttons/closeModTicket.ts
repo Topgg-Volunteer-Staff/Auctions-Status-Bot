@@ -4,7 +4,6 @@ import {
   Client,
   PermissionsBitField,
 } from 'discord.js'
-import { successEmbed } from '../utils/embeds'
 
 export const button = {
   customId: /^closeModTicket_/,
@@ -39,18 +38,20 @@ export const execute = async (
   }
 
   try {
-    await thread.setLocked(true, 'Ticket closed')
-    await thread.setArchived(true, 'Ticket closed by user')
+    // ✅ REPLY FIRST
     await interaction.reply({
-      embeds: [successEmbed('Ticket closed!', 'This thread has been locked and archived.')],
-    })
-  } catch (err) {
-    console.error('Failed to close thread:', err)
-    await interaction.reply({
-      content: 'Something went wrong while closing the ticket.',
+      content: 'This thread has been locked and archived.',
       ephemeral: true,
     })
+
+    // ✅ THEN close the thread
+    await thread.setLocked(true, 'Ticket closed')
+    await thread.setArchived(true, 'Ticket closed by user')
+  } catch (err) {
+    console.error('Failed to close thread:', err)
   }
+
   return
 }
+
 
