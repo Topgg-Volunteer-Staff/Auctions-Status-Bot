@@ -93,7 +93,6 @@ export const execute = async (
     components: [closeButton],
   })
 
-
   // Create webhook on parent channel to mimic user message in thread
   const webhook = await modTickets.createWebhook({
     name: interaction.user.username,
