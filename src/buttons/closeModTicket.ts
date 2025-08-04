@@ -6,7 +6,7 @@ import {
 } from 'discord.js'
 
 export const button = {
-  customId: /^closeModTicket_/,
+    name: 'closeModTicket',
 }
 
 export const execute = async (
@@ -38,19 +38,15 @@ export const execute = async (
   }
 
   try {
-    // ✅ REPLY FIRST
     await interaction.reply({
-      content: 'This thread has been locked and archived.',
-      ephemeral: true,
+      content: 'This thread has been locked and archived. Per your request.',
+      ephemeral: false,
     })
-
-    // ✅ THEN close the thread
     await thread.setLocked(true, 'Ticket closed')
     await thread.setArchived(true, 'Ticket closed by user')
   } catch (err) {
     console.error('Failed to close thread:', err)
   }
-
   return
 }
 

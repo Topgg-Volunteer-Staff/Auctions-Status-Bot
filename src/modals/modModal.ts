@@ -82,7 +82,7 @@ const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
 )
 
 await thread.send({
-  content: `<@${interaction.user.id}> If this ticket was opened by mistake, you can close it below.`,
+  content: `If this ticket was opened by mistake, you can close it below.`,
   components: [closeButton],
 })
 
