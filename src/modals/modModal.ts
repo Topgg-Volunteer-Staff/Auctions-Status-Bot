@@ -93,16 +93,15 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
-let messageContent = userInput
-if (entityID.trim()) {
-  messageContent += `\n\nEntity ID: ${entityID}`
-}
+  let messageContent = userInput
+  if (entityID.trim()) {
+    messageContent += `\n\nEntity ID: ${entityID}`
+  }
 
-await webhook.send({
-  content: messageContent,
-  threadId: thread.id,
-})
-
+  await webhook.send({
+    content: messageContent,
+    threadId: thread.id,
+  })
 
   // Delete webhook after use !!
   await webhook.delete()
