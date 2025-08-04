@@ -49,7 +49,6 @@ export const execute = async (
   }
 
   try {
-
     await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
     await interaction.channel.setName(
       `${resolvedFlag} ${interaction.channel.name}`
@@ -75,7 +74,9 @@ export const execute = async (
 
     if (!interaction.replied) {
       await interaction.reply({
-        embeds: [errorEmbed(`Failed to resolve ticket. Please try again later.`)],
+        embeds: [
+          errorEmbed(`Failed to resolve ticket. Please try again later.`),
+        ],
         ephemeral: true,
       })
     }
