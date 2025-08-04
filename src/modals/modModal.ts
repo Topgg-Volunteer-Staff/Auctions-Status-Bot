@@ -53,6 +53,7 @@ export const execute = async (
   }
 
   const userInput = interaction.fields.getTextInputValue('modReason')
+  const entityID = interaction.fields.getTextInputValue('entityID')
 
   const embed = new EmbedBuilder()
     .setTitle(
@@ -92,10 +93,16 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
-  await webhook.send({
-    content: userInput,
-    threadId: thread.id,
-  })
+let messageContent = userInput
+if (entityID.trim()) {
+  messageContent += `\nEntity ID: ${entityID}`
+}
+
+await webhook.send({
+  content: messageContent,
+  threadId: thread.id,
+})
+
 
   // Delete webhook after use !!
   await webhook.delete()
