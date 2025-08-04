@@ -82,10 +82,17 @@ export const execute = async (
       .setStyle(ButtonStyle.Danger)
   )
 
+  const closeEmbed = new EmbedBuilder()
+    .setColor('#ff3366')
+    .setDescription(
+      `${emoji.dotred} If this ticket was opened by mistake, you can close it below.`
+    )
+
   await thread.send({
-    content: `If this ticket was opened by mistake, you can close it below.`,
+    embeds: [closeEmbed],
     components: [closeButton],
   })
+
 
   // Create webhook on parent channel to mimic user message in thread
   const webhook = await modTickets.createWebhook({
