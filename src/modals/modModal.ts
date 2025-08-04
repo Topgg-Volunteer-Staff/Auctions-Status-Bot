@@ -4,6 +4,9 @@ import {
   ChannelType,
   EmbedBuilder,
   TextChannel,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
@@ -70,6 +73,19 @@ export const execute = async (
     content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
     embeds: [embed],
   })
+
+const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  new ButtonBuilder()
+    .setCustomId(`closeModTicket_${interaction.user.id}`)
+    .setLabel('Close Ticket')
+    .setStyle(ButtonStyle.Danger)
+)
+
+await thread.send({
+  content: `<@${interaction.user.id}> If this ticket was opened by mistake, you can close it below.`,
+  components: [closeButton],
+})
+
 
   // Create webhook on parent channel to mimic user message in thread
   const webhook = await modTickets.createWebhook({
