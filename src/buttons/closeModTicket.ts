@@ -41,7 +41,7 @@ export const execute = async (
 
   try {
     await interaction.reply({
-      content: 'This thread has been locked and archived. Per your request.',
+      content: 'This thread has been locked and archived.',
       ephemeral: false,
     })
 
