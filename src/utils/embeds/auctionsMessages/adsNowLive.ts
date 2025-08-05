@@ -42,7 +42,7 @@ export const adsNowLive: BaseMessageOptions = {
           biddingEndsUTC.getTime() / 1000
         )}:f> (<t:${Math.floor(biddingEndsUTC.getTime() / 1000)}:R>)!
         
-        \n\nThanks for using Top.gg Auctions! ${emoji.topggthumbsup}`
+        \n\nThanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
       ),
   ],
   components: [
