@@ -99,11 +99,10 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
-let messageContent = userInput
-if (entityID.trim()) {
-  messageContent += `\n\nEntity/User ID: \`${entityID}\``
-}
-
+  let messageContent = userInput
+  if (entityID.trim()) {
+    messageContent += `\n\nEntity/User ID: \`${entityID}\``
+  }
 
   await webhook.send({
     content: messageContent,
