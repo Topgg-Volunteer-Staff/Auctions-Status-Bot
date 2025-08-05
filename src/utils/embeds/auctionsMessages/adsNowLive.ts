@@ -31,7 +31,7 @@ const biddingEndsUTC = getNextUtcDate(1, 19) // Monday @ 19:00 UTC — bidding e
 export const adsNowLive: BaseMessageOptions = {
   embeds: [
     new EmbedBuilder()
-      .setTitle(`${emoji.dogThumbUp} Ads are now live!`)
+      .setTitle(`${emoji.rocket} Ads are now live!`)
       .setColor('#ff3366')
       .setDescription(
         `This week's winning auctions bids are starting to go live and will run until <t:${Math.floor(
@@ -42,7 +42,7 @@ export const adsNowLive: BaseMessageOptions = {
           biddingEndsUTC.getTime() / 1000
         )}:f> (<t:${Math.floor(biddingEndsUTC.getTime() / 1000)}:R>)!
         
-        \n\nThanks for using Top.gg Auctions! ${emoji.topggthumbsup}`
+        \n\nThanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
       ),
   ],
   components: [

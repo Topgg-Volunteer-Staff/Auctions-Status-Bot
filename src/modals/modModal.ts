@@ -56,9 +56,7 @@ export const execute = async (
   const entityID = interaction.fields.getTextInputValue('entityID')
 
   const embed = new EmbedBuilder()
-    .setTitle(
-      `This is your Private Ticket, ${interaction.user.username}!`
-    )
+    .setTitle(`This is your Private Ticket, ${interaction.user.username}!`)
     .setDescription(
       `Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
     )
