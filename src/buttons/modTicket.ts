@@ -31,7 +31,7 @@ export const execute = async (
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Bot/Server ID')
+    .setLabel('User/Bot/Server ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setMaxLength(1000)
