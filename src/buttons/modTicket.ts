@@ -24,7 +24,7 @@ export const execute = async (
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
     .setLabel('How can we help you?')
-    .setStyle(TextInputStyle.Short)
+    .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. reporting a user, ownership help, etc.')
