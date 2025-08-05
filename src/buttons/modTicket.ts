@@ -33,9 +33,9 @@ export const execute = async (
     .setCustomId('entityID')
     .setLabel('User/Bot/Server ID')
     .setStyle(TextInputStyle.Short)
-    .setRequired(false)
+    .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. 264811613708746752')
+    .setPlaceholder('E.g. 264811613708746752 or N/A')
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
