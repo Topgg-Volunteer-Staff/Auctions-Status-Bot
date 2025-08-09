@@ -23,7 +23,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Whats going on?')
+    .setLabel('How can we help?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)

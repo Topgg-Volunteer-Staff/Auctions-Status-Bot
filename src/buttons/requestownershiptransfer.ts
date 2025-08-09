@@ -21,20 +21,31 @@ export const execute = async (
     .setCustomId('modModal_requestownershiptransfer') // modal custom id
     .setTitle('Request an ownership transfer')
 
-  const reasonInput = new TextInputBuilder()
-    .setCustomId('modReason')
+  const userID = new TextInputBuilder()
+    .setCustomId('modOwnershipUserID')
+    .setLabel('Discord ID of who the entity is moving too')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(1000)
+    .setPlaceholder('1376991905191039006')
+
+  const BotOrServer = new TextInputBuilder()
+    .setCustomId('modOwnershipBotOrServer')
     .setLabel('Bot/Server ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('1376991905191039006')
 
-
-  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reasonInput
+  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    userID
   )
 
-  modal.addComponents(reasonInputRow)
+  const BotOrServerRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    BotOrServer
+  )
+
+  modal.addComponents(userIdRow, BotOrServerRow)
 
   await interaction.showModal(modal)
 }

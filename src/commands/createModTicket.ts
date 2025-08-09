@@ -63,7 +63,7 @@ export const execute = async (
       [
         `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`,
         '',
-        ':warning: **Please do NOT use this to discuss declined decisions. Contact your Reviewer directly via DM.**',
+        ':warning: __**This is not the place to discuss decline decisions. Please DM the Reviewer directly.__**',
       ].join('\n')
     )
 

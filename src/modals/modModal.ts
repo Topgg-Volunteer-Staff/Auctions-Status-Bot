@@ -56,13 +56,38 @@ export const execute = async (
     return
   }
 
-  const userInput = interaction.fields.getTextInputValue('modReason')
-let entityID = '';
-try {
-  entityID = interaction.fields.getTextInputValue('entityID');
-} catch {
-  entityID = '';
-}
+  // Determine input field names based on modal type
+  let modReasonField = 'modReason'
+  let entityIDField = 'entityID'
+
+  if (type === 'modOwnershipUserID') {
+    modReasonField = 'modOwnershipUserID'
+    entityIDField = ''
+  } else if (type === 'modOwnershipBotOrServer') {
+    modReasonField = 'modOwnershipBotOrServer'
+    entityIDField = ''
+  }
+  if (type === 'requestownershiptransfer') {
+    modReasonField = 'modOwnershipUserID'
+    entityIDField = 'modOwnershipBotOrServer'
+  }
+
+  // Extract user inputs safely
+  let userInput = ''
+  try {
+    userInput = interaction.fields.getTextInputValue(modReasonField)
+  } catch {
+    userInput = ''
+  }
+
+  let entityID = ''
+  if (entityIDField) {
+    try {
+      entityID = interaction.fields.getTextInputValue(entityIDField)
+    } catch {
+      entityID = ''
+    }
+  }
 
   // 🔹 Different cases for different buttons
   let descriptionExtra = ''
@@ -137,15 +162,21 @@ try {
     reportbot: 'Bot ID',
     reportuser: 'User ID',
     reportreview: 'Review ID',
-    requestownershiptransfer: 'Server ID',
-    otherreport: 'Entity/User ID'
-  };
-  let messageContent = userInput;
-if (entityID.trim()) {
-  const label =
-    (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID';
-  messageContent += `\n\n${label}: \`${entityID}\``;
-}
+    requestownershiptransfer: 'Server/Bot ID',
+    otherreport: 'Entity/User ID',
+  }
+
+  let messageContent = userInput
+  if (entityID.trim()) {
+    const label =
+      (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
+    messageContent += `\n\n${label}: \`${entityID}\``
+  }
+
+  // Fallback to avoid empty message error
+  if (!messageContent.trim()) {
+    messageContent = '[No details provided]'
+  }
 
   await webhook.send({
     content: messageContent,
@@ -163,4 +194,3 @@ if (entityID.trim()) {
     ],
   })
 }
-

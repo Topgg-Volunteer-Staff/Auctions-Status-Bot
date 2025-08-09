@@ -58,9 +58,9 @@ export const execute = async (
       'If your issue persists or if you need help with a separate issue, please open a new ticket in'
 
     if (interaction.channel.parent.id === channelIds.auctionsTickets) {
-      resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.topggthumbsup}`
+      resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
     } else {
-      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.topggthumbsup}`
+      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.dogThumbUp}`
     }
 
     await interaction.reply({
