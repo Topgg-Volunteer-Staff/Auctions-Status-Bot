@@ -31,7 +31,7 @@ export const execute = async (
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Top.gg bot/server link')
+    .setLabel('Top․gg 𝖻ot/server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
