@@ -21,8 +21,12 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-
   await interaction.deferReply({ ephemeral: true })
+
+  // Extract type from modal's customId
+  const match = interaction.customId.match(/^modModal_(.+)$/)
+  if (!match) return
+  const type = match[1]
 
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
@@ -53,12 +57,43 @@ export const execute = async (
   }
 
   const userInput = interaction.fields.getTextInputValue('modReason')
-  const entityID = interaction.fields.getTextInputValue('entityID')
+let entityID = '';
+try {
+  entityID = interaction.fields.getTextInputValue('entityID');
+} catch {
+  entityID = '';
+}
+
+  // 🔹 Different cases for different buttons
+  let descriptionExtra = ''
+  switch (type) {
+    case 'otherreport':
+      descriptionExtra = `${emoji.bot} This ticket was opened for **Other Report**.`
+      break
+    case 'reportbot':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a bot.**`
+      break
+    case 'reportreview':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a review.**`
+      break
+    case 'reportserver':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a server.**`
+      break
+    case 'reportuser':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
+      break
+    case 'requestownershiptransfer':
+      descriptionExtra = `${emoji.bot} This ticket was opened for an **ownership transfer request.**`
+      break
+    default:
+      descriptionExtra = `${emoji.bot} **General moderator ticket.**`
+      break
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`This is your private ticket, ${interaction.user.username}!`)
     .setDescription(
-      `Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
+      `${descriptionExtra}\n\nPlease provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
     )
     .setColor('#ff3366')
 
@@ -91,23 +126,32 @@ export const execute = async (
     components: [closeButton],
   })
 
-  // Create webhook on parent channel to mimic user message in thread
+  // Create webhook to mimic user message
   const webhook = await modTickets.createWebhook({
     name: interaction.user.username,
     avatar: interaction.user.displayAvatarURL(),
   })
 
-  let messageContent = userInput
-  if (entityID.trim()) {
-    messageContent += `\n\nEntity/User ID: \`${entityID}\``
-  }
+  const idLabels: Record<string, string> = {
+    reportserver: 'Server ID',
+    reportbot: 'Bot ID',
+    reportuser: 'User ID',
+    reportreview: 'Review ID',
+    requestownershiptransfer: 'Server ID',
+    otherreport: 'Entity/User ID'
+  };
+  let messageContent = userInput;
+if (entityID.trim()) {
+  const label =
+    (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID';
+  messageContent += `\n\n${label}: \`${entityID}\``;
+}
 
   await webhook.send({
     content: messageContent,
     threadId: thread.id,
   })
 
-  // Delete webhook after use !!
   await webhook.delete()
 
   await interaction.editReply({
@@ -119,3 +163,4 @@ export const execute = async (
     ],
   })
 }
+
