@@ -19,23 +19,23 @@ export const execute = async (
 
   const modal = new ModalBuilder()
     .setCustomId('modModal_reportbot') // modal custom id
-    .setTitle('Report a Top.gg Bot')
+    .setTitle('Report a Top.gg bot')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('What rule did the bot break?')
+    .setLabel('Why are you reporting this bot?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. spamming, dm ads, advertising')
+    .setPlaceholder('E.g. spamming, invalid invite, breaking tos, etc.')
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Bot ID')
+    .setLabel('Top.gg bot link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. 264811613708746752')
+    .setPlaceholder('E.g. https://top.gg/bot/id')
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
