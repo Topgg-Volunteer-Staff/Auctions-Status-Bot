@@ -19,11 +19,11 @@ export const execute = async (
 
   const modal = new ModalBuilder()
     .setCustomId('modModal_otherreport') // modal custom id
-    .setTitle('Other Ticket')
+    .setTitle('I need help with something else')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('How can we help?')
+    .setLabel('𝖶𝗁𝖺𝗍 𝖽𝗈 𝗒𝗈𝗎 𝗇𝖾𝖾𝖽 𝗁𝖾𝗅𝗉 𝗐𝗂𝗍𝗁?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)

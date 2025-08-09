@@ -23,19 +23,19 @@ export const execute = async (
 
    const BotOrServer = new TextInputBuilder()
     .setCustomId('modOwnershipBotOrServer')
-    .setLabel('Bot/Server Link')
+    .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('https://top.gg/bot/264811613708746752')
+    .setPlaceholder('E.g. https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
   const userID = new TextInputBuilder()
     .setCustomId('modOwnershipUserID')
-    .setLabel('Discord ID of who the entity is moving too')
+    .setLabel('𝖴𝗌𝖾𝗋 𝖨𝖣 𝗍𝗈 𝗍𝗋𝖺𝗇𝗌𝖿𝖾𝗋 𝗍𝗈')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('1376991905191039006')
+    .setPlaceholder('E.g. 1376991905191039006')
 
   const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     userID
