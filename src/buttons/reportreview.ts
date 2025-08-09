@@ -23,7 +23,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Why are you reporting this review?')
+    .setLabel('𝖶𝗁𝗒 𝖺𝗋𝖾 𝗒𝗈𝗎 𝗋𝖾𝗉𝗈𝗋𝗍𝗂𝗇𝗀 𝗍𝗁𝗂𝗌 𝗋𝖾𝗏𝗂𝖾𝗐?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,7 +31,7 @@ export const execute = async (
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Top․gg 𝖻ot/server link')
+    .setLabel('𝖳𝗈𝗉․𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
