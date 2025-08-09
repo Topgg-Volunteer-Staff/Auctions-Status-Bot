@@ -24,29 +24,29 @@ export const execute = async (
 ) => {
   const buttonsRow1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('🐾 Report a User')
+      .setLabel('🐾 Report a user')
       .setStyle(ButtonStyle.Danger)
       .setCustomId('reportuser_user'),
 
     new ButtonBuilder()
-      .setLabel('🤖 Report a Bot')
+      .setLabel('🤖 Report a bot')
       .setStyle(ButtonStyle.Danger)
       .setCustomId('reportbot_bot'),
 
     new ButtonBuilder()
-      .setLabel('🤖 Report a Server')
+      .setLabel('🤖 Report a server')
       .setStyle(ButtonStyle.Danger)
       .setCustomId('reportserver_server')
   )
 
   const buttonsRow2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('📝 Report a Review')
+      .setLabel('📝 Report a review')
       .setStyle(ButtonStyle.Danger)
       .setCustomId('reportreview_review'),
 
     new ButtonBuilder()
-      .setLabel('🔑 Request Ownership Transfer')
+      .setLabel('🔑 Request ownership transfer')
       .setStyle(ButtonStyle.Primary)
       .setCustomId('requestownershiptransfer_transfer'),
 
