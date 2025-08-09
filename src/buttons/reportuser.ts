@@ -23,7 +23,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('𝖶𝗁𝗒 𝖺𝗋𝖾 𝗒𝗈𝗎 𝗋𝖾𝗉𝗈𝗋𝗍𝗂𝗇𝗀 𝗍𝗁𝗂𝗌 𝗎𝗌𝖾𝗋?')
+    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗎ser?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
@@ -37,14 +37,25 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. 264811613708746752')
 
+  const screenshotInput = new TextInputBuilder()
+    .setCustomId('userScreenshot')
+    .setLabel('Any 𝗌creenshot 𝗅ink')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(1000)
+    .setPlaceholder('E.g. https://i.imgur.com/example.png')
+
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
   )
   const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     entityID
   )
+  const screenshotRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    screenshotInput
+  )
 
-  modal.addComponents(reasonInputRow, entityIDRow)
+  modal.addComponents(reasonInputRow, entityIDRow, screenshotRow)
 
   await interaction.showModal(modal)
 }

@@ -21,9 +21,17 @@ export const execute = async (
     .setCustomId('modModal_reportreview')
     .setTitle('Report a Top.gg review')
 
+  const screenshotInput = new TextInputBuilder()
+    .setCustomId('reviewScreenshot')
+    .setLabel('Review 𝗌creenshot 𝗅ink')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(1000)
+    .setPlaceholder('E.g. https://i.imgur.com/example.png')
+
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('𝖶𝗁𝗒 𝖺𝗋𝖾 𝗒𝗈𝗎 𝗋𝖾𝗉𝗈𝗋𝗍𝗂𝗇𝗀 𝗍𝗁𝗂𝗌 𝗋𝖾𝗏𝗂𝖾𝗐?')
+    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗋eview?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
@@ -35,8 +43,11 @@ export const execute = async (
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://top.gg/bot/id | https://top.gg/discord/servers/id')
+    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
+  const screenshotRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    screenshotInput
+  )
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
   )
@@ -44,7 +55,7 @@ export const execute = async (
     entityID
   )
 
-  modal.addComponents(reasonInputRow, entityIDRow)
+  modal.addComponents(screenshotRow, reasonInputRow, entityIDRow)
 
   await interaction.showModal(modal)
 }
