@@ -31,7 +31,7 @@ export const execute = async (
 
   const userID = new TextInputBuilder()
     .setCustomId('modOwnershipUserID')
-    .setLabel('𝖴𝗌𝖾𝗋 𝖨𝖣 𝗍𝗈 𝗍𝗋𝖺𝗇𝗌𝖿𝖾𝗋 𝗍𝗁𝖾 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗍𝗈')
+    .setLabel('𝖴𝗌𝖾𝗋 𝖨𝖣 𝗍𝗈 𝗍𝗋𝖺𝗇𝗌𝖿𝖾𝗋 𝗍𝗈')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
