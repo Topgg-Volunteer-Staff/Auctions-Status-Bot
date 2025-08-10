@@ -38,7 +38,7 @@ export const execute = async (
     .setPlaceholder('E.g. spamming, dm ads, breaking tos, etc.')
 
   const screenshotInput = new TextInputBuilder()
-    .setCustomId('userScreenshot')
+    .setCustomId('Screenshot')
     .setLabel('Any 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)

@@ -38,13 +38,13 @@ export const execute = async (
     .setPlaceholder('E.g. invalid review, breaking tos, etc.')
 
   const screenshotInput = new TextInputBuilder()
-    .setCustomId('reviewScreenshot')
+    .setCustomId('Screenshot')
     .setLabel('Review 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. https://i.imgur.com/example.png')
-  
+
   const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     entityID
   )

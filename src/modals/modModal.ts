@@ -166,11 +166,24 @@ export const execute = async (
     otherreport: 'Entity/User ID',
   }
 
+  let screenshot = ''
+  try {
+    screenshot = interaction.fields.getTextInputValue('screenshot') // change to your actual field ID
+  } catch {
+    screenshot = ''
+  }
+
+  // Build message content
   let messageContent = userInput
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
     messageContent += `\n\n${label}: \`${entityID}\``
+  }
+
+  // If screenshot provided, append it
+  if (screenshot.trim()) {
+    messageContent += `\n\n**Screenshot:** ${screenshot}`
   }
 
   // Fallback to avoid empty message error

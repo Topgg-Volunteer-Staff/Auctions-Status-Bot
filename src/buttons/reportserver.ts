@@ -21,7 +21,7 @@ export const execute = async (
     .setCustomId('modModal_reportserver') // modal custom id
     .setTitle('Report a Top.gg server')
 
-    const entityID = new TextInputBuilder()
+  const entityID = new TextInputBuilder()
     .setCustomId('entityID')
     .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
     .setStyle(TextInputStyle.Short)
@@ -38,7 +38,7 @@ export const execute = async (
     .setPlaceholder('E.g. spam in the description, invalid invite, etc.')
 
   const screenshotInput = new TextInputBuilder()
-    .setCustomId('serverScreenshot')
+    .setCustomId('Screenshot')
     .setLabel('Any 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)

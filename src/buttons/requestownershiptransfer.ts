@@ -21,7 +21,7 @@ export const execute = async (
     .setCustomId('modModal_requestownershiptransfer') // modal custom id
     .setTitle('Request an ownership transfer')
 
-   const BotOrServer = new TextInputBuilder()
+  const BotOrServer = new TextInputBuilder()
     .setCustomId('modOwnershipBotOrServer')
     .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
     .setStyle(TextInputStyle.Short)
