@@ -56,16 +56,16 @@ export const execute = async (
     )
 
     let resolveString =
-      'If your issue persists or if you need help with a separate issue, please open a new ticket in'
+      'If your issue persists or if you need help with a different issue, please open a new ticket in'
 
     if (interaction.channel.parent.id === channelIds.auctionsTickets) {
       resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
     } else {
-      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our Moderators! ${emoji.dogThumbUp}`
+      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our mods! ${emoji.dogThumbUp}`
     }
 
     await interaction.reply({
-      embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
+      embeds: [successEmbed(`Ticket resolved!`, `${resolveString}`)],
     })
 
     if (!interaction.guild) {
