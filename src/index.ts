@@ -5,6 +5,7 @@ import {
   EmbedBuilder,
   TextChannel,
 } from 'discord.js'
+import fetch from 'node-fetch'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 
@@ -39,37 +40,35 @@ client.on('ready', async () => {
 
 commandHandler(client)
 
-// Handle uncaught exceptions
-if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
-  function createErrorEmbed(title: string, errorData: unknown) {
-    const errorText =
-      errorData instanceof Error
-        ? errorData.stack || errorData.message
-        : typeof errorData === 'string'
-        ? errorData
-        : JSON.stringify(errorData, null, 2)
+function createErrorEmbed(title: string, errorData: unknown) {
+  const errorText =
+    errorData instanceof Error
+      ? errorData.stack || errorData.message
+      : typeof errorData === 'string'
+      ? errorData
+      : JSON.stringify(errorData, null, 2)
 
-    return new EmbedBuilder()
-      .setAuthor({
-        name: 'Top.gg Bot',
-        iconURL: 'https://i.imgur.com/W2d2UY7.jpeg',
-      })
-      .setTitle(title)
-      .setDescription(
-        `An error occurred within the Top.gg Bot\n\`\`\`\n${errorText}\n\`\`\``
-      )
-      .setTimestamp()
-      .setColor('#FF0000')
-  }
+  return new EmbedBuilder()
+    .setAuthor({
+      name: 'Top.gg Bot',
+      iconURL: 'https://i.imgur.com/W2d2UY7.jpeg',
+    })
+    .setTitle(title)
+    .setDescription(
+      `An error occurred within the Top.gg Bot\n\`\`\`\n${errorText}\n\`\`\``
+    )
+    .setTimestamp()
+    .setColor('#FF0000')
+}
 
-  async function sendErrorToChannel(embed: EmbedBuilder) {
+async function sendError(embed: EmbedBuilder) {
+  if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
     const channelId = '1403884779408986243'
     const channel = client.channels.cache.get(channelId)
-
     if (channel?.isTextBased()) {
       try {
         await (channel as TextChannel).send({ embeds: [embed] })
-        console.log('Error message sent successfully')
+        console.log('Error message sent successfully to channel')
       } catch (sendErr) {
         console.error('Error sending message:', sendErr)
       }
@@ -78,25 +77,36 @@ if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
         `Channel with ID ${channelId} not found or is not text-based`
       )
     }
+  } else if (process.env.ENVIRONMENT === 'PRODUCTION') {
+    const webhookUrl =
+      'https://discord.com/api/webhooks/1404081951958368288/ozEfqM7v1gCcPdvrQgcvD5txm1tGX8bvpIzSddwQ_osMpk2AQWPrMt2Ye9Z4tZ1QRkfg'
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ embeds: [embed.toJSON()] }),
+      })
+      console.log('Error message sent successfully via webhook')
+    } catch (err) {
+      console.error('Error sending webhook message:', err)
+    }
   }
-
-  // Handle uncaught exceptions
-  process.on('uncaughtException', async (err) => {
-    console.error('Caught exception:', err)
-    await sendErrorToChannel(createErrorEmbed('uncaughtException', err))
-  })
-
-  // Handle unhandled promise rejections
-  process.on('unhandledRejection', async (reason) => {
-    console.error('Unhandled rejection:', reason)
-    await sendErrorToChannel(createErrorEmbed('unhandledRejection', reason))
-  })
-
-  // Handle client error events
-  client.on('error', async (err) => {
-    console.error('Client error:', err)
-    await sendErrorToChannel(createErrorEmbed('ClientError', err))
-  })
 }
+
+
+process.on('uncaughtException', async (err) => {
+  console.error('Caught exception:', err)
+  await sendError(createErrorEmbed('uncaughtException', err))
+})
+
+process.on('unhandledRejection', async (reason) => {
+  console.error('Unhandled rejection:', reason)
+  await sendError(createErrorEmbed('unhandledRejection', reason))
+})
+
+client.on('error', async (err) => {
+  console.error('Client error:', err)
+  await sendError(createErrorEmbed('ClientError', err))
+})
 
 client.login(process.env.DISCORD_TOKEN)
