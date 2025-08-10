@@ -177,7 +177,7 @@ export const execute = async (
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
-    parts.push(`${label}: \`${entityID}\``)
+    parts.push(`${label}: ${entityID}`)
   }
 
   if (userInput.trim()) {
