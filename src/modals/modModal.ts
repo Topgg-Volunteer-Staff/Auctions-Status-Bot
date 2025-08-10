@@ -198,7 +198,7 @@ const sentMessage = await webhook.send({
   content: messageContent,
   threadId: thread.id,
 });
-  await sentMessage.pin();
+await sentMessage.pin();
   await webhook.delete()
 
   await interaction.editReply({
