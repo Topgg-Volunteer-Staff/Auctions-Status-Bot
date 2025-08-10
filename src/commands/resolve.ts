@@ -65,12 +65,16 @@ export const execute = async (
       embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
     })
 
-    await interaction.channel.setLocked(true, 'Ticket resolved and locked')
-
-    await new Promise(res => setTimeout(res, 500))
-
+    // Archive first
     await interaction.channel.setArchived(true, 'Ticket resolved and archived')
 
+    // Wait briefly before locking
+    await new Promise(res => setTimeout(res, 500))
+
+    // Then lock
+    await interaction.channel.setLocked(true, 'Ticket resolved and locked')
+
+    // Double-check final state
     const updatedThread = await interaction.channel.fetch()
     if (!updatedThread.archived) {
       await updatedThread.setArchived(true, 'Force close after failed first archive')
