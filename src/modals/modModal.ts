@@ -172,8 +172,7 @@ export const execute = async (
   } catch {
     screenshot = ''
   }
-
-  const parts: string[] = []
+  const parts: Array<string> = []
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'

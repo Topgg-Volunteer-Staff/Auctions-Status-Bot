@@ -40,7 +40,10 @@ client.on('ready', async () => {
 
 commandHandler(client)
 
-function createErrorEmbed(title: string, errorData: unknown) {
+/**
+ * Creates a standardized error embed for reporting errors.
+ */
+function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message
@@ -61,10 +64,14 @@ function createErrorEmbed(title: string, errorData: unknown) {
     .setColor('#FF0000')
 }
 
-async function sendError(embed: EmbedBuilder) {
+/**
+ * Sends an error embed either to a dev channel or via webhook depending on ENVIRONMENT.
+ */
+async function sendError(embed: EmbedBuilder): Promise<void> {
   if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
     const channelId = '1403884779408986243'
     const channel = client.channels.cache.get(channelId)
+
     if (channel?.isTextBased()) {
       try {
         await (channel as TextChannel).send({ embeds: [embed] })
@@ -93,7 +100,7 @@ async function sendError(embed: EmbedBuilder) {
   }
 }
 
-
+// Global error handlers
 process.on('uncaughtException', async (err) => {
   console.error('Caught exception:', err)
   await sendError(createErrorEmbed('uncaughtException', err))
