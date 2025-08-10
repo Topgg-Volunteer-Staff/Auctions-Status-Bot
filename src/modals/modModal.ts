@@ -194,11 +194,11 @@ export const execute = async (
     messageContent = '[No details provided]'
   }
 
-  await webhook.send({
-    content: messageContent,
-    threadId: thread.id,
-  })
-
+const sentMessage = await webhook.send({
+  content: messageContent,
+  threadId: thread.id,
+});
+  await sentMessage.pin();
   await webhook.delete()
 
   await interaction.editReply({
