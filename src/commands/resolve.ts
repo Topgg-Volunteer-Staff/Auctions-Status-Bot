@@ -6,7 +6,6 @@ import {
   InteractionContextType,
   PermissionFlagsBits,
   ThreadChannel,
-  GuildBasedChannel,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
