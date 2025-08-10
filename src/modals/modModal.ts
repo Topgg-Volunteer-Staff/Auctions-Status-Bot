@@ -93,7 +93,7 @@ export const execute = async (
   let descriptionExtra = ''
   switch (type) {
     case 'otherreport':
-      descriptionExtra = `${emoji.bot} This ticket was opened for **Other Report**.`
+      descriptionExtra = `${emoji.bot} This ticket was opened for **other reasons.**`
       break
     case 'reportbot':
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a bot.**`
