@@ -51,7 +51,9 @@ export const execute = async (
 
   try {
     await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
-    await interaction.channel.setName(`${resolvedFlag} ${interaction.channel.name}`)
+    await interaction.channel.setName(
+      `${resolvedFlag} ${interaction.channel.name}`
+    )
 
     let resolveString =
       'If your issue persists or if you need help with a separate issue, please open a new ticket in'
@@ -71,7 +73,9 @@ export const execute = async (
     }
 
     // Refetch the latest thread channel object, explicitly typed as ThreadChannel
-    const thread = await interaction.guild.channels.fetch(interaction.channel.id)
+    const thread = await interaction.guild.channels.fetch(
+      interaction.channel.id
+    )
 
     if (!(thread instanceof ThreadChannel)) {
       throw new Error('Channel is not a thread')
@@ -81,7 +85,7 @@ export const execute = async (
     await thread.setLocked(true, 'Ticket resolved and locked')
 
     // Wait to let Discord process lock before archive
-    await new Promise(res => setTimeout(res, 750))
+    await new Promise((res) => setTimeout(res, 750))
 
     // Archive the thread (closes it)
     await thread.setArchived(true, 'Ticket resolved and archived')
@@ -89,7 +93,10 @@ export const execute = async (
     // Double-check and force archive if needed
     const updatedThread = await interaction.guild.channels.fetch(thread.id)
     if (updatedThread instanceof ThreadChannel && !updatedThread.archived) {
-      await updatedThread.setArchived(true, 'Force archive after failed first attempt')
+      await updatedThread.setArchived(
+        true,
+        'Force archive after failed first attempt'
+      )
     }
   } catch (err) {
     console.error('Failed to resolve ticket:', err)
