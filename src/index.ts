@@ -5,9 +5,13 @@ import {
   EmbedBuilder,
   TextChannel,
 } from 'discord.js'
-import fetch from 'node-fetch'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
+
+let fetch: typeof import('node-fetch').default
+(async () => {
+  fetch = (await import('node-fetch')).default
+})()
 
 const client = new Client({
   intents: [
@@ -39,11 +43,11 @@ client.on('ready', async () => {
 })
 
 commandHandler(client)
-
 /**
  * Creates a standardized error embed for reporting errors.
  */
 function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
+  
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message

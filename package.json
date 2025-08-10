@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "Keep Top.gg users updated about auctions status",
     "types": "./dist/index.d.ts",
+    "type": "module",
     "main": "./dist/index.js",
     "engines": {
         "node": ">=18",
