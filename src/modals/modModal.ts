@@ -168,7 +168,7 @@ export const execute = async (
 
   let screenshot = ''
   try {
-    screenshot = interaction.fields.getTextInputValue('screenshot') // change to your actual field ID
+    screenshot = interaction.fields.getTextInputValue('Screenshot') // change to your actual field ID
   } catch {
     screenshot = ''
   }
