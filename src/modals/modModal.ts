@@ -173,20 +173,23 @@ export const execute = async (
     screenshot = ''
   }
 
-  // Build message content
-  let messageContent = userInput
+  const parts: string[] = []
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
-    messageContent += `\n\n${label}: \`${entityID}\``
+    parts.push(`${label}: \`${entityID}\``)
   }
 
-  // If screenshot provided, append it
+  if (userInput.trim()) {
+    parts.push(`Reason: ${userInput}`)
+  }
+
   if (screenshot.trim()) {
-    messageContent += `\n\nScreenshot: ${screenshot}`
+    parts.push(`Screenshot: ${screenshot}`)
   }
 
-  // Fallback to avoid empty message error
+  let messageContent = parts.join('\n\n')
+
   if (!messageContent.trim()) {
     messageContent = '[No details provided]'
   }
