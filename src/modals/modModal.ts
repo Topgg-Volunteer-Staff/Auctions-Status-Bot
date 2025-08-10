@@ -183,7 +183,7 @@ export const execute = async (
 
   // If screenshot provided, append it
   if (screenshot.trim()) {
-    messageContent += `\n\n**Screenshot:** ${screenshot}`
+    messageContent += `\n\nScreenshot: ${screenshot}`
   }
 
   // Fallback to avoid empty message error
