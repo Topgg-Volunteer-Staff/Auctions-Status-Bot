@@ -158,12 +158,12 @@ export const execute = async (
   })
 
   const idLabels: Record<string, string> = {
-    reportserver: 'Server ID',
-    reportbot: 'Bot ID',
+    reportserver: 'Server link',
+    reportbot: 'Bot link',
     reportuser: 'User ID',
-    reportreview: 'Review ID',
-    requestownershiptransfer: 'Server/Bot ID',
-    otherreport: 'Entity/User ID',
+    reportreview: 'Bot/Server link',
+    requestownershiptransfer: 'Bot/Server link',
+    otherreport: '',
   }
 
   let screenshot = ''
