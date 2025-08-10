@@ -5,6 +5,8 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   PermissionFlagsBits,
+  ThreadChannel,
+  GuildBasedChannel,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -65,25 +67,43 @@ export const execute = async (
       embeds: [successEmbed(`Ticket Resolved!`, `${resolveString}`)],
     })
 
-    // Archive first
-    await interaction.channel.setArchived(true, 'Ticket resolved and archived')
-
-    // Wait briefly before locking
-    await new Promise(res => setTimeout(res, 500))
-
-    // Then lock
-    await interaction.channel.setLocked(true, 'Ticket resolved and locked')
-
-    // Double-check final state
-    const updatedThread = await interaction.channel.fetch()
-    if (!updatedThread.archived) {
-      await updatedThread.setArchived(true, 'Force close after failed first archive')
+    if (!interaction.guild) {
+      throw new Error('Guild is not available on this interaction')
     }
 
+    // Refetch the latest thread channel object, explicitly typed as ThreadChannel
+    const thread = await interaction.guild.channels.fetch(interaction.channel.id)
+
+    if (!(thread instanceof ThreadChannel)) {
+      throw new Error('Channel is not a thread')
+    }
+
+    // Lock the thread (prevents new messages)
+    await thread.setLocked(true, 'Ticket resolved and locked')
+
+    // Wait to let Discord process lock before archive
+    await new Promise(res => setTimeout(res, 750))
+
+    // Archive the thread (closes it)
+    await thread.setArchived(true, 'Ticket resolved and archived')
+
+    // Double-check and force archive if needed
+    const updatedThread = await interaction.guild.channels.fetch(thread.id)
+    if (updatedThread instanceof ThreadChannel && !updatedThread.archived) {
+      await updatedThread.setArchived(true, 'Force archive after failed first attempt')
+    }
   } catch (err) {
     console.error('Failed to resolve ticket:', err)
 
-    if (!interaction.replied) {
+    // If you already replied, use followUp else reply
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        embeds: [
+          errorEmbed(`Failed to resolve ticket. Please try again later.`),
+        ],
+        ephemeral: true,
+      })
+    } else {
       await interaction.reply({
         embeds: [
           errorEmbed(`Failed to resolve ticket. Please try again later.`),
