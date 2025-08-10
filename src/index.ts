@@ -9,7 +9,7 @@ import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 
 let fetch: typeof import('node-fetch').default
-(async () => {
+;(async () => {
   fetch = (await import('node-fetch')).default
 })()
 
@@ -47,7 +47,6 @@ commandHandler(client)
  * Creates a standardized error embed for reporting errors.
  */
 function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
-  
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message
