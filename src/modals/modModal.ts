@@ -49,7 +49,7 @@ export const execute = async (
       embeds: [
         errorEmbed(
           'Can’t open a new ticket!',
-          `You already have an open Moderator Support ticket. Please go to <#${existingThread.id}> for support.`
+          `You already have an open ticket here: <#${existingThread.id}>`
         ),
       ],
     })
@@ -118,7 +118,7 @@ export const execute = async (
   const embed = new EmbedBuilder()
     .setTitle(`This is your private ticket, ${interaction.user.username}!`)
     .setDescription(
-      `${descriptionExtra}\n\nPlease provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
+      `${descriptionExtra}\n\nPlease provide any additional context or evidence if applicable.\n\n${emoji.dotred} } For auction related help, create a ticket in <#1012032743250595921> instead.\n${emoji.dotred} A mod will respond as soon as possible. Please don’t ping individual staff.`
     )
     .setColor('#ff3366')
 
@@ -129,7 +129,7 @@ export const execute = async (
   })
 
   await thread.send({
-    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
+    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
     embeds: [embed],
   })
 
