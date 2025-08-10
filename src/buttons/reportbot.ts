@@ -27,7 +27,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g.https://top.gg/bot/id')
+    .setPlaceholder('E.g. https://top.gg/bot/id')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
@@ -41,7 +41,7 @@ export const execute = async (
     .setCustomId('botScreenshot')
     .setLabel('Any 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
+    .setRequired(false)
     .setMaxLength(1000)
     .setPlaceholder('E.g. https://i.imgur.com/example.png')
 

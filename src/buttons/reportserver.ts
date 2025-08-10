@@ -41,7 +41,7 @@ export const execute = async (
     .setCustomId('serverScreenshot')
     .setLabel('Any 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
+    .setRequired(false)
     .setMaxLength(1000)
     .setPlaceholder('E.g. https://i.imgur.com/example.png')
 

@@ -27,7 +27,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://top.gg/bot/id | https://top.gg/discord/servers/id')
+    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
   const userID = new TextInputBuilder()
     .setCustomId('modOwnershipUserID')

@@ -21,13 +21,13 @@ export const execute = async (
     .setCustomId('modModal_reportreview')
     .setTitle('Report a Top.gg review')
 
-  const screenshotInput = new TextInputBuilder()
-    .setCustomId('reviewScreenshot')
-    .setLabel('Review 𝗌creenshot 𝗅ink')
+  const entityID = new TextInputBuilder()
+    .setCustomId('entityID')
+    .setLabel('𝖳𝗈𝗉․𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://i.imgur.com/example.png')
+    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
@@ -37,25 +37,25 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. invalid review, breaking tos, etc.')
 
-  const entityID = new TextInputBuilder()
-    .setCustomId('entityID')
-    .setLabel('𝖳𝗈𝗉․𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
+  const screenshotInput = new TextInputBuilder()
+    .setCustomId('reviewScreenshot')
+    .setLabel('Review 𝗌creenshot 𝗅ink')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
-
-  const screenshotRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    screenshotInput
+    .setPlaceholder('E.g. https://i.imgur.com/example.png')
+  
+  const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    entityID
   )
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
   )
-  const entityIDRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    entityID
+  const screenshotRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    screenshotInput
   )
 
-  modal.addComponents(screenshotRow, reasonInputRow, entityIDRow)
+  modal.addComponents(entityIDRow, reasonInputRow, screenshotRow)
 
   await interaction.showModal(modal)
 }
