@@ -50,9 +50,7 @@ export const execute = async (
 
   try {
     await interaction.channel.setAutoArchiveDuration(1440, 'Ticket resolved!')
-    await interaction.channel.setName(
-      `${resolvedFlag} ${interaction.channel.name}`
-    )
+    await interaction.channel.setName(`${resolvedFlag} ${interaction.channel.name}`)
 
     let resolveString =
       'If your issue persists or if you need help with a separate issue, please open a new ticket in'
@@ -68,7 +66,16 @@ export const execute = async (
     })
 
     await interaction.channel.setLocked(true, 'Ticket resolved and locked')
+
+    await new Promise(res => setTimeout(res, 500))
+
     await interaction.channel.setArchived(true, 'Ticket resolved and archived')
+
+    const updatedThread = await interaction.channel.fetch()
+    if (!updatedThread.archived) {
+      await updatedThread.setArchived(true, 'Force close after failed first archive')
+    }
+
   } catch (err) {
     console.error('Failed to resolve ticket:', err)
 
