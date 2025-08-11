@@ -72,8 +72,7 @@ export const execute = async (
       throw new Error('Guild is not available on this interaction')
     }
 
-    const isModTicket =
-      interaction.channel.parent?.id === channelIds.modTickets
+    const isModTicket = interaction.channel.parent?.id === channelIds.modTickets
 
     if (isModTicket) {
       const thread = await interaction.guild.channels.fetch(
