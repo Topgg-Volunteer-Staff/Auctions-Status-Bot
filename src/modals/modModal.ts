@@ -174,7 +174,7 @@ export const execute = async (
   }
   const parts: Array<string> = []
   if (entityID.trim()) {
-    let label =
+    const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
     let value = entityID
     if (type === 'reportuser') {
