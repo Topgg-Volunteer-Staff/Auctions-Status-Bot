@@ -177,9 +177,6 @@ export const execute = async (
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
     let value = entityID
-    if (type === 'reportuser') {
-      value = `<@!${entityID}> (${entityID})`
-    }
     parts.push(`${label}: ${value}`)
   }
 
