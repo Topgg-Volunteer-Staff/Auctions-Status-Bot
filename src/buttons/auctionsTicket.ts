@@ -23,7 +23,7 @@ export const execute = async (
 
   const issueInput = new TextInputBuilder()
     .setCustomId('issueDescription')
-    .setLabel('What do you need help with auctions?')
+    .setLabel('How 𝖼an 𝗐e 𝗁elp?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
