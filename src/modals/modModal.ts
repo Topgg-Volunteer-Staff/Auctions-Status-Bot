@@ -160,7 +160,7 @@ export const execute = async (
   const idLabels: Record<string, string> = {
     reportserver: 'Server link',
     reportbot: 'Bot link',
-    reportuser: 'User',
+    reportuser: 'User ID',
     reportreview: 'Bot/Server link',
     requestownershiptransfer: 'Bot/Server link',
     otherreport: '',
@@ -176,8 +176,7 @@ export const execute = async (
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
-    let value = entityID
-    parts.push(`${label}: ${value}`)
+    parts.push(`${label}: ${entityID}`)
   }
 
   if (userInput.trim()) {
