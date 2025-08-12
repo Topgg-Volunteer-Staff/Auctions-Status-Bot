@@ -65,7 +65,7 @@ export const execute = async (
   )
 
   const embed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a Top.gg Staff Member`)
+    .setTitle(`${emoji.sunglasses} Contact a Top.gg Moderator`)
     .setColor('#E91E63') // nice pink/red color
     .setDescription(
       [
@@ -76,7 +76,10 @@ export const execute = async (
     )
 
   const embedReview = new EmbedBuilder()
-    .setTitle(`If you feel your decline was wrong, open a ticket below`)
+    .setTitle(`Contact a reviewer`)
+     .setDescription(
+        `If you feel your decline was wong, please open a ticket below.`,
+    )
     .setColor('#E91E63') // nice pink/red color
 
   const channel = interaction.channel as TextChannel
