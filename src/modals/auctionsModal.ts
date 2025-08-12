@@ -80,6 +80,7 @@ export const execute = async (
   await webhook.send({
     content: userInput,
     threadId: thread.id,
+    allowedMentions: { users: [] }
   })
 
   // Delete webhook after use !!
