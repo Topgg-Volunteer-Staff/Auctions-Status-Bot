@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const button = {
-  name: 'auctionsTicket',
+  name: 'otherreport',
 }
 
 export const execute = async (
@@ -18,19 +18,20 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('auctionsModal') // must match modal handler name
-    .setTitle('Auctions Support Ticket')
+    .setCustomId('modModal_otherreport') // modal custom id
+    .setTitle('I need help with something else')
 
-  const issueInput = new TextInputBuilder()
-    .setCustomId('issueDescription')
-    .setLabel('How 𝖼an 𝗐e 𝗁elp?')
+  const reasonInput = new TextInputBuilder()
+    .setCustomId('modReason')
+    .setLabel('What 𝖽o 𝗒ou 𝗇eed 𝗁elp 𝗐ith?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('Describe your issue or question here...')
 
-  const row = new ActionRowBuilder<TextInputBuilder>().addComponents(issueInput)
-  modal.addComponents(row)
+  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    reasonInput
+  )
 
+  modal.addComponents(reasonInputRow)
   await interaction.showModal(modal)
 }

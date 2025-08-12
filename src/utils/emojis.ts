@@ -30,4 +30,5 @@ export const emoji = {
   fire: '<:topgg_ico_fire:1026877528155115661>',
   rocket: '<:topgg_ico_rocket:1026869998070804640>',
   dogThumbUp: '<:DoggThumbsUp:1400113319905329264>',
+  sunglasses: '<:DoggSunglasses:1400113207527477379>',
 }

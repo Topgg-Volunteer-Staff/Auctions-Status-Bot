@@ -21,8 +21,12 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-
   await interaction.deferReply({ ephemeral: true })
+
+  // Extract type from modal's customId
+  const match = interaction.customId.match(/^modModal_(.+)$/)
+  if (!match) return
+  const type = match[1]
 
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
@@ -45,20 +49,76 @@ export const execute = async (
       embeds: [
         errorEmbed(
           'Can’t open a new ticket!',
-          `You already have an open Moderator Support ticket. Please go to <#${existingThread.id}> for support.`
+          `You already have an open ticket here: <#${existingThread.id}>`
         ),
       ],
     })
     return
   }
 
-  const userInput = interaction.fields.getTextInputValue('modReason')
-  const entityID = interaction.fields.getTextInputValue('entityID')
+  // Determine input field names based on modal type
+  let modReasonField = 'modReason'
+  let entityIDField = 'entityID'
+
+  if (type === 'modOwnershipUserID') {
+    modReasonField = 'modOwnershipUserID'
+    entityIDField = ''
+  } else if (type === 'modOwnershipBotOrServer') {
+    modReasonField = 'modOwnershipBotOrServer'
+    entityIDField = ''
+  }
+  if (type === 'requestownershiptransfer') {
+    modReasonField = 'modOwnershipUserID'
+    entityIDField = 'modOwnershipBotOrServer'
+  }
+
+  // Extract user inputs safely
+  let userInput = ''
+  try {
+    userInput = interaction.fields.getTextInputValue(modReasonField)
+  } catch {
+    userInput = ''
+  }
+
+  let entityID = ''
+  if (entityIDField) {
+    try {
+      entityID = interaction.fields.getTextInputValue(entityIDField)
+    } catch {
+      entityID = ''
+    }
+  }
+
+  // 🔹 Different cases for different buttons
+  let descriptionExtra = ''
+  switch (type) {
+    case 'otherreport':
+      descriptionExtra = `${emoji.bot} This ticket was opened for **other reasons.**`
+      break
+    case 'reportbot':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a bot.**`
+      break
+    case 'reportreview':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a review.**`
+      break
+    case 'reportserver':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a server.**`
+      break
+    case 'reportuser':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
+      break
+    case 'requestownershiptransfer':
+      descriptionExtra = `${emoji.bot} This ticket was opened for an **ownership transfer request.**`
+      break
+    default:
+      descriptionExtra = `${emoji.bot} **General moderator ticket.**`
+      break
+  }
 
   const embed = new EmbedBuilder()
     .setTitle(`This is your private ticket, ${interaction.user.username}!`)
     .setDescription(
-      `Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} A Moderator will answer you as soon as they are able to do so. Please do not ping individual Moderators for assistance.`
+      `${descriptionExtra}\n\nPlease provide any additional context or evidence if applicable.\n\n${emoji.dotred} For auction related help, create a ticket in <#1012032743250595921> instead.\n${emoji.dotred} A mod will respond as soon as possible. Please don’t ping individual staff.`
     )
     .setColor('#ff3366')
 
@@ -69,7 +129,7 @@ export const execute = async (
   })
 
   await thread.send({
-    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a Moderator Support ticket.`,
+    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
     embeds: [embed],
   })
 
@@ -91,23 +151,54 @@ export const execute = async (
     components: [closeButton],
   })
 
-  // Create webhook on parent channel to mimic user message in thread
+  // Create webhook to mimic user message
   const webhook = await modTickets.createWebhook({
     name: interaction.user.username,
     avatar: interaction.user.displayAvatarURL(),
   })
 
-  let messageContent = userInput
-  if (entityID.trim()) {
-    messageContent += `\n\nEntity/User ID: \`${entityID}\``
+  const idLabels: Record<string, string> = {
+    reportserver: 'Server link',
+    reportbot: 'Bot link',
+    reportuser: 'User ID',
+    reportreview: 'Bot/Server link',
+    requestownershiptransfer: 'Bot/Server link',
+    otherreport: '',
   }
 
-  await webhook.send({
+  let screenshot = ''
+  try {
+    screenshot = interaction.fields.getTextInputValue('Screenshot') // change to your actual field ID
+  } catch {
+    screenshot = ''
+  }
+  const parts: Array<string> = []
+  if (entityID.trim()) {
+    const label =
+      (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
+    parts.push(`${label}: ${entityID}`)
+  }
+
+  if (userInput.trim()) {
+    parts.push(`Reason: ${userInput}`)
+  }
+
+  if (screenshot.trim()) {
+    parts.push(`Screenshot: ${screenshot}`)
+  }
+
+  let messageContent = parts.join('\n\n')
+
+  if (!messageContent.trim()) {
+    messageContent = '[No details provided]'
+  }
+
+  const sentMessage = await webhook.send({
     content: messageContent,
     threadId: thread.id,
+    allowedMentions: { users: [] },
   })
-
-  // Delete webhook after use !!
+  await sentMessage.pin()
   await webhook.delete()
 
   await interaction.editReply({
