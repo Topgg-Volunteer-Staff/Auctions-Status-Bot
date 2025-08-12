@@ -196,7 +196,7 @@ export const execute = async (
   const sentMessage = await webhook.send({
     content: messageContent,
     threadId: thread.id,
-    allowedMentions: { users: [] }
+    allowedMentions: { users: [] },
   })
   await sentMessage.pin()
   await webhook.delete()
