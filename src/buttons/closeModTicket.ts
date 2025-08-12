@@ -42,7 +42,7 @@ export const execute = async (
   try {
     await interaction.reply({
       content:
-        'This ticket has been locked and archived. Still need help? Create another ticket in <#1285771377160491049>',
+        `This ticket has been locked and archived by <@!${interaction.user.id}>. Still need help? Create another ticket in <#1285771377160491049>`,
       ephemeral: false,
     })
 
