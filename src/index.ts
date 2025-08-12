@@ -8,11 +8,6 @@ import {
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 
-let fetch: typeof import('node-fetch').default
-;(async () => {
-  fetch = (await import('node-fetch')).default
-})()
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
