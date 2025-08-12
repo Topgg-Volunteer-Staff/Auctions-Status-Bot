@@ -34,7 +34,7 @@ export const execute = async (
 
   if (!modTickets) {
     await interaction.editReply({
-      embeds: [errorEmbed('Error', 'Mod tickets channel not found.')],
+      embeds: [errorEmbed('Error', 'Mod tickets channel not found .')],
     })
     return
   }
