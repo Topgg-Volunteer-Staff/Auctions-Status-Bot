@@ -18,7 +18,7 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_dispute_decline') // modal custom id
+    .setCustomId('disputeDecline') // modal custom id
     .setTitle('Dispute a decline on a bot or server')
 
   const reasonInput = new TextInputBuilder()
