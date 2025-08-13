@@ -97,14 +97,30 @@ export const execute = async (
   const modLogs = interaction.client.channels.cache.get(
     channelIds.modlogs
   ) as TextChannel | undefined;
-
   if (modLogs) {
-    const fetched = await modLogs.messages.fetch({ limit: 100 });
+    let lastPingedMessage = null;
+    let lastId: string | undefined;
 
-    const lastPingedMessage = fetched
-      .filter((msg) => msg.mentions.has(interaction.user.id))
-      .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
-      .first();
+    while (true) {
+      const fetched = await modLogs.messages.fetch({
+        limit: 100,
+        ...(lastId ? { before: lastId } : {})
+      });
+
+      if (fetched.size === 0) break;
+
+      const found = fetched
+        .filter((msg) => msg.mentions.has(interaction.user.id))
+        .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+        .first();
+
+      if (found) {
+        lastPingedMessage = found;
+        break;
+      }
+
+      lastId = fetched.last()?.id;
+    }
 
     if (lastPingedMessage) {
       // Forward the original message's content with attribution
