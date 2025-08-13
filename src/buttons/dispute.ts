@@ -31,7 +31,7 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Why 𝖽o 𝗒ou 𝖻elieve 𝗒our 𝖻ot 𝗐as 𝗐rongly 𝖽eclined?')
+    .setLabel('Why 𝗐as 𝗍his 𝖽ecline 𝗐rong?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
