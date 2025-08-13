@@ -22,6 +22,7 @@ const roleIds =
         auctionsStatus: '1064947337207746640',
         modNotifications: '1285772713662742569',
         moderator: '304313580025544704',
+        reviewer: '767389896133443625',
         reviewerNotifications: '1405176681785725071',
       }
     : {
@@ -29,6 +30,7 @@ const roleIds =
         auctionsStatus: '1401718663496863846',
         modNotifications: '1401718772854685736',
         moderator: '1401718772854685736',
+        reviewer: '767320282427686932',
         reviewerNotifications: '1405176115760463913',
       }
 

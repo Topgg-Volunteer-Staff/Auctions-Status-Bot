@@ -182,7 +182,7 @@ export const execute = async (
           const reviewerMember = await interaction.guild.members.fetch(
             potentialReviewerId
           )
-          if (reviewerMember.roles.cache.has('767320282427686932')) {
+          if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
           }
         } catch (error) {
