@@ -123,7 +123,10 @@ export const execute = async (
     await thread.send({
       content: `<@${interaction.user.id}> has opened a dispute. <@&${roleIds.reviewerNotifications}> no decline log found for this bot - please investigate.`,
       embeds: [embed],
-      allowedMentions: { roles: [roleIds.reviewerNotifications] },
+      allowedMentions: {
+        users: [interaction.user.id],
+        roles: [roleIds.reviewerNotifications],
+      },
     })
 
     const webhook = await modTickets.createWebhook({
@@ -200,6 +203,10 @@ export const execute = async (
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
     embeds: [embed],
+    allowedMentions: {
+      users: [interaction.user.id, ...(reviewerId ? [reviewerId] : [])],
+      roles: [roleIds.reviewerNotifications],
+    },
   })
 
   let forwardContent = matchingMessage.content || ''
