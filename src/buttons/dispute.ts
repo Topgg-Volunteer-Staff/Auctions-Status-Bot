@@ -22,17 +22,29 @@ export const execute = async (
     .setTitle('Dispute a decline on a bot or server')
 
   const reasonInput = new TextInputBuilder()
-    .setCustomId('disputeReason')
-    .setLabel('Why are you appealing this decline?')
+    .setCustomId('disputeID')
+    .setLabel('ID of the Bot/Server that was declined')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(1000)
+    .setPlaceholder('E.g. 264811613708746752')
+
+  const reason = new TextInputBuilder()
+    .setCustomId('reason')
+    .setLabel('Why are you disputing?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. it was an unfair review, because...')
+    .setPlaceholder('E.g. the review was not done correctly because...')
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
   )
 
-  modal.addComponents(reasonInputRow)
+  const reasonRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
+    reason
+  )
+
+  modal.addComponents(reasonInputRow, reasonRow)
   await interaction.showModal(modal)
 }

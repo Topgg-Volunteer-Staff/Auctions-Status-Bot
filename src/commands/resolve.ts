@@ -4,7 +4,6 @@ import {
   CommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
-  PermissionFlagsBits,
   ThreadChannel,
 } from 'discord.js'
 
@@ -16,7 +15,6 @@ export const command = new SlashCommandBuilder()
   .setName('resolve')
   .setDescription('Mark this auctions or mod ticket as resolved')
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
 
 export const execute = async (
   _client: Client,

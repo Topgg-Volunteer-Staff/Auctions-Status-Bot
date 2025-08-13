@@ -4,13 +4,11 @@ import {
   ChannelType,
   EmbedBuilder,
   TextChannel,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from 'discord.js';
-import { emoji } from '../utils/emojis';
 import { channelIds } from '../globals';
+import { roleIds } from '../globals';
 import { errorEmbed, successEmbed } from '../utils/embeds';
+import { emoji } from '../utils/emojis'
 
 export const modal = {
   name: 'disputeDecline',
@@ -23,11 +21,19 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return;
   await interaction.deferReply({ ephemeral: true });
 
-  let disputeReason = '';
+  let disputeID = '';
   try {
-    disputeReason = interaction.fields.getTextInputValue('disputeReason');
+    disputeID = interaction.fields.getTextInputValue('disputeID').trim();
   } catch {
-    disputeReason = '';
+    disputeID = '';
+  }
+  const appealMessage = interaction.fields.getTextInputValue('reason').trim();
+
+  if (!/^\d+$/.test(disputeID)) {
+    await interaction.editReply({
+      embeds: [errorEmbed('Invalid ID', 'Please provide a valid numeric bot ID.')],
+    });
+    return;
   }
 
   const modTickets = interaction.client.channels.cache.get(
@@ -40,6 +46,7 @@ export const execute = async (
     return;
   }
 
+  // Prevent duplicate threads for this user
   const activeThreads = await modTickets.threads.fetchActive();
   const existingThread = activeThreads.threads.find(
     (t) => t.name === interaction.user.username
@@ -56,12 +63,102 @@ export const execute = async (
     return;
   }
 
-  // Create ticket thread
+  // Search modlogs for matching bot ID
+  const modLogs = interaction.client.channels.cache.get(
+    channelIds.modlogs
+  ) as TextChannel | undefined;
+  if (!modLogs) {
+    await interaction.editReply({
+      embeds: [errorEmbed('Error', 'Mod logs channel not found.')],
+    });
+    return;
+  }
+
+  let matchingMessage = null;
+  let lastId: string | undefined;
+
+  while (!matchingMessage) {
+    const fetched = await modLogs.messages.fetch({
+      limit: 100,
+      ...(lastId ? { before: lastId } : {}),
+    });
+
+    if (fetched.size === 0) break;
+
+    for (const msg of fetched.values()) {
+      const embed = msg.embeds[0];
+      if (!embed) continue;
+
+      const botField = embed.fields.find(f => f.name.toLowerCase() === 'bot');
+      if (!botField) continue;
+
+      const match = botField.value.match(/\((\d+)\)/);
+      if (match && match[1] === disputeID) {
+        matchingMessage = msg;
+        break;
+      }
+    }
+
+    lastId = fetched.last()?.id;
+  }
+
+  // ...
+
+  if (!matchingMessage) {
+    // Create ticket thread even if bot not found
+    const embed = new EmbedBuilder()
+      .setTitle(`Dispute Ticket for ${interaction.user.username}`)
+      .setDescription(
+        `${emoji.bot} This ticket was opened to **dispute a decline**.\n\n**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
+      )
+      .setColor('#ff3366');
+
+    const thread = await modTickets.threads.create({
+      name: interaction.user.username,
+      type: ChannelType.PrivateThread,
+      autoArchiveDuration: 10080,
+    });
+
+    await thread.send({
+      content: `<@${interaction.user.id}> has opened a dispute.`,
+      embeds: [embed],
+    });
+
+    await thread.send({
+      content: `<@&${roleIds.reviewerNotifications}> No decline log found for this bot; please investigate.`,
+      allowedMentions: { roles: [roleIds.reviewerNotifications] }
+    });
+
+    const webhook = await modTickets.createWebhook({
+      name: interaction.user.username,
+      avatar: interaction.user.displayAvatarURL(),
+    })
+
+    const sentMessage = await webhook.send({
+      content: `${appealMessage}`,
+      threadId: thread.id,
+      allowedMentions: { users: [] },
+    })
+    await sentMessage.pin()
+    await webhook.delete()
+    
+    await interaction.editReply({
+      embeds: [
+        successEmbed(
+          'Dispute opened!',
+          `No decline log was found for bot ID \`${disputeID}\`, but your dispute has been created at <#${thread.id}>.`
+        ),
+      ],
+    });
+    return;
+  }
+
+
+  // Create ticket
   const embed = new EmbedBuilder()
     .setTitle(`Dispute Ticket for ${interaction.user.username}`)
     .setDescription(
-      `${emoji.bot} This ticket was opened to **dispute a decline**.\n\n**Appeal Message:** ${disputeReason || 'N/A'
-      }\n\nPlease provide any additional evidence or reasoning below.`
+      `**Forwarded message ${matchingMessage.url}**\nPlease provide any additional evidence or reasoning below.`
     )
     .setColor('#ff3366');
 
@@ -76,88 +173,54 @@ export const execute = async (
     embeds: [embed],
   });
 
-  // Close button
-  const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`closeModTicket_${interaction.user.id}`)
-      .setLabel('Close Dispute')
-      .setStyle(ButtonStyle.Danger)
-  );
+  let forwardContent = matchingMessage.content || '';
+
+  forwardContent = forwardContent.replace(/<@&?\d+>/g, '').trim();
 
   await thread.send({
-    embeds: [
-      new EmbedBuilder()
-        .setColor('#ff3366')
-        .setDescription(`${emoji.dotred} You can close this dispute below.`),
-    ],
-    components: [closeButton],
+    ...(forwardContent && { content: forwardContent }),
+    embeds: matchingMessage.embeds,
+    files: matchingMessage.attachments.map(att => ({ attachment: att.url })),
+    allowedMentions: { parse: [] }
   });
 
-  // Look up last mod-logs message that pinged the ticket opener and extract reviewer
-  const modLogs = interaction.client.channels.cache.get(
-    channelIds.modlogs
-  ) as TextChannel | undefined;
-  if (modLogs) {
-    let lastPingedMessage = null;
-    let lastId: string | undefined;
 
-    while (true) {
-      const fetched = await modLogs.messages.fetch({
-        limit: 100,
-        ...(lastId ? { before: lastId } : {})
-      });
-
-      if (fetched.size === 0) break;
-
-      const found = fetched
-        .filter((msg) => msg.mentions.has(interaction.user.id))
-        .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
-        .first();
-
-      if (found) {
-        lastPingedMessage = found;
-        break;
-      }
-
-      lastId = fetched.last()?.id;
-    }
-
-    if (lastPingedMessage) {
-      // Forward the original message's content with attribution
-      await thread.send({
-        content: `**Forwarded message ${lastPingedMessage.url}**`,
-      });
-
-      await thread.send({
-        ...(lastPingedMessage.content && { content: lastPingedMessage.content }),
-        embeds: lastPingedMessage.embeds,
-        files: lastPingedMessage.attachments.map(att => ({ attachment: att.url })),
-      });
-
-      const embed = lastPingedMessage.embeds[0];
-      if (embed) {
-        const reviewerField = embed.fields.find(
-          (f) => f.name.toLowerCase() === 'reviewer'
-        );
-
-        if (reviewerField) {
-          const mentionMatch = reviewerField.value.match(/<@!?(\d+)>/);
-          if (mentionMatch) {
-            const reviewerId = mentionMatch[1];
-
-            try {
-              await thread.members.add(reviewerId as any);
-              await thread.send(
-                `<@${reviewerId}> You reviewed this bot; please check the dispute.`
-              );
-            } catch (err) {
-              console.error('Could not add reviewer to thread:', err);
-            }
-          }
+  // Add reviewer
+  const logEmbed = matchingMessage.embeds[0];
+  if (logEmbed) {
+    const reviewerField = logEmbed.fields.find(
+      f => f.name.toLowerCase() === 'reviewer'
+    );
+    if (reviewerField) {
+      const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/);
+      if (reviewerMatch) {
+        const reviewerId = reviewerMatch[1];
+        try {
+          await thread.members.add(reviewerId as any);
+          await thread.send(
+            `<@${reviewerId}> You reviewed this bot; please check the dispute.`
+          );
+        } catch (err) {
+          console.error('Could not add reviewer to thread:', err);
         }
       }
     }
   }
+
+
+  const webhook = await modTickets.createWebhook({
+    name: interaction.user.username,
+    avatar: interaction.user.displayAvatarURL(),
+  })
+
+  const sentMessage = await webhook.send({
+    content: `${appealMessage}`,
+    threadId: thread.id,
+    allowedMentions: { users: [] },
+  })
+  await sentMessage.pin()
+  await webhook.delete()
+
 
   await interaction.editReply({
     embeds: [
