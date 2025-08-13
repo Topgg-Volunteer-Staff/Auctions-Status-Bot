@@ -22,12 +22,11 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
-
   const buttonsRow0 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel('🤔 Dispute a decline')
       .setStyle(ButtonStyle.Success)
-      .setCustomId('dispute_decline'),
+      .setCustomId('dispute_decline')
   )
 
   const buttonsRow1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -77,8 +76,8 @@ export const execute = async (
 
   const embedReview = new EmbedBuilder()
     .setTitle(`Contact a reviewer`)
-     .setDescription(
-        `If you feel your decline was wong, please open a ticket below.`,
+    .setDescription(
+      `If you feel your decline was wong, please open a ticket below.`
     )
     .setColor('#E91E63') // nice pink/red color
 
@@ -88,7 +87,7 @@ export const execute = async (
     components: [buttonsRow1, buttonsRow2], // two rows now
   })
 
-    await channel.send({
+  await channel.send({
     embeds: [embedReview],
     components: [buttonsRow0], // two rows now
   })
