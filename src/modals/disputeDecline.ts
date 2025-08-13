@@ -7,7 +7,6 @@ import {
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
-import { emoji } from '../utils/emojis'
 
 export const modal = {
   name: 'disputeDecline',
@@ -108,14 +107,14 @@ export const execute = async (
   if (!matchingMessage) {
     // Create ticket thread even if bot not found
     const embed = new EmbedBuilder()
-      .setTitle(`Dispute Ticket for ${interaction.user.username}`)
+      .setTitle(`Dispute ticket for ${interaction.user.username}`)
       .setDescription(
         `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
       )
       .setColor('#ff3366')
 
     const thread = await modTickets.threads.create({
-      name: interaction.user.username,
+      name: `Dispute - ${interaction.user.username}`,
       type: ChannelType.PrivateThread,
       autoArchiveDuration: 10080,
     })
@@ -155,14 +154,14 @@ export const execute = async (
 
   // Create ticket
   const embed = new EmbedBuilder()
-    .setTitle(`Dispute Ticket for ${interaction.user.username}`)
+    .setTitle(`Dispute ticket for ${interaction.user.username}`)
     .setDescription(
       `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
     )
     .setColor('#ff3366')
 
   const thread = await modTickets.threads.create({
-    name: interaction.user.username,
+    name: `Dispute - ${interaction.user.username}`,
     type: ChannelType.PrivateThread,
     autoArchiveDuration: 10080,
   })
