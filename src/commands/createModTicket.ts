@@ -22,6 +22,13 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
+  const buttonsRow0 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel('🤔 Dispute a decline')
+      .setStyle(ButtonStyle.Success)
+      .setCustomId('dispute_decline')
+  )
+
   const buttonsRow1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel('🐾 Report a user')
@@ -57,20 +64,28 @@ export const execute = async (
   )
 
   const embed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a Top.gg Moderator`)
+    .setTitle(`${emoji.sunglasses} Contact a moderator`)
     .setColor('#E91E63') // nice pink/red color
     .setDescription(
-      [
-        `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`,
-        '',
-        ':warning: **This is __NOT__ the place to discuss decline decisions. Please DM the Reviewer directly.**',
-      ].join('\n')
+      `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`
     )
+
+  const embedReview = new EmbedBuilder()
+    .setTitle(`${emoji.sunglasses} Contact a reviewer`)
+    .setDescription(
+      `If you feel your decline was wong, please open a ticket below.`
+    )
+    .setColor('#E91E63') // nice pink/red color
 
   const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
     components: [buttonsRow1, buttonsRow2], // two rows now
+  })
+
+  await channel.send({
+    embeds: [embedReview],
+    components: [buttonsRow0], // two rows now
   })
 
   await interaction.reply({

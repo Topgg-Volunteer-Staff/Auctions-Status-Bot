@@ -4,7 +4,6 @@ import {
   CommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
-  PermissionFlagsBits,
   ThreadChannel,
 } from 'discord.js'
 
@@ -16,7 +15,6 @@ export const command = new SlashCommandBuilder()
   .setName('resolve')
   .setDescription('Mark this auctions or mod ticket as resolved')
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers)
 
 export const execute = async (
   _client: Client,
@@ -64,7 +62,7 @@ export const execute = async (
     if (parent.id === channelIds.auctionsTickets) {
       resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
     } else {
-      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our mods! ${emoji.dogThumbUp}`
+      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our staff! ${emoji.dogThumbUp}`
     }
 
     await interaction.reply({
