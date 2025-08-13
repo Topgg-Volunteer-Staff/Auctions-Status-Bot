@@ -133,21 +133,6 @@ export const execute = async (
     }
   }
 
-  // Create webhook to mimic user message
-  const webhook = await modTickets.createWebhook({
-    name: interaction.user.username,
-    avatar: interaction.user.displayAvatarURL(),
-  });
-
-  const messageContent = `Entity ID: ${disputeID || 'N/A'}`;
-  const sentMessage = await webhook.send({
-    content: messageContent,
-    threadId: thread.id,
-    allowedMentions: { users: [] },
-  });
-  await sentMessage.pin();
-  await webhook.delete();
-
   await interaction.editReply({
     embeds: [
       successEmbed(
