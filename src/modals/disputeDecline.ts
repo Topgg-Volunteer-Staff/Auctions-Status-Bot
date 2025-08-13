@@ -110,7 +110,7 @@ export const execute = async (
     const embed = new EmbedBuilder()
       .setTitle(`Dispute Ticket for ${interaction.user.username}`)
       .setDescription(
-        `${emoji.bot} This ticket was opened to **dispute a decline**.\n\n**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
+        `${emoji.bot} **Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
       )
       .setColor('#ff3366')
 
@@ -121,12 +121,8 @@ export const execute = async (
     })
 
     await thread.send({
-      content: `<@${interaction.user.id}> has opened a dispute.`,
+      content: `<@${interaction.user.id}> has opened a dispute. <@&${roleIds.reviewerNotifications}> no decline log found for this bot - please investigate.`,
       embeds: [embed],
-    })
-
-    await thread.send({
-      content: `<@&${roleIds.reviewerNotifications}> No decline log found for this bot; please investigate.`,
       allowedMentions: { roles: [roleIds.reviewerNotifications] },
     })
 
@@ -158,7 +154,7 @@ export const execute = async (
   const embed = new EmbedBuilder()
     .setTitle(`Dispute Ticket for ${interaction.user.username}`)
     .setDescription(
-      `**Forwarded message ${matchingMessage.url}**\nPlease provide any additional evidence or reasoning below.`
+      `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
     )
     .setColor('#ff3366')
 
@@ -168,8 +164,37 @@ export const execute = async (
     autoArchiveDuration: 10080,
   })
 
+  let reviewerId = ''
+  const logEmbed = matchingMessage.embeds[0]
+  if (logEmbed) {
+    const reviewerField = logEmbed.fields.find(
+      (f) => f.name.toLowerCase() === 'reviewer'
+    )
+    if (reviewerField) {
+      const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
+      if (reviewerMatch && reviewerMatch[1]) {
+        const potentialReviewerId = reviewerMatch[1]
+        
+        // Check if the user still exists and has the reviewer role
+        try {
+          const reviewerMember = await interaction.guild.members.fetch(potentialReviewerId)
+          if (reviewerMember.roles.cache.has('767320282427686932')) {
+            reviewerId = potentialReviewerId
+          }
+        } catch (error) {
+          // User doesn't exist or can't be fetched, so no reviewer ID
+          console.log(`Reviewer ${potentialReviewerId} not found or not accessible`)
+        }
+      }
+    }
+  }
+
   await thread.send({
-    content: `<@${interaction.user.id}> has opened a dispute.`,
+    content: `<@${interaction.user.id}> has opened a dispute.${
+      reviewerId
+        ? ` <@${reviewerId}> please take a look.`
+        : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
+    }`,
     embeds: [embed],
   })
 
@@ -183,28 +208,6 @@ export const execute = async (
     files: matchingMessage.attachments.map((att) => ({ attachment: att.url })),
     allowedMentions: { parse: [] },
   })
-
-  // Add reviewer
-  const logEmbed = matchingMessage.embeds[0]
-  if (logEmbed) {
-    const reviewerField = logEmbed.fields.find(
-      (f) => f.name.toLowerCase() === 'reviewer'
-    )
-    if (reviewerField) {
-      const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
-      if (reviewerMatch) {
-        const reviewerId = reviewerMatch[1]
-        try {
-          await thread.members.add(reviewerId as any)
-          await thread.send(
-            `<@${reviewerId}> You reviewed this bot; please check the dispute.`
-          )
-        } catch (err) {
-          console.error('Could not add reviewer to thread:', err)
-        }
-      }
-    }
-  }
 
   const webhook = await modTickets.createWebhook({
     name: interaction.user.username,
@@ -223,7 +226,7 @@ export const execute = async (
     embeds: [
       successEmbed(
         'Dispute opened!',
-        `Your dispute has been created at <#${thread.id}>. A moderator will assist you shortly.`
+        `Your dispute has been created at <#${thread.id}>. A reviewer will assist you shortly.`
       ),
     ],
   })
