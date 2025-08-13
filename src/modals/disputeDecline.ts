@@ -174,16 +174,20 @@ export const execute = async (
       const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
       if (reviewerMatch && reviewerMatch[1]) {
         const potentialReviewerId = reviewerMatch[1]
-        
+
         // Check if the user still exists and has the reviewer role
         try {
-          const reviewerMember = await interaction.guild.members.fetch(potentialReviewerId)
+          const reviewerMember = await interaction.guild.members.fetch(
+            potentialReviewerId
+          )
           if (reviewerMember.roles.cache.has('767320282427686932')) {
             reviewerId = potentialReviewerId
           }
         } catch (error) {
           // User doesn't exist or can't be fetched, so no reviewer ID
-          console.log(`Reviewer ${potentialReviewerId} not found or not accessible`)
+          console.log(
+            `Reviewer ${potentialReviewerId} not found or not accessible`
+          )
         }
       }
     }
