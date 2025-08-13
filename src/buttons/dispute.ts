@@ -22,12 +22,12 @@ export const execute = async (
     .setTitle('Dispute a decline on a bot or server')
 
   const reasonInput = new TextInputBuilder()
-    .setCustomId('disputeID')
-    .setLabel('Enter your bot/server ID of the decline')
-    .setStyle(TextInputStyle.Short)
+    .setCustomId('disputeReason')
+    .setLabel('Why are you appealing this decline?')
+    .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. 264811613708746752 or N/A')
+    .setPlaceholder('E.g. it was an unfair review, because...')
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput

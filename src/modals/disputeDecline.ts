@@ -23,11 +23,11 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return;
   await interaction.deferReply({ ephemeral: true });
 
-  let disputeID = '';
+  let disputeReason = '';
   try {
-    disputeID = interaction.fields.getTextInputValue('disputeID');
+    disputeReason = interaction.fields.getTextInputValue('disputeReason');
   } catch {
-    disputeID = '';
+    disputeReason = '';
   }
 
   const modTickets = interaction.client.channels.cache.get(
@@ -60,8 +60,7 @@ export const execute = async (
   const embed = new EmbedBuilder()
     .setTitle(`Dispute Ticket for ${interaction.user.username}`)
     .setDescription(
-      `${emoji.bot} This ticket was opened to **dispute a decline**.\n\n**Declined ID:** ${
-        disputeID || 'N/A'
+      `${emoji.bot} This ticket was opened to **dispute a decline**.\n\n**Appeal Message:** ${disputeReason || 'N/A'
       }\n\nPlease provide any additional evidence or reasoning below.`
     )
     .setColor('#ff3366');
@@ -108,6 +107,17 @@ export const execute = async (
       .first();
 
     if (lastPingedMessage) {
+      // Forward the original message's content with attribution
+      await thread.send({
+        content: `**Forwarded message**`,
+      });
+
+      await thread.send({
+        ...(lastPingedMessage.content && { content: lastPingedMessage.content }),
+        embeds: lastPingedMessage.embeds,
+        files: lastPingedMessage.attachments.map(att => ({ attachment: att.url })),
+      });
+
       const embed = lastPingedMessage.embeds[0];
       if (embed) {
         const reviewerField = embed.fields.find(
