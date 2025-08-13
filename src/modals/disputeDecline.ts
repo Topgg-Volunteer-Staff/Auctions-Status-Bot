@@ -5,8 +5,7 @@ import {
   EmbedBuilder,
   TextChannel,
 } from 'discord.js'
-import { channelIds } from '../globals'
-import { roleIds } from '../globals'
+import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { emoji } from '../utils/emojis'
 
