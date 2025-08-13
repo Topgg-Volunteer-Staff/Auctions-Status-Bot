@@ -109,7 +109,7 @@ export const execute = async (
     if (lastPingedMessage) {
       // Forward the original message's content with attribution
       await thread.send({
-        content: `**Forwarded message <#${lastPingedMessage.id}>**`,
+        content: `**Forwarded message ${lastPingedMessage.url}**`,
       });
 
       await thread.send({
