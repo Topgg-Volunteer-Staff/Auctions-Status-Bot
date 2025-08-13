@@ -110,7 +110,7 @@ export const execute = async (
     const embed = new EmbedBuilder()
       .setTitle(`Dispute Ticket for ${interaction.user.username}`)
       .setDescription(
-        `${emoji.bot} **Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
+        `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
       )
       .setColor('#ff3366')
 
