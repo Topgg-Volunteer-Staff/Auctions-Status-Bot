@@ -67,15 +67,11 @@ export const execute = async (
     .setTitle(`${emoji.sunglasses} Contact a moderator`)
     .setColor('#E91E63') // nice pink/red color
     .setDescription(
-      [
-        `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`,
-        '',
-        ':warning: **This is __NOT__ the place to discuss decline decisions. Please DM the Reviewer directly.**',
-      ].join('\n')
+      `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`
     )
 
   const embedReview = new EmbedBuilder()
-    .setTitle(`Contact a reviewer`)
+    .setTitle(`${emoji.sunglasses} Contact a reviewer`)
     .setDescription(
       `If you feel your decline was wong, please open a ticket below.`
     )
