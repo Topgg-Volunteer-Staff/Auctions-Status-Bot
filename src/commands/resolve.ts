@@ -62,7 +62,7 @@ export const execute = async (
     if (parent.id === channelIds.auctionsTickets) {
       resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
     } else {
-      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our mods! ${emoji.dogThumbUp}`
+      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our staff! ${emoji.dogThumbUp}`
     }
 
     await interaction.reply({

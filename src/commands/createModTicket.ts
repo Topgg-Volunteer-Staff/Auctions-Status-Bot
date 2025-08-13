@@ -64,7 +64,7 @@ export const execute = async (
   )
 
   const embed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a Top.gg Moderator`)
+    .setTitle(`${emoji.sunglasses} Contact a moderator`)
     .setColor('#E91E63') // nice pink/red color
     .setDescription(
       [

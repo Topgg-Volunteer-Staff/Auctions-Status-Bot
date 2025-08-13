@@ -19,11 +19,11 @@ export const execute = async (
 
   const modal = new ModalBuilder()
     .setCustomId('disputeDecline') // modal custom id
-    .setTitle('Dispute a decline on a bot or server')
+    .setTitle('Dispute a bot decline')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('disputeID')
-    .setLabel('ID of the Bot/Server that was declined')
+    .setLabel('ID 𝗈f 𝗍he 𝖻ot 𝗍hat 𝗐as 𝖽eclined')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,11 +31,11 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Why are you disputing?')
+    .setLabel('Why 𝖽o 𝗒ou 𝖻elieve 𝗒our 𝖻ot 𝗐as 𝗐rongly 𝖽eclined?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. the review was not done correctly because...')
+    .setPlaceholder('E.g. the review was incorrect because...')
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
