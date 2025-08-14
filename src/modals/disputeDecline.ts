@@ -119,12 +119,10 @@ export const execute = async (
       }
     }
 
-    if (
-      fetched.last()?.createdTimestamp &&
-      fetched.last()!.createdTimestamp < cutoff
-    ) {
-      break
-    }
+const lastFetched = fetched.last();
+if (lastFetched?.createdTimestamp && lastFetched.createdTimestamp < cutoff) {
+    break;
+}
 
     lastId = fetched.last()?.id
   }
