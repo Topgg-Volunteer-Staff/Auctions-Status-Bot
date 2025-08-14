@@ -1,7 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { REST } from '@discordjs/rest'
-import { Client, SlashCommandBuilder, Routes } from 'discord.js'
+import {
+  Client,
+  SlashCommandBuilder,
+  Routes,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+} from 'discord.js'
 
 const commandsPath = path.join(__dirname, 'commands')
 const buttonsPath = path.join(__dirname, 'buttons')
@@ -106,6 +112,21 @@ const commandHandler = async (client: Client) => {
 
       if (mnu) {
         await mnu.function(client, interaction)
+        // Reset the select menu selection so users can pick the same option again later
+        try {
+          const rebuiltMenu = StringSelectMenuBuilder.from(
+            interaction.component
+          )
+          await interaction.message.edit({
+            components: [
+              new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+                rebuiltMenu
+              ),
+            ],
+          })
+        } catch (err) {
+          console.warn('Failed to reset select menu selection:', err)
+        }
       } else {
         console.warn(
           `No menu found for value "${selectedValue}" from customId "${interaction.customId}"`
