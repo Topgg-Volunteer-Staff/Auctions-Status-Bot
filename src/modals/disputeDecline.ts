@@ -119,12 +119,15 @@ export const execute = async (
       }
     }
 
-const lastFetched = fetched.last();
-if (lastFetched?.createdTimestamp && lastFetched.createdTimestamp < cutoff) {
-    break;
-}
+    const lastFetched = fetched.last()
+    if (
+      lastFetched?.createdTimestamp &&
+      lastFetched.createdTimestamp < cutoff
+    ) {
+      break
+    }
 
-    lastId = lastFetched.id
+    lastId = lastFetched?.id
   }
 
   // If not found in last 2 weeks
