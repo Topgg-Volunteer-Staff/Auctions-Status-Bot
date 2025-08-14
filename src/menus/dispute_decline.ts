@@ -23,7 +23,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('disputeID')
-    .setLabel('ID 𝗈f 𝗍he 𝖻ot 𝗍hat 𝗐as 𝖽eclined')
+    .setLabel('Bot/Application ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,7 +31,7 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Why 𝗐as 𝗍his 𝖽ecline 𝗐rong?')
+    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)

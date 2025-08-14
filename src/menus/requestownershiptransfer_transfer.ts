@@ -23,7 +23,7 @@ export const execute = async (
 
   const BotOrServer = new TextInputBuilder()
     .setCustomId('modOwnershipBotOrServer')
-    .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
+    .setLabel('Bot/Server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,7 +31,7 @@ export const execute = async (
 
   const userID = new TextInputBuilder()
     .setCustomId('modOwnershipUserID')
-    .setLabel('𝖴𝗌𝖾𝗋 𝖨𝖣 𝗍𝗈 𝗍𝗋𝖺𝗇𝗌𝖿𝖾𝗋 𝗍𝗈')
+    .setLabel('User ID to transfer to')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)

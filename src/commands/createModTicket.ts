@@ -27,6 +27,10 @@ export const execute = async (
     .setPlaceholder('Select a reason to contact a moderator')
     .addOptions([
       {
+        label: 'Click to reset',
+        value: 'reset',
+      },
+      {
         label: 'Report a user',
         value: 'reportuser_user',
       },
@@ -58,20 +62,24 @@ export const execute = async (
     .setPlaceholder('Click me to dispute your bot')
     .addOptions([
       {
+        label: 'Click to reset',
+        value: 'reset',
+      },
+      {
         label: 'Dispute a decline',
         value: 'dispute_decline',
       },
     ])
 
   const embed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a moderator`)
+    .setTitle(`${emoji.sunglasses} Contact a Moderator`)
     .setColor('#E91E63')
     .setDescription(
       `Need help or want to report something? Use the menu below to open a private ticket with our <@&${roleIds.moderator}> team.`
     )
 
   const embedReview = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a reviewer`)
+    .setTitle(`${emoji.sunglasses} Contact a Reviewer`)
     .setDescription(
       `Want to appeal a bot decline? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
