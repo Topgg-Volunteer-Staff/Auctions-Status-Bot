@@ -63,7 +63,7 @@ export const execute = async (
     return
   }
 
-  // Search modlogs for matching bot ID
+  // Search modlogs for matching bot ID (only last 2 weeks)
   const modLogs = interaction.client.channels.cache.get(channelIds.modlogs) as
     | TextChannel
     | undefined
@@ -76,6 +76,7 @@ export const execute = async (
 
   let matchingMessage = null
   let lastId: string | undefined
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000 // 14 days ago
 
   while (!matchingMessage) {
     const fetched = await modLogs.messages.fetch({
@@ -86,6 +87,12 @@ export const execute = async (
     if (fetched.size === 0) break
 
     for (const msg of fetched.values()) {
+      // Stop if older than cutoff
+      if (msg.createdTimestamp < cutoff) {
+        matchingMessage = null
+        break
+      }
+
       const embed = msg.embeds[0]
       if (!embed) continue
 
@@ -94,18 +101,37 @@ export const execute = async (
 
       const match = botField.value.match(/\((\d+)\)/)
       if (match && match[1] === disputeID) {
+        // If the embed title is "Bot Approved", reject immediately
+        if (embed.title?.toLowerCase() === 'bot approved') {
+          await interaction.editReply({
+            embeds: [
+              errorEmbed(
+                "Can't open ticket",
+                `This bot was approved. If you need help with this bot, please ask in <#714045415707770900> or create a mod ticket above.`
+              ),
+            ],
+          })
+          return
+        }
+
         matchingMessage = msg
         break
       }
     }
 
-    lastId = fetched.last()?.id
+    const lastFetched = fetched.last()
+    if (
+      lastFetched?.createdTimestamp &&
+      lastFetched.createdTimestamp < cutoff
+    ) {
+      break
+    }
+
+    lastId = lastFetched?.id
   }
 
-  // ...
-
+  // If not found in last 2 weeks
   if (!matchingMessage) {
-    // Create ticket thread even if bot not found
     const embed = new EmbedBuilder()
       .setTitle(`Dispute ticket for ${interaction.user.username}`)
       .setDescription(
@@ -152,7 +178,7 @@ export const execute = async (
     return
   }
 
-  // Create ticket
+  // Create ticket when matching message found
   const embed = new EmbedBuilder()
     .setTitle(`Dispute ticket for ${interaction.user.username}`)
     .setDescription(
@@ -177,7 +203,6 @@ export const execute = async (
       if (reviewerMatch && reviewerMatch[1]) {
         const potentialReviewerId = reviewerMatch[1]
 
-        // Check if the user still exists and has the reviewer role
         try {
           const reviewerMember = await interaction.guild.members.fetch(
             potentialReviewerId
@@ -185,8 +210,7 @@ export const execute = async (
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
           }
-        } catch (error) {
-          // User doesn't exist or can't be fetched, so no reviewer ID
+        } catch {
           console.log(
             `Reviewer ${potentialReviewerId} not found or not accessible`
           )
@@ -209,7 +233,6 @@ export const execute = async (
   })
 
   let forwardContent = matchingMessage.content || ''
-
   forwardContent = forwardContent.replace(/<@&?\d+>/g, '').trim()
 
   await thread.send({
