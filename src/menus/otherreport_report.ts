@@ -27,7 +27,9 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. I need help with my account, I have a suggestion, etc.')
+    .setPlaceholder(
+      'E.g. I need help with my account, I have a suggestion, etc.'
+    )
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
