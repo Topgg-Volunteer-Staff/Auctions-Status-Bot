@@ -6,6 +6,7 @@ import { Client, SlashCommandBuilder, Routes } from 'discord.js'
 const commandsPath = path.join(__dirname, 'commands')
 const buttonsPath = path.join(__dirname, 'buttons')
 const modalsPath = path.join(__dirname, 'modals')
+const menusPath = path.join(__dirname, 'menus')
 const rest = new REST({ version: '10' }).setToken(
   process.env.DISCORD_TOKEN || ''
 )
@@ -22,6 +23,11 @@ const buttons: Array<{
 }> = []
 
 const modals: Array<{
+  name: string
+  function: Function
+}> = []
+
+const menus: Array<{
   name: string
   function: Function
 }> = []
@@ -71,6 +77,16 @@ const commandHandler = async (client: Client) => {
     }
   }
 
+  // Load menus if folder exists
+  if (fs.existsSync(menusPath)) {
+    const menuFiles = fs.readdirSync(menusPath)
+    for (const file of menuFiles) {
+      const { menu, execute } = await import(path.join(menusPath, file))
+      menus.push({ name: menu.name, function: execute })
+      console.log('Registered menu:', menu.name)
+    }
+  }
+
   // Interaction handler
   client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
@@ -84,6 +100,17 @@ const commandHandler = async (client: Client) => {
       const modalType = interaction.customId.split('_')[0]
       const mdl = modals.find((m) => m.name === modalType)
       if (mdl) await mdl.function(client, interaction)
+    } else if (interaction.isStringSelectMenu()) {
+      const selectedValue = interaction.values[0]
+      const mnu = menus.find((m) => m.name === selectedValue)
+
+      if (mnu) {
+        await mnu.function(client, interaction)
+      } else {
+        console.warn(
+          `No menu found for value "${selectedValue}" from customId "${interaction.customId}"`
+        )
+      }
     }
   })
 }

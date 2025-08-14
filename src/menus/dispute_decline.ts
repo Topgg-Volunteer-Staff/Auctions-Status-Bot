@@ -3,17 +3,17 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ButtonInteraction,
+  StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
 
-export const button = {
-  name: 'dispute',
+export const menu = {
+  name: 'dispute_decline',
 }
 
 export const execute = async (
   _client: Client,
-  interaction: ButtonInteraction
+  interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 

@@ -1,7 +1,6 @@
 import {
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  StringSelectMenuBuilder,
   Client,
   CommandInteraction,
   EmbedBuilder,
@@ -22,70 +21,79 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
-  const buttonsRow0 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Dispute a decline')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('dispute_decline')
-  )
+  // Moderator select menu
+  const modSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId('mod_ticket_select')
+    .setPlaceholder('Select a reason to contact a moderator')
+    .addOptions([
+      {
+        label: 'Report a user',
+        value: 'reportuser_user',
+      },
+      {
+        label: 'Report a bot',
+        value: 'reportbot_bot',
+      },
+      {
+        label: 'Report a server',
+        value: 'reportserver_server',
+      },
+      {
+        label: 'Report a review',
+        value: 'reportreview_review',
+      },
+      {
+        label: 'Request ownership transfer',
+        value: 'requestownershiptransfer_transfer',
+      },
+      {
+        label: 'Other',
+        value: 'otherreport_report',
+      },
+    ])
 
-  const buttonsRow1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Report a user')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportuser_user'),
-
-    new ButtonBuilder()
-      .setLabel('Report a bot')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportbot_bot'),
-
-    new ButtonBuilder()
-      .setLabel('Report a server')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportserver_server'),
-
-    new ButtonBuilder()
-      .setLabel('Report a review')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportreview_review')
-  )
-
-  const buttonsRow2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setLabel('Request ownership transfer')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('requestownershiptransfer_transfer'),
-
-    new ButtonBuilder()
-      .setLabel('Other')
-      .setStyle(ButtonStyle.Secondary)
-      .setCustomId('otherreport_report')
-  )
+  // Reviewer select menu
+  const reviewerSelectMenu = new StringSelectMenuBuilder()
+    .setCustomId('reviewer_ticket_select')
+    .setPlaceholder('Click me to dispute your bot')
+    .addOptions([
+      {
+        label: 'Dispute a decline',
+        value: 'dispute_decline',
+      },
+    ])
 
   const embed = new EmbedBuilder()
     .setTitle(`${emoji.sunglasses} Contact a moderator`)
-    .setColor('#E91E63') // nice pink/red color
+    .setColor('#E91E63')
     .setDescription(
-      `Need help or want to report something? Use the buttons below to open a private ticket with our <@&${roleIds.moderator}> team.`
+      `Need help or want to report something? Use the menu below to open a private ticket with our <@&${roleIds.moderator}> team.`
     )
 
   const embedReview = new EmbedBuilder()
     .setTitle(`${emoji.sunglasses} Contact a reviewer`)
     .setDescription(
-      `Want to appeal a bot decline? Use the button below to open a private ticket with our <@&${roleIds.reviewer}> team.`
+      `Want to appeal a bot decline? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
-    .setColor('#E91E63') // nice pink/red color
+    .setColor('#E91E63')
 
   const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
-    components: [buttonsRow1, buttonsRow2], // two rows now
+    components: [
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        modSelectMenu
+      ),
+    ],
   })
 
   await channel.send({
     embeds: [embedReview],
-    components: [buttonsRow0], // two rows now
+    components: [
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        reviewerSelectMenu
+      ),
+    ],
   })
 
   await interaction.reply({

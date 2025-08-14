@@ -3,39 +3,39 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ButtonInteraction,
+  StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
 
-export const button = {
-  name: 'reportbot',
+export const menu = {
+  name: 'reportuser_user',
 }
 
 export const execute = async (
   _client: Client,
-  interaction: ButtonInteraction
+  interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_reportbot') // modal custom id
-    .setTitle('Report a Top.gg bot')
+    .setCustomId('modModal_reportuser')
+    .setTitle('Report a Top.gg user')
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝖻𝗈𝗍 𝗅𝗂𝗇𝗄')
+    .setLabel('User ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://top.gg/bot/id')
+    .setPlaceholder('E.g. 264811613708746752')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝖻ot?')
+    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗎ser?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. spamming, invalid invite, breaking tos, etc.')
+    .setPlaceholder('E.g. spamming, dm ads, breaking tos, etc.')
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')
