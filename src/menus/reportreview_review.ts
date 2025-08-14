@@ -3,45 +3,45 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ButtonInteraction,
+  StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
 
-export const button = {
-  name: 'reportserver',
+export const menu = {
+  name: 'reportreview_review',
 }
 
 export const execute = async (
   _client: Client,
-  interaction: ButtonInteraction
+  interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_reportserver') // modal custom id
-    .setTitle('Report a Top.gg server')
+    .setCustomId('modModal_reportreview')
+    .setTitle('Report a Top.gg review')
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('𝖳𝗈𝗉.𝗀𝗀 𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
+    .setLabel('Bot/Server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://top.gg/discord/servers/id')
+    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗌erver?')
+    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. spam in the description, invalid invite, etc.')
+    .setPlaceholder('E.g. invalid review, breaking tos, etc.')
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')
-    .setLabel('Any 𝗌creenshot 𝗅ink')
+    .setLabel('Screenshots')
     .setStyle(TextInputStyle.Short)
-    .setRequired(false)
+    .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. https://i.imgur.com/example.png')
 

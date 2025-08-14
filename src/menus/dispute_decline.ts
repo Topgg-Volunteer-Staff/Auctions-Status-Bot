@@ -3,17 +3,17 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ButtonInteraction,
+  StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
 
-export const button = {
-  name: 'dispute',
+export const menu = {
+  name: 'dispute_decline',
 }
 
 export const execute = async (
   _client: Client,
-  interaction: ButtonInteraction
+  interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
@@ -23,7 +23,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('disputeID')
-    .setLabel('ID 𝗈f 𝗍he 𝖻ot 𝗍hat 𝗐as 𝖽eclined')
+    .setLabel('Bot ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,7 +31,7 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Why 𝗐as 𝗍his 𝖽ecline 𝗐rong?')
+    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)

@@ -3,17 +3,17 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  ButtonInteraction,
+  StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
 
-export const button = {
-  name: 'otherreport',
+export const menu = {
+  name: 'otherreport_report',
 }
 
 export const execute = async (
   _client: Client,
-  interaction: ButtonInteraction
+  interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
@@ -23,10 +23,13 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('What 𝖽o 𝗒ou 𝗇eed 𝗁elp 𝗐ith?')
+    .setLabel('How can we help?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
+    .setPlaceholder(
+      'E.g. I need help with my account, I have a suggestion, etc.'
+    )
 
   const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     reasonInput
