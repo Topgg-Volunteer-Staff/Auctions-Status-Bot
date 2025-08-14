@@ -31,7 +31,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗎ser?')
+    .setLabel('Why 𝐚re 𝐲ou 𝐫eporting 𝐭his 𝐮ser?')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
@@ -39,7 +39,7 @@ export const execute = async (
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')
-    .setLabel('Any 𝗌creenshot 𝗅ink')
+    .setLabel('Any 𝐬creenshot 𝐥ink')
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setMaxLength(1000)
