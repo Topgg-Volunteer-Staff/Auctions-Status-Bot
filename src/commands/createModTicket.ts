@@ -73,7 +73,7 @@ export const execute = async (
   const embedReview = new EmbedBuilder()
     .setTitle(`${emoji.sunglasses} Contact a reviewer`)
     .setDescription(
-      `If you feel your decline was wong, please open a ticket below.`
+      `If you feel your decline was wong, please open a ticket below to contact our ${roleIds.reviewer} team.`
     )
     .setColor('#E91E63') // nice pink/red color
 
