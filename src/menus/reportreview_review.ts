@@ -23,7 +23,7 @@ export const execute = async (
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('𝖳𝗈𝗉․𝗀𝗀 𝖻𝗈𝗍/𝗌𝖾𝗋𝗏𝖾𝗋 𝗅𝗂𝗇𝗄')
+    .setLabel('Bot/Server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
@@ -31,7 +31,7 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
-    .setLabel('Why 𝖺re 𝗒ou 𝗋eporting 𝗍his 𝗋eview?')
+    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
@@ -39,7 +39,7 @@ export const execute = async (
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')
-    .setLabel('Review 𝗌creenshot 𝗅ink')
+    .setLabel('Screenshots')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
