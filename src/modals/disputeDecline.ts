@@ -124,7 +124,7 @@ if (lastFetched?.createdTimestamp && lastFetched.createdTimestamp < cutoff) {
     break;
 }
 
-    lastId = fetched.last()?.id
+    lastId = lastFetched.id
   }
 
   // If not found in last 2 weeks
