@@ -14,5 +14,7 @@ export const execute = async (
       content: 'Reset your selection!',
       ephemeral: true,
     })
-  } catch {}
+  } catch (err) {
+    console.warn('reset menu: failed to send ephemeral reply', err)
+  }
 }
