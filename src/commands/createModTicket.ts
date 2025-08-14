@@ -24,41 +24,41 @@ export const execute = async (
 ) => {
   const buttonsRow0 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('🤔 Dispute a decline')
-      .setStyle(ButtonStyle.Success)
+      .setLabel('Dispute a decline')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('dispute_decline')
   )
 
   const buttonsRow1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('🐾 Report a user')
-      .setStyle(ButtonStyle.Danger)
+      .setLabel('Report a user')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('reportuser_user'),
 
     new ButtonBuilder()
-      .setLabel('🤖 Report a bot')
-      .setStyle(ButtonStyle.Danger)
+      .setLabel('Report a bot')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('reportbot_bot'),
 
     new ButtonBuilder()
-      .setLabel('🤖 Report a server')
-      .setStyle(ButtonStyle.Danger)
+      .setLabel('Report a server')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('reportserver_server')
   )
 
   const buttonsRow2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setLabel('📝 Report a review')
-      .setStyle(ButtonStyle.Danger)
+      .setLabel('Report a review')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('reportreview_review'),
 
     new ButtonBuilder()
-      .setLabel('🔑 Request ownership transfer')
-      .setStyle(ButtonStyle.Primary)
+      .setLabel('Request ownership transfer')
+      .setStyle(ButtonStyle.Secondary)
       .setCustomId('requestownershiptransfer_transfer'),
 
     new ButtonBuilder()
-      .setLabel('❓ Other')
+      .setLabel('Other')
       .setStyle(ButtonStyle.Secondary)
       .setCustomId('otherreport_report')
   )
