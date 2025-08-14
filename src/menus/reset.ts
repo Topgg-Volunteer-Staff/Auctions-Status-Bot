@@ -10,6 +10,9 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
   try {
-    await interaction.deferUpdate()
+    await interaction.reply({
+      content: 'Reset your selection!',
+      ephemeral: true,
+    })
   } catch {}
 }
