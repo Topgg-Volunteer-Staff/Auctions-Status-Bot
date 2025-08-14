@@ -78,6 +78,7 @@ export const execute = async (
   let lastId: string | undefined
   const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000 // 14 days ago
 
+
   while (!matchingMessage) {
     const fetched = await modLogs.messages.fetch({
       limit: 100,
@@ -131,6 +132,13 @@ export const execute = async (
 
   // If not found in last 2 weeks
   if (!matchingMessage) {
+    lastId = fetched.last()?.id
+  }
+
+  // ...
+
+  if (!matchingMessage) {
+
     const embed = new EmbedBuilder()
       .setTitle(`Dispute ticket for ${interaction.user.username}`)
       .setDescription(
@@ -209,7 +217,9 @@ export const execute = async (
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
           }
+
         } catch {
+        } 
           console.log(
             `Reviewer ${potentialReviewerId} not found or not accessible`
           )
