@@ -43,15 +43,15 @@ export const execute = async (
     new ButtonBuilder()
       .setLabel('Report a server')
       .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportserver_server')
-  )
+      .setCustomId('reportserver_server'),
 
-  const buttonsRow2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel('Report a review')
       .setStyle(ButtonStyle.Secondary)
-      .setCustomId('reportreview_review'),
+      .setCustomId('reportreview_review')
+  )
 
+  const buttonsRow2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel('Request ownership transfer')
       .setStyle(ButtonStyle.Secondary)
