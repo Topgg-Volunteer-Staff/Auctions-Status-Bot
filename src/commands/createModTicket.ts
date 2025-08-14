@@ -27,6 +27,10 @@ export const execute = async (
     .setPlaceholder('Select a reason to contact a moderator')
     .addOptions([
       {
+        label: 'Click to reset',
+        value: 'reset',
+      },
+      {
         label: 'Report a user',
         value: 'reportuser_user',
       },
@@ -57,6 +61,10 @@ export const execute = async (
     .setCustomId('reviewer_ticket_select')
     .setPlaceholder('Click me to dispute your bot')
     .addOptions([
+      {
+        label: 'Click to reset',
+        value: 'reset',
+      },
       {
         label: 'Dispute a decline',
         value: 'dispute_decline',
