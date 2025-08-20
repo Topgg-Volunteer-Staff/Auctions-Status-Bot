@@ -175,7 +175,8 @@ export const execute = async (
 
   let ownershipTransfer = ''
   try {
-    ownershipTransfer = interaction.fields.getTextInputValue('modOwnershipUserID')
+    ownershipTransfer =
+      interaction.fields.getTextInputValue('modOwnershipUserID')
   } catch {
     ownershipTransfer = ''
   }
