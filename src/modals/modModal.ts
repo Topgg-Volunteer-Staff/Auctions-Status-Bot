@@ -168,10 +168,18 @@ export const execute = async (
 
   let screenshot = ''
   try {
-    screenshot = interaction.fields.getTextInputValue('Screenshot') // change to your actual field ID
+    screenshot = interaction.fields.getTextInputValue('Screenshot')
   } catch {
     screenshot = ''
   }
+
+  let ownershipTransfer = ''
+  try {
+    ownershipTransfer = interaction.fields.getTextInputValue('modOwnershipUserID')
+  } catch {
+    ownershipTransfer = ''
+  }
+
   const parts: Array<string> = []
   if (entityID.trim()) {
     const label =
@@ -179,12 +187,16 @@ export const execute = async (
     parts.push(`${label}: ${entityID}`)
   }
 
-  if (userInput.trim()) {
+  if (!ownershipTransfer.trim() && userInput.trim()) {
     parts.push(`Reason: ${userInput}`)
   }
 
   if (screenshot.trim()) {
     parts.push(`Screenshot: ${screenshot}`)
+  }
+
+  if (ownershipTransfer.trim()) {
+    parts.push(`User ID to transfer to: ${ownershipTransfer}`)
   }
 
   let messageContent = parts.join('\n\n')
