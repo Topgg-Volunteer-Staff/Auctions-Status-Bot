@@ -74,7 +74,7 @@ export const execute = async (
         value: 'info_server_review',
       },
       {
-        label: "How do I check my bot's position in the queue?",
+        label: "How do I check my project's position in the queue?",
         value: 'info_projectstatus',
       },
     ])
