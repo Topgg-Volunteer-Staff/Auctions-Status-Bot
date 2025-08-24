@@ -62,10 +62,6 @@ export const execute = async (
     .setPlaceholder('Click me to dispute your bot')
     .addOptions([
       {
-        label: 'Click to reset',
-        value: 'reset',
-      },
-      {
         label: 'Dispute a decline',
         value: 'dispute_decline',
       },
