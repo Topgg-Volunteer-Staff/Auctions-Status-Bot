@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const menu = {
-  name: 'reportbot_bot',
+  name: 'report_review',
 }
 
 export const execute = async (
@@ -18,16 +18,16 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_reportbot') // modal custom id
-    .setTitle('Report a Top.gg bot')
+    .setCustomId('modModal_reportreview')
+    .setTitle('Report a Top.gg review')
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('Bot link')
+    .setLabel('Bot/Server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. https://top.gg/bot/id')
+    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
@@ -35,13 +35,13 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. spamming, invalid invite, breaking tos, etc.')
+    .setPlaceholder('E.g. invalid review, breaking tos, etc.')
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')
     .setLabel('Screenshots')
     .setStyle(TextInputStyle.Short)
-    .setRequired(false)
+    .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. https://i.imgur.com/example.png')
 

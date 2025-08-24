@@ -16,7 +16,7 @@ export const execute = async (
     .setColor('#E91E63')
     .setTitle('When will my server be reviewed?')
     .setDescription(
-      '<:topgg:918280202398875758> **There is no set review time for servers.**\n\nIf your server does not get approved within a few minutes after submitting, it means it failed our automoderator checks.\n\nPlease make sure your server follows all of our [Server Guidelines](https://support.top.gg/support/solutions/articles/73000502503-server-guidelines) for a quick and smooth approval!\n\nNote: you must delete and re-add your server to get it reviewed again if it fails our initial checks.'
+      '**There is no set review time for servers.**\n\nIf your server does not get approved within a few minutes after submitting, it means it failed our automoderator checks.\n\nPlease make sure your server follows all of our [Server Guidelines](https://support.top.gg/support/solutions/articles/73000502503-server-guidelines) for a quick and smooth approval!\n\nNote: you must delete and re-add your server to get it reviewed again if it fails our initial checks.'
     )
 
   await interaction.followUp({ embeds: [embed], ephemeral: true })

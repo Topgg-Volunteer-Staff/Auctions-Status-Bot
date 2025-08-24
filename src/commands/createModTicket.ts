@@ -32,27 +32,27 @@ export const execute = async (
       },
       {
         label: 'Report a user',
-        value: 'reportuser_user',
+        value: 'report_user',
       },
       {
         label: 'Report a bot',
-        value: 'reportbot_bot',
+        value: 'report_bot',
       },
       {
         label: 'Report a server',
-        value: 'reportserver_server',
+        value: 'report_server',
       },
       {
         label: 'Report a review',
-        value: 'reportreview_review',
+        value: 'report_review',
       },
       {
         label: 'Request ownership transfer',
-        value: 'requestownershiptransfer_transfer',
+        value: 'transfer_ownership',
       },
       {
         label: 'Other',
-        value: 'otherreport_report',
+        value: 'report_other',
       },
     ])
 
@@ -67,11 +67,15 @@ export const execute = async (
       },
       {
         label: 'When will my bot be reviewed?',
-        value: 'reviewtime_info',
+        value: 'info_bot_review',
       },
       {
         label: 'When will my server be reviewed?',
-        value: 'server_reviewtime_info',
+        value: 'info_server_review',
+      },
+      {
+        label: "How do I check my bot's position in the queue?",
+        value: 'info_projectstatus',
       },
     ])
 

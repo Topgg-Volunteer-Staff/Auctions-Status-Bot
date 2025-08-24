@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const menu = {
-  name: 'reportuser_user',
+  name: 'report_server',
 }
 
 export const execute = async (
@@ -18,16 +18,16 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_reportuser')
-    .setTitle('Report a Top.gg user')
+    .setCustomId('modModal_reportserver') // modal custom id
+    .setTitle('Report a Top.gg server')
 
   const entityID = new TextInputBuilder()
     .setCustomId('entityID')
-    .setLabel('User ID')
+    .setLabel('Server link')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. 264811613708746752')
+    .setPlaceholder('E.g. https://top.gg/discord/servers/id')
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('modReason')
@@ -35,7 +35,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. spamming, dm ads, breaking tos, etc.')
+    .setPlaceholder('E.g. spam in the description, invalid invite, etc.')
 
   const screenshotInput = new TextInputBuilder()
     .setCustomId('Screenshot')

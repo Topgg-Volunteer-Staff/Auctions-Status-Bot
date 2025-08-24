@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const menu = {
-  name: 'otherreport_report',
+  name: 'report_other',
 }
 
 export const execute = async (

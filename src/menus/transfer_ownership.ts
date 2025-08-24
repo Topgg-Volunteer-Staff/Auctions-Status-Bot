@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const menu = {
-  name: 'requestownershiptransfer_transfer',
+  name: 'transfer_ownership',
 }
 
 export const execute = async (
