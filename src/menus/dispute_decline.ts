@@ -15,6 +15,7 @@ export const execute = async (
   interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
+  await interaction.update({})
 
   const createButton = new ButtonBuilder()
     .setCustomId('disputeCreate')
@@ -23,7 +24,7 @@ export const execute = async (
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createButton)
 
-  await interaction.reply({
+  await interaction.followUp({
     content:
       'This ticket is to discuss the reasons your bot was rejected. If you still want to talk about your decline, click the button below.\n\nFor any other questions, please use the <#714045415707770900> channel!',
     components: [row],
