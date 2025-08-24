@@ -59,11 +59,19 @@ export const execute = async (
   // Reviewer select menu
   const reviewerSelectMenu = new StringSelectMenuBuilder()
     .setCustomId('reviewer_ticket_select')
-    .setPlaceholder('Click me to dispute your bot')
+    .setPlaceholder('Select a reason to contact a reviewer')
     .addOptions([
       {
-        label: 'Dispute a decline',
+        label: 'Why was my bot declined?',
         value: 'dispute_decline',
+      },
+      {
+        label: 'When will my bot be reviewed?',
+        value: 'reviewtime_info',
+      },
+      {
+        label: 'When will my server be reviewed?',
+        value: 'server_reviewtime_info',
       },
     ])
 
