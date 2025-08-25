@@ -28,7 +28,7 @@ export const execute = async (
   // Delete existing mod ticket messages
   try {
     const messages = await channel.messages.fetch({ limit: 100 })
-    for (const [id, message] of messages) {
+    for (const [, message] of messages) {
       if (message.embeds.length > 0) {
         const embed = message.embeds[0]
         if (
