@@ -61,10 +61,12 @@ export const execute = async (
       .setDescription(`**User ID:** ${userId}\n\n**Reason:** ${reason}.`)
       .setTimestamp()
 
-    await thread.send({
+    const sentMessage = await thread.send({
       content: `<@${userId}>, ${interaction.user} would like to talk to you.`,
       embeds: [embed],
     })
+
+    await sentMessage.pin()
 
     await interaction.editReply({
       content: `User ticket created successfully! Thread: <#${thread.id}>`,
