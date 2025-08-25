@@ -60,7 +60,7 @@ export const execute = async (
     const embed = new EmbedBuilder()
       .setTitle('Contact user')
       .setColor('#E91E63')
-      .setDescription(`**User ID:** ${userId}\n\n**Reason:** ${reason}.`)
+      .setDescription(`**User ID:** ${userId}\n\n**Reason:** ${reason}`)
       .setTimestamp()
 
     const sentMessage = await thread.send({
