@@ -7,6 +7,7 @@ import {
 } from 'discord.js'
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
+import { successEmbed } from '../utils/embeds/successEmbed'
 
 export const modal = {
   name: 'contactUserModal',
@@ -68,15 +69,13 @@ export const execute = async (
 
     await sentMessage.pin()
 
-    const successEmbed = new EmbedBuilder()
-      .setColor('#00FF00')
-      .setTitle('Success!')
-      .setDescription(
-        `User ticket created successfully! Thread: <#${thread.id}>`
-      )
-
     await interaction.editReply({
-      embeds: [successEmbed],
+      embeds: [
+        successEmbed(
+          'Ticket opened!',
+          `Your ticket has been created at <#${thread.id}>.`
+        ),
+      ],
     })
   } catch (error) {
     console.error('Error creating contact ticket:', error)
