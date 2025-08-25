@@ -46,8 +46,11 @@ export const execute = async (
   }
 
   try {
+    const user = await interaction.client.users.fetch(userId)
+    const username = user.username
+
     const thread = await modTickets.threads.create({
-      name: `Contact User - ${userId}`,
+      name: `Contact User - ${username}`,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       type: 12,
     })
@@ -58,8 +61,10 @@ export const execute = async (
       .setDescription(`**User ID:** ${userId}\n\n**Reason:** ${reason}.`)
       .setTimestamp()
 
-    await thread.send({ embeds: [embed] })
-    await thread.send({ content: `<@${userId}>` })
+    await thread.send({
+      content: `<@${userId}>, ${interaction.user} would like to talk to you.`,
+      embeds: [embed],
+    })
 
     await interaction.editReply({
       content: `User ticket created successfully! Thread: <#${thread.id}>`,
