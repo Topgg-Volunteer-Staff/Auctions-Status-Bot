@@ -7,6 +7,7 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
   TextChannel,
+  MessageFlags,
 } from 'discord.js'
 import { roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
@@ -21,6 +22,29 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
+  if (!interaction.inCachedGuild()) return
+
+  const channel = interaction.channel as TextChannel
+
+  // Delete existing mod ticket messages
+  try {
+    const messages = await channel.messages.fetch({ limit: 100 })
+    for (const [, message] of messages) {
+      if (message.embeds.length > 0) {
+        const embed = message.embeds[0]
+        if (
+          embed &&
+          ((embed.title && embed.title.includes('Contact a Moderator')) ||
+            (embed.title && embed.title.includes('Contact a Reviewer')))
+        ) {
+          await message.delete()
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete existing mod ticket messages:', error)
+  }
+
   // Moderator select menu
   const modSelectMenu = new StringSelectMenuBuilder()
     .setCustomId('mod_ticket_select')
@@ -32,42 +56,50 @@ export const execute = async (
       },
       {
         label: 'Report a user',
-        value: 'reportuser_user',
+        value: 'report_user',
       },
       {
         label: 'Report a bot',
-        value: 'reportbot_bot',
+        value: 'report_bot',
       },
       {
         label: 'Report a server',
-        value: 'reportserver_server',
+        value: 'report_server',
       },
       {
         label: 'Report a review',
-        value: 'reportreview_review',
+        value: 'report_review',
       },
       {
         label: 'Request ownership transfer',
-        value: 'requestownershiptransfer_transfer',
+        value: 'transfer_ownership',
       },
       {
         label: 'Other',
-        value: 'otherreport_report',
+        value: 'report_other',
       },
     ])
 
   // Reviewer select menu
   const reviewerSelectMenu = new StringSelectMenuBuilder()
     .setCustomId('reviewer_ticket_select')
-    .setPlaceholder('Click me to dispute your bot')
+    .setPlaceholder('Select a reason to contact a reviewer')
     .addOptions([
       {
-        label: 'Click to reset',
-        value: 'reset',
+        label: 'Why was my bot declined?',
+        value: 'dispute_decline',
       },
       {
-        label: 'Dispute a decline',
-        value: 'dispute_decline',
+        label: 'When will my bot be reviewed?',
+        value: 'info_bot_review',
+      },
+      {
+        label: 'When will my server be reviewed?',
+        value: 'info_server_review',
+      },
+      {
+        label: "How do I check my project's position in the queue?",
+        value: 'info_projectstatus',
       },
     ])
 
@@ -85,7 +117,6 @@ export const execute = async (
     )
     .setColor('#E91E63')
 
-  const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
     components: [
@@ -106,6 +137,6 @@ export const execute = async (
 
   await interaction.reply({
     content: 'Moderator ticket message sent.',
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   })
 }

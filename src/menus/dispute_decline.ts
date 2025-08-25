@@ -1,10 +1,10 @@
 import {
   ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
+  ButtonBuilder,
+  ButtonStyle,
   StringSelectMenuInteraction,
   Client,
+  EmbedBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -16,35 +16,25 @@ export const execute = async (
   interaction: StringSelectMenuInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
+  await interaction.update({})
 
-  const modal = new ModalBuilder()
-    .setCustomId('disputeDecline') // modal custom id
-    .setTitle('Dispute a bot decline')
+  const createButton = new ButtonBuilder()
+    .setCustomId('disputeCreate')
+    .setLabel('Create ticket')
+    .setStyle(ButtonStyle.Primary)
 
-  const reasonInput = new TextInputBuilder()
-    .setCustomId('disputeID')
-    .setLabel('Bot ID')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder('E.g. 264811613708746752')
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createButton)
 
-  const reason = new TextInputBuilder()
-    .setCustomId('reason')
-    .setLabel('Reason')
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder('E.g. the review was incorrect because...')
+  const embed = new EmbedBuilder()
+    .setColor('#E91E63')
+    .setTitle('Why was my bot declined?')
+    .setDescription(
+      'This ticket is to discuss the reasons your bot was rejected. If you still want to talk about your decline, click the button below.\n\nFor any other questions, please use the <#714045415707770900> channel!'
+    )
 
-  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reasonInput
-  )
-
-  const reasonRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reason
-  )
-
-  modal.addComponents(reasonInputRow, reasonRow)
-  await interaction.showModal(modal)
+  await interaction.followUp({
+    embeds: [embed],
+    components: [row],
+    ephemeral: true,
+  })
 }
