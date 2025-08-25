@@ -7,6 +7,7 @@ import {
   EmbedBuilder,
   InteractionContextType,
   SlashCommandBuilder,
+  TextChannel,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
@@ -26,6 +27,27 @@ export const execute = async (
   //   )
   //     return
 
+  const channel = interaction.channel as TextChannel
+
+  // Delete existing auctions ticket messages
+  try {
+    const messages = await channel.messages.fetch({ limit: 100 })
+    for (const [, message] of messages) {
+      if (message.embeds.length > 0) {
+        const embed = message.embeds[0]
+        if (
+          embed &&
+          embed.title &&
+          embed.title.includes('Private Auctions Support')
+        ) {
+          await message.delete()
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete existing auctions ticket messages:', error)
+  }
+
   const embedButtons = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setLabel(`Create Ticket`)
@@ -40,8 +62,13 @@ export const execute = async (
     )
     .setColor('#ff3366')
 
-  interaction.reply({
+  await channel.send({
     embeds: [embed],
     components: [embedButtons],
+  })
+
+  await interaction.reply({
+    content: 'Auctions ticket message sent.',
+    ephemeral: true,
   })
 }
