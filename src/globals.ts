@@ -7,12 +7,14 @@ const channelIds =
         auctionsStatus: '1064940583266820106',
         modTickets: '1285771377160491049',
         modlogs: '325648177178869760',
+        amaChannel: '1405679285620183070',
       }
     : {
         auctionsTickets: '1401293838059831377',
         auctionsStatus: '1401719092070842398',
         modTickets: '1401293811556024470',
         modlogs: '1405010949152444500',
+        amaChannel: '1405679285620183070'
       }
 
 const roleIds =

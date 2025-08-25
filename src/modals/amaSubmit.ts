@@ -7,8 +7,9 @@ import {
   ButtonStyle,
   TextChannel,
 } from 'discord.js'
+import { channelIds } from '../globals'
 
-const AMA_CHANNEL_ID = '1405679285620183070'
+const AMA_CHANNEL_ID = channelIds.amaChannel
 
 export const modal = {
   name: 'amaSubmit',
