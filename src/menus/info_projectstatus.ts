@@ -10,6 +10,8 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
+  await interaction.update({})
+
   const embed = new EmbedBuilder()
     .setColor('#E91E63')
     .setTitle("How do I check my bot's/server's position in the queue?")
@@ -17,5 +19,5 @@ export const execute = async (
       '**There is no way to check your bot\'s position in the queue right now.**\n\nThis is planned for the future and there is no ETA for when it will be implemented.\n\nIf you just want to verify that your bot was submitted, you can check your bot\'s page and see "Your project is currently in review" in a red banner.'
     )
 
-  await interaction.reply({ embeds: [embed], ephemeral: true })
+  await interaction.followUp({ embeds: [embed], ephemeral: true })
 }
