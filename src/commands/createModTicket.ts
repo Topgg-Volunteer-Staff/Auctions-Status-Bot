@@ -54,6 +54,10 @@ export const execute = async (
         label: 'Other',
         value: 'report_other',
       },
+      {
+        label: 'Contact user [Staff Only]',
+        value: 'contact_user',
+      },
     ])
 
   // Reviewer select menu

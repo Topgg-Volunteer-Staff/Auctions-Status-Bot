@@ -108,7 +108,10 @@ export const execute = async (
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
       break
     case 'requestownershiptransfer':
-      descriptionExtra = `${emoji.bot} This ticket was opened for an **ownership transfer request.**`
+      descriptionExtra = `${emoji.bot} This ticket was opened to **request an ownership transfer.**`
+      break
+    case 'contactuser':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **contact a user.**`
       break
     default:
       descriptionExtra = `${emoji.bot} **General moderator ticket.**`
