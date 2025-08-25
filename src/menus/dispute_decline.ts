@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   StringSelectMenuInteraction,
   Client,
+  EmbedBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -24,9 +25,15 @@ export const execute = async (
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(createButton)
 
+  const embed = new EmbedBuilder()
+    .setColor('#E91E63')
+    .setTitle('Why was my bot declined?')
+    .setDescription(
+      'This ticket is to discuss the reasons your bot was rejected. If you still want to talk about your decline, click the button below.\n\nFor any other questions, please use the <#714045415707770900> channel!'
+    )
+
   await interaction.followUp({
-    content:
-      'This ticket is to discuss the reasons your bot was rejected. If you still want to talk about your decline, click the button below.\n\nFor any other questions, please use the <#714045415707770900> channel!',
+    embeds: [embed],
     components: [row],
     ephemeral: true,
   })
