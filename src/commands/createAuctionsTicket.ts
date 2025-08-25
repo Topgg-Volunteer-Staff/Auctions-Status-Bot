@@ -21,6 +21,11 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
+  // Check if interaction has already been acknowledged
+  if (interaction.replied || interaction.deferred) {
+    return
+  }
+
   //   if (
   //     interaction.channel?.id !==
   //     _client.channels.cache.get(channelIds.auctionsTickets)
