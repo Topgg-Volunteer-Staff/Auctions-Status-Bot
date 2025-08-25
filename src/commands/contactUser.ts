@@ -50,9 +50,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder(
-      'E.g. Need to discuss bot issues, account issues, etc.'
-    )
+    .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
 
   const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     userId

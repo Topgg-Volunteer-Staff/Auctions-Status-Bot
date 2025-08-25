@@ -34,7 +34,7 @@ export const execute = async (
         if (
           embed &&
           ((embed.title && embed.title.includes('Contact a Moderator')) ||
-           (embed.title && embed.title.includes('Contact a Reviewer')))
+            (embed.title && embed.title.includes('Contact a Reviewer')))
         ) {
           await message.delete()
         }
