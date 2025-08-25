@@ -17,25 +17,26 @@ export type AuctionsMessageKey =
   | 'payment-reminder'
   | 'ads-now-live'
 
-const registry: Record<AuctionsMessageKey, Builder> = {
+// Exhaustive + correctly typed
+const registry = {
   'bid-reminder': bidReminder,
   'bids-locked': bidRemovalsLocked,
   'bidding-closed': biddingClosed,
   'payment-reminder': paymentReminder,
   'ads-now-live': adsNowLive,
-}
+} satisfies Record<AuctionsMessageKey, Builder>
 
 export async function runAuctionsMessage(
   client: Client,
   key: AuctionsMessageKey,
   opts?: { ping?: boolean; crosspost?: boolean }
 ) {
-  const build = registry[key]
-  if (!build) throw new Error(`Unknown auctions message: ${key}`)
-  const payload = await build()
-  return publish(payload, client, !!opts?.ping, !!opts?.crosspost)
+  const { ping = false, crosspost = false } = opts ?? {}
+  const payload = await registry[key]() // build is guaranteed to exist
+  return publish(payload, client, ping, crosspost)
 }
 
-export function listAuctionsMessages(): AuctionsMessageKey[] {
-  return Object.keys(registry) as AuctionsMessageKey[]
+export function listAuctionsMessages(): Array<AuctionsMessageKey> {
+  // OK to assert here because `registry` satisfies the Record above
+  return Object.keys(registry) as Array<AuctionsMessageKey>
 }
