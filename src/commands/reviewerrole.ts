@@ -3,7 +3,7 @@ import {
   CommandInteraction,
   GuildMember,
   SlashCommandBuilder,
-  MessageFlags
+  MessageFlags,
 } from 'discord.js'
 
 const STAFF_ROLE_ID = '1324896486130974720'
@@ -20,7 +20,7 @@ export const execute = async (
   if (!interaction.inCachedGuild()) {
     return interaction.reply({
       content: 'This command can only be used in a server.',
-       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
   }
 
@@ -30,7 +30,7 @@ export const execute = async (
   if (!member.roles.cache.has(STAFF_ROLE_ID)) {
     return interaction.reply({
       content: '❌ You do not have permission to use this command.',
-       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
   }
 
@@ -39,13 +39,13 @@ export const execute = async (
     await member.roles.remove(NOTIFY_ROLE_ID)
     return interaction.reply({
       content: '🔕 You will no longer receive reviewer dispute notifications.',
-       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
   } else {
     await member.roles.add(NOTIFY_ROLE_ID)
     return interaction.reply({
       content: '🔔 You will now receive reviewer dispute notifications.',
-    flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
   }
 }

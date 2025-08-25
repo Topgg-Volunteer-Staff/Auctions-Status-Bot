@@ -16,7 +16,15 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
 
   // Ads run until next Tuesday: exactly 7 days from post, 4:00 PM ET
   const adsEndYMD = addDaysYMD(todayET, 7)
-  const adsEndUTC = zonedTimeToUtc(adsEndYMD.y, adsEndYMD.m, adsEndYMD.d, 16, 0, 0, TZ)
+  const adsEndUTC = zonedTimeToUtc(
+    adsEndYMD.y,
+    adsEndYMD.m,
+    adsEndYMD.d,
+    16,
+    0,
+    0,
+    TZ
+  )
 
   // Bidding ends next Monday: exactly 6 days from post, 3:00 PM ET
   const biddingEndYMD = addDaysYMD(todayET, 6)
@@ -40,10 +48,10 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
         .setColor('#ff3366')
         .setDescription(
           `This week's winning auctions bids are starting to go live and will run until ` +
-          `<t:${adsEndUnix}:f> (<t:${adsEndUnix}:R>)\n\n` +
-          `[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on ` +
-          `<t:${biddingEndUnix}:f> (<t:${biddingEndUnix}:R>)!\n\n` +
-          `Thanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
+            `<t:${adsEndUnix}:f> (<t:${adsEndUnix}:R>)\n\n` +
+            `[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on ` +
+            `<t:${biddingEndUnix}:f> (<t:${biddingEndUnix}:R>)!\n\n` +
+            `Thanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
         )
         .setTimestamp(new Date()),
     ],
@@ -91,7 +99,11 @@ async function getTodayYMD_ET(): Promise<{ y: number; m: number; d: number }> {
         if (p.type !== 'literal') acc[p.type] = p.value
         return acc
       }, {})
-    return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) }
+    return {
+      y: Number(parts.year),
+      m: Number(parts.month),
+      d: Number(parts.day),
+    }
   }
 }
 
@@ -124,10 +136,12 @@ function zonedTimeToUtc(
     minute: '2-digit',
     second: '2-digit',
   })
-  const parts = dtf.formatToParts(utcGuess).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== 'literal') acc[p.type] = p.value
-    return acc
-  }, {})
+  const parts = dtf
+    .formatToParts(utcGuess)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== 'literal') acc[p.type] = p.value
+      return acc
+    }, {})
 
   const asIfInTZ = Date.UTC(
     Number(parts.year),

@@ -8,8 +8,10 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 30 18 * * Mon',
     () =>
-      runAuctionsMessage(client, 'bid-reminder', { ping: true, crosspost: true })
-        .catch(console.error),
+      runAuctionsMessage(client, 'bid-reminder', {
+        ping: true,
+        crosspost: true,
+      }).catch(console.error),
     { timezone: 'Etc/UTC' }
   )
 
@@ -17,8 +19,10 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 50 18 * * Mon',
     () =>
-      runAuctionsMessage(client, 'bids-locked', { ping: false, crosspost: true })
-        .catch(console.error),
+      runAuctionsMessage(client, 'bids-locked', {
+        ping: false,
+        crosspost: true,
+      }).catch(console.error),
     { timezone: 'Etc/UTC' }
   )
 
@@ -26,8 +30,10 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 0 19 * * Mon',
     () =>
-      runAuctionsMessage(client, 'bidding-closed', { ping: true, crosspost: true })
-        .catch(console.error),
+      runAuctionsMessage(client, 'bidding-closed', {
+        ping: true,
+        crosspost: true,
+      }).catch(console.error),
     { timezone: 'Etc/UTC' }
   )
 
@@ -35,8 +41,10 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 0 17 * * Tue',
     () =>
-      runAuctionsMessage(client, 'payment-reminder', { ping: true, crosspost: true })
-        .catch(console.error),
+      runAuctionsMessage(client, 'payment-reminder', {
+        ping: true,
+        crosspost: true,
+      }).catch(console.error),
     { timezone: 'Etc/UTC' }
   )
 
@@ -44,8 +52,10 @@ export default function startReminders(client: Client) {
   cron.schedule(
     '0 1 20 * * Tue',
     () =>
-      runAuctionsMessage(client, 'ads-now-live', { ping: false, crosspost: true })
-        .catch(console.error),
+      runAuctionsMessage(client, 'ads-now-live', {
+        ping: false,
+        crosspost: true,
+      }).catch(console.error),
     { timezone: 'Etc/UTC' }
   )
 }

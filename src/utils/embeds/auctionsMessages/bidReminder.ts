@@ -14,7 +14,7 @@ export const bidReminder = async (): Promise<BaseMessageOptions> => {
 
   const unix = Math.floor(auctionEndUtc.getTime() / 1000)
   const endRelative = `<t:${unix}:R>`
-  const endFull = `<t:${unix}:F>` 
+  const endFull = `<t:${unix}:F>`
 
   return {
     embeds: [
@@ -45,7 +45,7 @@ async function getAuctionsEndET(): Promise<Date> {
     if (!res.ok) throw new Error(`Time API ${res.status}`)
     const data: {
       datetime: string
-      utc_offset: string 
+      utc_offset: string
     } = await res.json()
 
     // Use the API's local date + its offset to build "today 15:00:00<offset>"
@@ -96,10 +96,12 @@ function zonedTimeToUtc(
     minute: '2-digit',
     second: '2-digit',
   })
-  const parts = dtf.formatToParts(utcGuess).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== 'literal') acc[p.type] = p.value
-    return acc
-  }, {})
+  const parts = dtf
+    .formatToParts(utcGuess)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== 'literal') acc[p.type] = p.value
+      return acc
+    }, {})
 
   const asIfInTZ = Date.UTC(
     Number(parts.year),

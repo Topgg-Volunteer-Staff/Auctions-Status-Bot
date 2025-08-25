@@ -5,7 +5,7 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
-  MessageFlags
+  MessageFlags,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -25,7 +25,7 @@ export const execute = async (
   if (!ch || ch.type !== ChannelType.PrivateThread) {
     await interaction.reply({
       embeds: [errorEmbed('This is not a thread!')],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
     return
   }
@@ -35,7 +35,7 @@ export const execute = async (
   if (thread.name.startsWith(resolvedFlag)) {
     await interaction.reply({
       embeds: [errorEmbed(`This ticket is already resolved!`)],
-      flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
     return
   }
@@ -48,7 +48,7 @@ export const execute = async (
   ) {
     await interaction.reply({
       embeds: [errorEmbed(`This thread is not resolvable!`)],
-       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
     return
   }
@@ -109,14 +109,14 @@ export const execute = async (
         embeds: [
           errorEmbed(`Failed to resolve ticket. Please try again later.`),
         ],
-         flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       })
     } else {
       await interaction.reply({
         embeds: [
           errorEmbed(`Failed to resolve ticket. Please try again later.`),
         ],
-       flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral,
       })
     }
   }

@@ -23,7 +23,7 @@ export const paymentReminder = async (): Promise<BaseMessageOptions> => {
         .setColor('#ff3366')
         .setDescription(
           `If you won any slots in yesterday's auctions, please remember to [pay them here](https://auctions.top.gg/pay) before the payment window closes on ` +
-          `<t:${unix}:F> (<t:${unix}:R>)!`
+            `<t:${unix}:F> (<t:${unix}:R>)!`
         )
         .setTimestamp(deadlineUTC),
     ],
@@ -38,7 +38,6 @@ export const paymentReminder = async (): Promise<BaseMessageOptions> => {
     ],
   }
 }
-
 
 async function getTodayYMD_ET(): Promise<{ y: number; m: number; d: number }> {
   try {
@@ -65,7 +64,11 @@ async function getTodayYMD_ET(): Promise<{ y: number; m: number; d: number }> {
         if (p.type !== 'literal') acc[p.type] = p.value
         return acc
       }, {})
-    return { y: Number(parts.year), m: Number(parts.month), d: Number(parts.day) }
+    return {
+      y: Number(parts.year),
+      m: Number(parts.month),
+      d: Number(parts.day),
+    }
   }
 }
 
@@ -90,10 +93,12 @@ function zonedTimeToUtc(
     minute: '2-digit',
     second: '2-digit',
   })
-  const parts = dtf.formatToParts(guess).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== 'literal') acc[p.type] = p.value
-    return acc
-  }, {})
+  const parts = dtf
+    .formatToParts(guess)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== 'literal') acc[p.type] = p.value
+      return acc
+    }, {})
   const asIfInTZ = Date.UTC(
     Number(parts.year),
     Number(parts.month) - 1,

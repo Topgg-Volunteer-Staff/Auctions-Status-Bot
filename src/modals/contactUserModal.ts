@@ -4,7 +4,7 @@ import {
   TextChannel,
   ThreadAutoArchiveDuration,
   EmbedBuilder,
-  MessageFlags
+  MessageFlags,
 } from 'discord.js'
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
@@ -19,7 +19,7 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-  await interaction.deferReply({  flags: MessageFlags.Ephemeral })
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets

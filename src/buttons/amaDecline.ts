@@ -11,6 +11,6 @@ export const execute = async (
   await interaction.message.delete()
   await interaction.reply({
     content: '❌ Question declined and deleted.',
-   flags: MessageFlags.Ephemeral
+    flags: MessageFlags.Ephemeral,
   })
 }

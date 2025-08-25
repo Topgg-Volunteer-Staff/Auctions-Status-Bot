@@ -4,7 +4,7 @@ import {
   ChannelType,
   EmbedBuilder,
   TextChannel,
-  MessageFlags
+  MessageFlags,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
@@ -20,7 +20,7 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
 
-  await interaction.deferReply({  flags: MessageFlags.Ephemeral })
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   const auctionsTickets = interaction.client.channels.cache.get(
     channelIds.auctionsTickets

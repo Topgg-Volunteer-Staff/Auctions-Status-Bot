@@ -34,84 +34,89 @@ const menus: Array<{
 
 export const commandHandler = async (client: Client) => {
   // (Re)initialize registries if they exist at module scope
-  commands.length = 0;
-  buttons.length = 0;
-  modals.length = 0;
-  menus.length = 0;
+  commands.length = 0
+  buttons.length = 0
+  modals.length = 0
+  menus.length = 0
 
   // --- Load Commands ---
-  const commandFiles = fs.readdirSync(commandsPath);
+  const commandFiles = fs.readdirSync(commandsPath)
   for (const file of commandFiles) {
-    if (!/\.(js|ts|mjs|cjs)$/.test(file)) continue; // ignore non-code
+    if (!/\.(js|ts|mjs|cjs)$/.test(file)) continue // ignore non-code
     try {
-      const mod = await import(path.join(commandsPath, file));
-      const data = mod.command;
-      const run = mod.execute;
+      const mod = await import(path.join(commandsPath, file))
+      const data = mod.command
+      const run = mod.execute
 
       if (!data || !run) {
-        console.warn(`[commands] Skipped "${file}" (missing export { command, execute })`);
-        continue;
+        console.warn(
+          `[commands] Skipped "${file}" (missing export { command, execute })`
+        )
+        continue
       }
 
-      const name = (data as any)?.name ?? (data?.getName?.() ?? 'unknown');
-      commands.push({ name, data, function: run });
-      console.log('Registered command:', name);
+      const name = (data as any)?.name ?? data?.getName?.() ?? 'unknown'
+      commands.push({ name, data, function: run })
+      console.log('Registered command:', name)
     } catch (err) {
-      console.error(`[commands] Failed to load "${file}"`, err);
+      console.error(`[commands] Failed to load "${file}"`, err)
     }
   }
 
   // --- Register Commands with Discord ---
-  const clientId = process.env.DISCORD_CLIENT_ID || '';
-  const guildId = process.env.DISCORD_GUILD_ID || '333949691962195969'; // set for instant guild deploys
+  const clientId = process.env.DISCORD_CLIENT_ID || ''
+  const guildId = process.env.DISCORD_GUILD_ID || '333949691962195969' // set for instant guild deploys
 
-  const toJSON = (x: any) => (typeof x?.toJSON === 'function' ? x.toJSON() : x);
-  const commandsData = commands.map((c) => toJSON(c.data));
+  const toJSON = (x: any) => (typeof x?.toJSON === 'function' ? x.toJSON() : x)
+  const commandsData = commands.map((c) => toJSON(c.data))
 
-  let shouldDeploy = true;
+  let shouldDeploy = true
   try {
     // you already have this helper; if it throws or is missing, default to true
     // @ts-ignore
     if (typeof hasNonSyncedChanges === 'function') {
       // @ts-ignore
-      shouldDeploy = process.env.FORCE_COMMAND_DEPLOY === '1' || (await hasNonSyncedChanges());
+      shouldDeploy =
+        process.env.FORCE_COMMAND_DEPLOY === '1' ||
+        (await hasNonSyncedChanges())
     } else {
-      shouldDeploy = true;
+      shouldDeploy = true
     }
   } catch {
-    shouldDeploy = true;
+    shouldDeploy = true
   }
 
   if (shouldDeploy) {
     try {
       const route = guildId
         ? Routes.applicationGuildCommands(clientId, guildId)
-        : Routes.applicationCommands(clientId);
+        : Routes.applicationCommands(clientId)
 
-      const res = (await rest.put(route, { body: commandsData })) as any[];
+      const res = (await rest.put(route, { body: commandsData })) as any[]
       console.log(
-        `Deployed ${Array.isArray(res) ? res.length : commandsData.length} command(s) ${guildId ? `to guild ${guildId}` : 'globally'
-        }.`
-      );
+        `Deployed ${
+          Array.isArray(res) ? res.length : commandsData.length
+        } command(s) ${guildId ? `to guild ${guildId}` : 'globally'}.`
+      )
     } catch (error: any) {
-      console.error('Failed to register commands:', error?.data ?? error);
+      console.error('Failed to register commands:', error?.data ?? error)
     }
   } else {
-    console.log('No commands to register with Discord.');
+    console.log('No commands to register with Discord.')
   }
 
   // --- Debug: list what Discord thinks is registered right now ---
   try {
     const route = guildId
       ? Routes.applicationGuildCommands(clientId, guildId)
-      : Routes.applicationCommands(clientId);
-    const remote = (await rest.get(route)) as any[];
+      : Routes.applicationCommands(clientId)
+    const remote = (await rest.get(route)) as any[]
     console.log(
       'Remote commands:',
       remote.map((c) => `${c.name} (${c.type})`).join(', ') || '(none)'
-    );
+    )
   } catch (e: any) {
-    console.warn('Could not fetch remote commands:', e?.data ?? e);
+    console.warn('Could not fetch remote commands:', e?.data ?? e)
   }
 
   // Load buttons

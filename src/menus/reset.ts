@@ -12,7 +12,7 @@ export const execute = async (
   try {
     await interaction.reply({
       content: 'Reset your selection!',
-       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral,
     })
   } catch (err) {
     console.warn('reset menu: failed to send ephemeral reply', err)

@@ -8,7 +8,6 @@ import {
   paymentReminder,
 } from '../embeds/auctions'
 
-
 type Builder = () => BaseMessageOptions | Promise<BaseMessageOptions>
 
 export type AuctionsMessageKey =
@@ -25,7 +24,6 @@ const registry: Record<AuctionsMessageKey, Builder> = {
   'payment-reminder': paymentReminder,
   'ads-now-live': adsNowLive,
 }
-
 
 export async function runAuctionsMessage(
   client: Client,

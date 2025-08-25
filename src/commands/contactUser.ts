@@ -7,7 +7,7 @@ import {
   CommandInteraction,
   InteractionContextType,
   SlashCommandBuilder,
-  MessageFlags
+  MessageFlags,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
@@ -28,8 +28,7 @@ export const execute = async (
   if (!hasReviewerRole) {
     await interaction.reply({
       content: 'You do not have permission for this!',
-         flags: MessageFlags.Ephemeral
-
+      flags: MessageFlags.Ephemeral,
     })
     return
   }

@@ -1,4 +1,9 @@
-import { ButtonInteraction, Client, EmbedBuilder, MessageFlags } from 'discord.js'
+import {
+  ButtonInteraction,
+  Client,
+  EmbedBuilder,
+  MessageFlags,
+} from 'discord.js'
 
 export const button = {
   name: 'amaAccept',
@@ -12,7 +17,10 @@ export const execute = async (
   const oldEmbed = message.embeds[0]
 
   if (!oldEmbed) {
-    await interaction.reply({ content: 'Embed not found.', flags: MessageFlags.Ephemeral})
+    await interaction.reply({
+      content: 'Embed not found.',
+      flags: MessageFlags.Ephemeral,
+    })
     return
   }
 
@@ -21,5 +29,8 @@ export const execute = async (
     .addFields({ name: 'Approved by', value: `<@${interaction.user.id}>` })
 
   await message.edit({ embeds: [newEmbed], components: [] })
-  await interaction.reply({ content: '✅ Question approved!', flags: MessageFlags.Ephemeral })
+  await interaction.reply({
+    content: '✅ Question approved!',
+    flags: MessageFlags.Ephemeral,
+  })
 }
