@@ -88,6 +88,9 @@ const menus: Array<{
   execute: MenuExecute
 }> = []
 
+const isObject = (x: unknown): x is Record<string, unknown> =>
+  typeof x === 'object' && x !== null
+
 // --- Type guards for dynamic imports ---
 const isCommandModule = (m: unknown): m is CommandModule =>
   !!m &&
@@ -95,19 +98,22 @@ const isCommandModule = (m: unknown): m is CommandModule =>
   (m as CommandModule).command instanceof SlashCommandBuilder
 
 const isButtonModule = (m: unknown): m is ButtonModule =>
-  !!m &&
-  typeof (m as ButtonModule).execute === 'function' &&
-  !!(m as ButtonModule).button?.name
+  isObject(m) &&
+  typeof (m as Record<string, unknown>).execute === 'function' &&
+  isObject((m as Record<string, unknown>).button) &&
+  typeof (m as { button: { name: unknown } }).button.name === 'string'
 
 const isModalModule = (m: unknown): m is ModalModule =>
-  !!m &&
-  typeof (m as ModalModule).execute === 'function' &&
-  !!(m as ModalModule).modal?.name
+  isObject(m) &&
+  typeof (m as Record<string, unknown>).execute === 'function' &&
+  isObject((m as Record<string, unknown>).modal) &&
+  typeof (m as { modal: { name: unknown } }).modal.name === 'string'
 
 const isMenuModule = (m: unknown): m is MenuModule =>
-  !!m &&
-  typeof (m as MenuModule).execute === 'function' &&
-  !!(m as MenuModule).menu?.name
+  isObject(m) &&
+  typeof (m as Record<string, unknown>).execute === 'function' &&
+  isObject((m as Record<string, unknown>).menu) &&
+  typeof (m as { menu: { name: unknown } }).menu.name === 'string'
 
 // --- Helpers ---
 const isCodeFile = (file: string): boolean =>
@@ -173,7 +179,7 @@ export const commandHandler = async (client: Client) => {
 
       // Note: APIApplicationCommand for chat input has description; compare those
       if ('description' in r) {
-        const localDesc = c.data.description ?? ''
+        const localDesc = c.data.description // SlashCommandBuilder always has a string description
         if (r.description !== localDesc) return true
       }
 
