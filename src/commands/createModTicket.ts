@@ -7,6 +7,7 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
   TextChannel,
+  MessageFlags
 } from 'discord.js'
 import { roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
@@ -136,6 +137,6 @@ export const execute = async (
 
   await interaction.reply({
     content: 'Moderator ticket message sent.',
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral
   })
 }

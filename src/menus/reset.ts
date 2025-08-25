@@ -1,4 +1,4 @@
-import { Client, StringSelectMenuInteraction } from 'discord.js'
+import { Client, StringSelectMenuInteraction, MessageFlags } from 'discord.js'
 
 export const menu = {
   name: 'reset',
@@ -12,7 +12,7 @@ export const execute = async (
   try {
     await interaction.reply({
       content: 'Reset your selection!',
-      ephemeral: true,
+       flags: MessageFlags.Ephemeral
     })
   } catch (err) {
     console.warn('reset menu: failed to send ephemeral reply', err)

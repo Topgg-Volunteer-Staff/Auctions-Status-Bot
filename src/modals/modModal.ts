@@ -7,6 +7,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
@@ -21,7 +22,7 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-  await interaction.deferReply({ ephemeral: true })
+  await interaction.deferReply({  flags: MessageFlags.Ephemeral})
 
   // Extract type from modal's customId
   const match = interaction.customId.match(/^modModal_(.+)$/)

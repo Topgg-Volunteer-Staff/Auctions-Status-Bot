@@ -5,6 +5,7 @@ import {
   StringSelectMenuInteraction,
   Client,
   EmbedBuilder,
+  MessageFlags
 } from 'discord.js'
 
 export const menu = {
@@ -35,6 +36,6 @@ export const execute = async (
   await interaction.followUp({
     embeds: [embed],
     components: [row],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral
   })
 }

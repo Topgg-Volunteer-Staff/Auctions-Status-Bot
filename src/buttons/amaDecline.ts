@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client } from 'discord.js'
+import { ButtonInteraction, Client, MessageFlags } from 'discord.js'
 
 export const button = {
   name: 'amaDecline',
@@ -11,6 +11,6 @@ export const execute = async (
   await interaction.message.delete()
   await interaction.reply({
     content: '❌ Question declined and deleted.',
-    ephemeral: true,
+   flags: MessageFlags.Ephemeral
   })
 }

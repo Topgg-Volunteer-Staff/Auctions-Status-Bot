@@ -6,6 +6,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   TextChannel,
+  MessageFlags
 } from 'discord.js'
 import { channelIds } from '../globals'
 
@@ -52,6 +53,6 @@ export const execute = async (
         )
         .setColor('#00ff00'),
     ],
-    ephemeral: true,
+     flags: MessageFlags.Ephemeral
   })
 }
