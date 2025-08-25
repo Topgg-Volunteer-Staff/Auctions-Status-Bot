@@ -62,14 +62,21 @@ export const execute = async (
       .setTimestamp()
 
     const sentMessage = await thread.send({
-      content: `<@${userId}>, ${interaction.user} would like to talk to you.`,
+      content: `<@${userId}>, ${interaction.user} would like to talk to you!`,
       embeds: [embed],
     })
 
     await sentMessage.pin()
 
+    const successEmbed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle('Success!')
+      .setDescription(
+        `User ticket created successfully! Thread: <#${thread.id}>`
+      )
+
     await interaction.editReply({
-      content: `User ticket created successfully! Thread: <#${thread.id}>`,
+      embeds: [successEmbed],
     })
   } catch (error) {
     console.error('Error creating contact ticket:', error)
