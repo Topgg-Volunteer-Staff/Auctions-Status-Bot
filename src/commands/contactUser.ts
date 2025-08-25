@@ -3,18 +3,22 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  StringSelectMenuInteraction,
   Client,
+  CommandInteraction,
+  InteractionContextType,
+  SlashCommandBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
-export const menu = {
-  name: 'contact_user',
-}
+export const command = new SlashCommandBuilder()
+  .setName('contactuser')
+  .setDescription('Contact a specific user')
+  .setContexts(InteractionContextType.Guild)
+  .setDefaultMemberPermissions('0')
 
 export const execute = async (
   _client: Client,
-  interaction: StringSelectMenuInteraction
+  interaction: CommandInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
@@ -46,7 +50,9 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
+    .setPlaceholder(
+      'E.g. Need to discuss bot issues, account issues, etc.'
+    )
 
   const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
     userId

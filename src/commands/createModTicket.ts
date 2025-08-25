@@ -21,6 +21,29 @@ export const execute = async (
   _client: Client,
   interaction: CommandInteraction
 ) => {
+  if (!interaction.inCachedGuild()) return
+
+  const channel = interaction.channel as TextChannel
+
+  // Delete existing mod ticket messages
+  try {
+    const messages = await channel.messages.fetch({ limit: 100 })
+    for (const [id, message] of messages) {
+      if (message.embeds.length > 0) {
+        const embed = message.embeds[0]
+        if (
+          embed &&
+          ((embed.title && embed.title.includes('Contact a Moderator')) ||
+           (embed.title && embed.title.includes('Contact a Reviewer')))
+        ) {
+          await message.delete()
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to delete existing mod ticket messages:', error)
+  }
+
   // Moderator select menu
   const modSelectMenu = new StringSelectMenuBuilder()
     .setCustomId('mod_ticket_select')
@@ -53,10 +76,6 @@ export const execute = async (
       {
         label: 'Other',
         value: 'report_other',
-      },
-      {
-        label: 'Contact user [Staff Only]',
-        value: 'contact_user',
       },
     ])
 
@@ -97,7 +116,6 @@ export const execute = async (
     )
     .setColor('#E91E63')
 
-  const channel = interaction.channel as TextChannel
   await channel.send({
     embeds: [embed],
     components: [
