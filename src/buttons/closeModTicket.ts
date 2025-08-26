@@ -3,6 +3,7 @@ import {
   ChannelType,
   Client,
   PermissionsBitField,
+  MessageFlags,
 } from 'discord.js'
 
 export const button = {
@@ -19,7 +20,7 @@ export const execute = async (
   if (!thread || thread.type !== ChannelType.PrivateThread) {
     await interaction.reply({
       content: 'This button must be used inside a private thread.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     })
     return
   }
@@ -34,7 +35,7 @@ export const execute = async (
   if (!isOpener && !isModerator) {
     await interaction.reply({
       content: 'You are not allowed to close this ticket.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     })
     return
   }
@@ -42,7 +43,7 @@ export const execute = async (
   try {
     await interaction.reply({
       content: `This ticket has been locked and archived by <@${interaction.user.id}>. Still need help? Create another ticket in <#1285771377160491049>`,
-      ephemeral: false,
+      flags: MessageFlags.Ephemeral,
       allowedMentions: { users: [] },
     })
 

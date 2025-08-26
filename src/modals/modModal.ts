@@ -7,6 +7,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
@@ -21,7 +22,7 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-  await interaction.deferReply({ ephemeral: true })
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   // Extract type from modal's customId
   const match = interaction.customId.match(/^modModal_(.+)$/)
@@ -108,7 +109,10 @@ export const execute = async (
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
       break
     case 'requestownershiptransfer':
-      descriptionExtra = `${emoji.bot} This ticket was opened for an **ownership transfer request.**`
+      descriptionExtra = `${emoji.bot} This ticket was opened to **request an ownership transfer.**`
+      break
+    case 'contactuser':
+      descriptionExtra = `${emoji.bot} This ticket was opened to **contact a user.**`
       break
     default:
       descriptionExtra = `${emoji.bot} **General moderator ticket.**`
@@ -168,10 +172,19 @@ export const execute = async (
 
   let screenshot = ''
   try {
-    screenshot = interaction.fields.getTextInputValue('Screenshot') // change to your actual field ID
+    screenshot = interaction.fields.getTextInputValue('Screenshot')
   } catch {
     screenshot = ''
   }
+
+  let ownershipTransfer = ''
+  try {
+    ownershipTransfer =
+      interaction.fields.getTextInputValue('modOwnershipUserID')
+  } catch {
+    ownershipTransfer = ''
+  }
+
   const parts: Array<string> = []
   if (entityID.trim()) {
     const label =
@@ -179,12 +192,16 @@ export const execute = async (
     parts.push(`${label}: ${entityID}`)
   }
 
-  if (userInput.trim()) {
+  if (!ownershipTransfer.trim() && userInput.trim()) {
     parts.push(`Reason: ${userInput}`)
   }
 
   if (screenshot.trim()) {
     parts.push(`Screenshot: ${screenshot}`)
+  }
+
+  if (ownershipTransfer.trim()) {
+    parts.push(`User ID to transfer to: ${ownershipTransfer}`)
   }
 
   let messageContent = parts.join('\n\n')

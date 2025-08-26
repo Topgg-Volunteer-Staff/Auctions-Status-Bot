@@ -4,6 +4,7 @@ import {
   ChannelType,
   EmbedBuilder,
   TextChannel,
+  MessageFlags,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
@@ -17,7 +18,7 @@ export const execute = async (
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
-  await interaction.deferReply({ ephemeral: true })
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   let disputeID = ''
   try {
