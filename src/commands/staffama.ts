@@ -8,7 +8,7 @@ import {
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags,
-  SlashCommandBuilder
+  SlashCommandBuilder,
 } from 'discord.js'
 
 export const command = new SlashCommandBuilder()
