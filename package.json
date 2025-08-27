@@ -1,47 +1,54 @@
 {
-    "name": "auctions-status",
-    "version": "1.0.0",
-    "description": "Keep Top.gg users updated about auctions status",
-    "types": "./dist/index.d.ts",
-    "main": "./dist/index.js",
-    "engines": {
-        "node": ">=18",
-        "npm": ">=8"
-    },
-    "bugs": {
-        "url": "https://github.com/Topgg-Volunteer-Staff/Auctions-Status-Bot/issues"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:Topgg-Volunteer-Staff/Auctions-Status-Bot.git"
-    },
-    "scripts": {
-        "format": "prettier --check \"**/*.{ts,tsx,js,md}\"",
-        "format:fix": "prettier --write \"**/*.{ts,tsx,js,md}\"",
-        "lint": "eslint .",
-        "lint:fix": "eslint --fix .",
-        "test": "echo \"Todo: add tests\" && exit 0",
-        "clean": "rimraf dist",
-        "build": "npm run clean && tsc",
-        "start": "node -r dotenv/config dist/index.js",
-        "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext ts,json"
-    },
-    "dependencies": {
-        "@discordjs/rest": "1.6.0",
-        "discord.js": "14.19.3",
-        "dotenv": "16.0.3",
-        "node-cron": "3.0.2",
-        "node-fetch": "3.3.2"
-    },
-    "devDependencies": {
-        "@types/node-cron": "3.0.7",
-        "@typescript-eslint/eslint-plugin": "5.57.0",
-        "@typescript-eslint/parser": "5.57.0",
-        "eslint": "8.37.0",
-        "eslint-config-prettier": "8.8.0",
-        "nodemon": "2.0.22",
-        "prettier": "2.8.7",
-        "rimraf": "6.0.1",
-        "typescript": "5.0.3"
-    }
+  "name": "auctions-status",
+  "version": "1.0.0",
+  "description": "Keep Top.gg users updated about auctions status",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
+  "engines": {
+    "node": ">=18",
+    "npm": ">=8"
+  },
+  "bugs": {
+    "url": "https://github.com/Topgg-Volunteer-Staff/Auctions-Status-Bot/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:Topgg-Volunteer-Staff/Auctions-Status-Bot.git"
+  },
+  "scripts": {
+    "format": "prettier --check \"**/*.{ts,tsx,js,md}\"",
+    "format:fix": "prettier --write \"**/*.{ts,tsx,js,md}\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "test": "echo \"Todo: add tests\" && exit 0",
+    "clean": "rimraf dist",
+    "build": "npm run clean && tsc",
+    "start": "node -r dotenv/config dist/index.js",
+    "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext ts,json",
+    "cmd": "node dist/scripts/commands-cli.js",
+    "register:global": "node dist/scripts/commands-cli.js register:global",
+    "unregister:global": "node dist/scripts/commands-cli.js unregister:global",
+    "list:global": "node dist/scripts/commands-cli.js list:global",
+    "register:guild": "node dist/scripts/commands-cli.js register:guild",
+    "unregister:guild": "node dist/scripts/commands-cli.js unregister:guild",
+    "list:guild": "node dist/scripts/commands-cli.js list:guild"
+  },
+  "dependencies": {
+    "@discordjs/rest": "1.6.0",
+    "discord.js": "14.19.3",
+    "dotenv": "16.0.3",
+    "node-cron": "3.0.2",
+    "node-fetch": "3.3.2"
+  },
+  "devDependencies": {
+    "@types/node-cron": "3.0.7",
+    "@typescript-eslint/eslint-plugin": "5.57.0",
+    "@typescript-eslint/parser": "5.57.0",
+    "eslint": "8.37.0",
+    "eslint-config-prettier": "8.8.0",
+    "nodemon": "2.0.22",
+    "prettier": "2.8.7",
+    "rimraf": "6.0.1",
+    "typescript": "5.0.3"
+  }
 }
