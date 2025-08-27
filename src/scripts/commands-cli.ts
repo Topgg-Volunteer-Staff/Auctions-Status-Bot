@@ -1,6 +1,7 @@
 // scripts/commands-cli.ts
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import * as dotenv from 'dotenv'
 import { REST } from '@discordjs/rest'
 import { Routes } from 'discord.js'
@@ -119,7 +120,7 @@ const loadLocalCommands = async (): Promise<
   for (const full of codeFiles) {
     try {
       // Use file URL style import for Windows & ESM interop safety
-      const modUnknown: unknown = await import(pathToFileURLSafe(full))
+      const modUnknown: unknown = await import(pathToFileURL(full).href)
       const cmd = pickCommandExport(modUnknown)
       if (!cmd) {
         console.warn(
@@ -148,14 +149,6 @@ const loadLocalCommands = async (): Promise<
     )
   }
   return out
-}
-
-const pathToFileURLSafe = (p: string): string => {
-  // Works for both POSIX and Windows paths
-  const { pathToFileURL } = require('node:url') as {
-    pathToFileURL: (s: string) => URL
-  }
-  return pathToFileURL(p).href
 }
 
 const ensureGuildId = (maybe: string | undefined): string => {
