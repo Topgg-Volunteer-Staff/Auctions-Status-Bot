@@ -1,116 +1,223 @@
 // scripts/commands-cli.ts
-import fs from 'node:fs'
-import path from 'node:path'
-import { REST } from '@discordjs/rest'
-import { Routes, SlashCommandBuilder } from 'discord.js'
+import fs from 'node:fs';
+import path from 'node:path';
+import * as dotenv from 'dotenv';
+import { REST } from '@discordjs/rest';
+import { Routes } from 'discord.js';
 import type {
   APIApplicationCommand,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
-} from 'discord-api-types/v10'
-import 'dotenv/config'
-import * as dotenv from 'dotenv'
+} from 'discord-api-types/v10';
 
-dotenv.config({
-  // looks in repo root even if running from dist/scripts/...
-  path: path.join(process.cwd(), '.env'),
-})
-// -------- env ----------
-const TOKEN = process.env.DISCORD_TOKEN || ''
-const CLIENT_ID = process.env.DISCORD_CLIENT_ID || ''
-const DEFAULT_GUILD_ID = process.env.DISCORD_GUILD_ID || ''
+// -------------------- ENV --------------------
+dotenv.config({ path: path.join(process.cwd(), '.env') });
+
+const TOKEN = process.env.DISCORD_TOKEN ?? '';
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID ?? '';
+const DEFAULT_GUILD_ID = process.env.DISCORD_GUILD_ID ?? '';
 
 if (!TOKEN || !CLIENT_ID) {
-  console.error('Missing DISCORD_TOKEN or DISCORD_CLIENT_ID.')
-  process.exit(1)
+  const missing = [
+    !TOKEN ? 'DISCORD_TOKEN' : null,
+    !CLIENT_ID ? 'DISCORD_CLIENT_ID' : null,
+  ]
+    .filter((x): x is string => Boolean(x))
+    .join(', ');
+  console.error(`Missing required env(s): ${missing}`);
+  process.exit(1);
 }
 
-const rest = new REST({ version: '10' }).setToken(TOKEN)
+const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// -------- paths (adjust if different) --------
-const commandsPath = path.join(__dirname, '..', 'commands')
+// -------------------- PATHS & DISCOVERY --------------------
+const candidateDirs: Array<string> = [
+  process.env.COMMANDS_DIR ?? '',
+  path.join(process.cwd(), 'commands'),
+  path.join(process.cwd(), 'src', 'commands'),
+  path.join(process.cwd(), 'src', 'interactions', 'slash-commands'),
+  path.join(process.cwd(), 'dist', 'commands'),
+].filter((p) => p.length > 0);
 
-// -------- types / helpers ----------
-type CommandModule = {
-  command: SlashCommandBuilder
-  execute?: (...args: any[]) => any
-}
+const findCommandsDir = (): string => {
+  for (const p of candidateDirs) {
+    try {
+      if (fs.existsSync(p) && fs.statSync(p).isDirectory()) return p;
+    } catch {
+      // ignore FS errors and keep searching
+    }
+  }
+  throw new Error(
+    `Could not locate commands directory. Checked:\n - ${candidateDirs.join(
+      '\n - '
+    )}\nSet COMMANDS_DIR to point at your commands folder.`
+  );
+};
 
-const isCodeFile = (file: string) =>
-  /\.(mjs|cjs|js|ts)$/.test(file) &&
-  !file.endsWith('.d.ts') &&
-  !file.endsWith('.map')
+const commandsPath = findCommandsDir();
+
+// -------------------- HELPERS --------------------
+const isCodeFile = (filePath: string): boolean => {
+  const lower = filePath.toLowerCase();
+  return (
+    (lower.endsWith('.ts') ||
+      lower.endsWith('.js') ||
+      lower.endsWith('.mjs') ||
+      lower.endsWith('.cjs')) &&
+    !lower.endsWith('.d.ts') &&
+    !lower.endsWith('.map')
+  );
+};
+
+type CommandLike = {
+  toJSON: () => RESTPostAPIChatInputApplicationCommandsJSONBody;
+};
+
+const pickCommandExport = (mod: unknown): CommandLike | null => {
+  if (typeof mod !== 'object' || mod === null) return null;
+
+  const tryList: Array<unknown> = [
+    (mod as { command?: unknown }).command,
+    (mod as { default?: { command?: unknown } }).default?.command,
+    (mod as { default?: unknown }).default,
+  ];
+
+  for (const cand of tryList) {
+    if (
+      cand !== null &&
+      typeof cand === 'object' &&
+      typeof (cand as { toJSON?: unknown }).toJSON === 'function'
+    ) {
+      return cand as CommandLike;
+    }
+  }
+  return null;
+};
 
 const loadLocalCommands = async (): Promise<
-  RESTPostAPIChatInputApplicationCommandsJSONBody[]
+  Array<RESTPostAPIChatInputApplicationCommandsJSONBody>
 > => {
-  const files = fs.existsSync(commandsPath) ? fs.readdirSync(commandsPath) : []
-  const out: RESTPostAPIChatInputApplicationCommandsJSONBody[] = []
+  const entries = fs.readdirSync(commandsPath, { withFileTypes: true });
+  const codeFiles: Array<string> = [];
 
-  for (const file of files) {
-    if (!isCodeFile(file)) continue
-    const mod = (await import(
-      path.join(commandsPath, file)
-    )) as unknown as CommandModule
-    if (!mod?.command || !(mod.command instanceof SlashCommandBuilder)) {
-      console.warn(
-        `[commands] Skipped "${file}" (missing valid SlashCommandBuilder export)`
-      )
-      continue
+  for (const d of entries) {
+    if (d.isDirectory()) {
+      const sub = path.join(commandsPath, d.name);
+      const subFiles = fs.readdirSync(sub, { withFileTypes: true });
+      for (const f of subFiles) {
+        if (f.isFile()) {
+          const full = path.join(sub, f.name);
+          if (isCodeFile(full)) codeFiles.push(full);
+        }
+      }
+    } else if (d.isFile()) {
+      const full = path.join(commandsPath, d.name);
+      if (isCodeFile(full)) codeFiles.push(full);
     }
-    out.push(mod.command.toJSON())
   }
-  return out
-}
 
-// -------- actions ----------
-const registerGlobal = async () => {
-  const body = await loadLocalCommands()
+  const out: Array<RESTPostAPIChatInputApplicationCommandsJSONBody> = [];
+  for (const full of codeFiles) {
+    try {
+      // Use file URL style import for Windows & ESM interop safety
+      const modUnknown: unknown = await import(pathToFileURLSafe(full));
+      const cmd = pickCommandExport(modUnknown);
+      if (!cmd) {
+        console.warn(
+          `[commands] Skipped "${path.relative(
+            process.cwd(),
+            full
+          )}" (no export with toJSON())`
+        );
+        continue;
+      }
+      out.push(cmd.toJSON());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(
+        `[commands] Failed to import "${path.relative(process.cwd(), full)}": ${msg}`
+      );
+    }
+  }
+
+  if (out.length === 0) {
+    console.warn(
+      `No commands found in ${commandsPath}. If your files live elsewhere, set COMMANDS_DIR=/abs/path/to/commands`
+    );
+  }
+  return out;
+};
+
+const pathToFileURLSafe = (p: string): string => {
+  // Works for both POSIX and Windows paths
+  const { pathToFileURL } = require('node:url') as {
+    pathToFileURL: (s: string) => URL;
+  };
+  return pathToFileURL(p).href;
+};
+
+const ensureGuildId = (maybe: string | undefined): string => {
+  const gid = (maybe ?? DEFAULT_GUILD_ID).trim();
+  if (!gid) {
+    throw new Error(
+      'No guild id provided. Pass one as an arg or set DISCORD_GUILD_ID in your .env'
+    );
+  }
+  return gid;
+};
+
+// -------------------- ACTIONS --------------------
+const registerGlobal = async (): Promise<void> => {
+  const body = await loadLocalCommands();
   const res = (await rest.put(Routes.applicationCommands(CLIENT_ID), {
     body,
-  })) as APIApplicationCommand[]
-  console.log(`Registered ${res.length} global command(s).`)
-}
+  })) as Array<APIApplicationCommand>;
+  console.log(`Registered ${res.length} global command(s).`);
+};
 
-const unregisterGlobal = async () => {
-  // Overwrite with an empty array to delete all global commands in bulk
-  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] })
-  console.log('Unregistered ALL global commands.')
-}
+const unregisterGlobal = async (): Promise<void> => {
+  await rest.put(Routes.applicationCommands(CLIENT_ID), { body: [] });
+  console.log('Unregistered ALL global commands.');
+};
 
-const registerGuild = async (guildId: string) => {
-  const body = await loadLocalCommands()
+const registerGuild = async (guildIdInput?: string): Promise<void> => {
+  const guildId = ensureGuildId(guildIdInput);
+  const body = await loadLocalCommands();
   const res = (await rest.put(
     Routes.applicationGuildCommands(CLIENT_ID, guildId),
     { body }
-  )) as APIApplicationCommand[]
-  console.log(`Registered ${res.length} guild command(s) in ${guildId}.`)
-}
+  )) as Array<APIApplicationCommand>;
+  console.log(`Registered ${res.length} guild command(s) in ${guildId}.`);
+};
 
-const unregisterGuild = async (guildId: string) => {
+const unregisterGuild = async (guildIdInput?: string): Promise<void> => {
+  const guildId = ensureGuildId(guildIdInput);
   await rest.put(Routes.applicationGuildCommands(CLIENT_ID, guildId), {
     body: [],
-  })
-  console.log(`Unregistered ALL guild commands in ${guildId}.`)
-}
+  });
+  console.log(`Unregistered ALL guild commands in ${guildId}.`);
+};
 
-const list = async (scope: 'global' | 'guild', guildId?: string) => {
+const listCommands = async (
+  scope: 'global' | 'guild',
+  guildIdInput?: string
+): Promise<void> => {
   const route =
     scope === 'global'
       ? Routes.applicationCommands(CLIENT_ID)
-      : Routes.applicationGuildCommands(CLIENT_ID, guildId!)
+      : Routes.applicationGuildCommands(CLIENT_ID, ensureGuildId(guildIdInput));
 
-  const cmds = (await rest.get(route)) as APIApplicationCommand[]
+  const cmds = (await rest.get(route)) as Array<APIApplicationCommand>;
   console.log(
-    `${scope.toUpperCase()} commands${guildId ? ` (${guildId})` : ''}: ${
-      cmds.length ? cmds.map((c) => c.name).join(', ') : '(none)'
-    }`
-  )
-}
+    `${scope.toUpperCase()} commands${
+      scope === 'guild' ? ` (${ensureGuildId(guildIdInput)})` : ''
+    }: ${cmds.length ? cmds.map((c) => c.name).join(', ') : '(none)'}`
+  );
+};
 
-// -------- CLI parsing ----------
-const [, , cmd, maybeGuildId] = process.argv
+// -------------------- CLI --------------------
+const [, , cmd, maybeGuildId] = process.argv;
 
-const help = () => {
+const help = (): void => {
   console.log(`
 Usage:
   # Global
@@ -118,47 +225,55 @@ Usage:
   pnpm cmd unregister:global
   pnpm cmd list:global
 
-  # Guild (provide guild id or use DISCORD_GUILD_ID)
+  # Guild (provide guild id arg or set DISCORD_GUILD_ID)
   pnpm cmd register:guild [GUILD_ID]
   pnpm cmd unregister:guild [GUILD_ID]
   pnpm cmd list:guild [GUILD_ID]
 
-Notes:
-- Requires DISCORD_TOKEN and DISCORD_CLIENT_ID in env.
-- Commands are loaded from ${commandsPath}
-`)
-}
+Env:
+  - DISCORD_TOKEN (required)
+  - DISCORD_CLIENT_ID (required)
+  - DISCORD_GUILD_ID (optional default for guild ops)
+  - COMMANDS_DIR (optional override; found: ${commandsPath})
 
-;(async () => {
+Notes:
+  - .env is loaded from: ${path.join(process.cwd(), '.env')}
+  - Files may live under subfolders; CLI scans one level deep.
+  - Export styles supported: 
+      export const command = new SlashCommandBuilder()...
+      export default { command: new SlashCommandBuilder()... }
+      export default new SlashCommandBuilder()...
+`);
+};
+
+(async () => {
   try {
     switch (cmd) {
       case 'register:global':
-        await registerGlobal()
-        break
+        await registerGlobal();
+        break;
       case 'unregister:global':
-        await unregisterGlobal()
-        break
+        await unregisterGlobal();
+        break;
       case 'list:global':
-        await list('global')
-        break
-
+        await listCommands('global');
+        break;
       case 'register:guild':
-        await registerGuild(maybeGuildId || DEFAULT_GUILD_ID || '')
-        break
+        await registerGuild(maybeGuildId);
+        break;
       case 'unregister:guild':
-        await unregisterGuild(maybeGuildId || DEFAULT_GUILD_ID || '')
-        break
+        await unregisterGuild(maybeGuildId);
+        break;
       case 'list:guild':
-        await list('guild', maybeGuildId || DEFAULT_GUILD_ID || '')
-        break
-
+        await listCommands('guild', maybeGuildId);
+        break;
       default:
-        help()
-        process.exit(cmd ? 1 : 0)
+        help();
+        process.exit(cmd ? 1 : 0);
     }
-  } catch (err: any) {
-    console.error(`Command failed: ${cmd || '(none)'}`)
-    console.error(err?.message || err)
-    process.exit(1)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(msg);
+    process.exit(1);
   }
-})()
+})();
