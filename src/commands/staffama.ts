@@ -8,12 +8,12 @@ import {
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags,
+  SlashCommandBuilder,
 } from 'discord.js'
 
-export const command = {
-  name: 'ama-panel',
-  description: 'Post the AMA question panel',
-}
+export const command = new SlashCommandBuilder()
+  .setName('staff-ama')
+  .setDescription('Trigger the staff AMA embed')
 
 export const execute = async (
   _client: Client,
