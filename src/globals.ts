@@ -7,7 +7,7 @@ const channelIds =
         auctionsStatus: '1064940583266820106',
         modTickets: '1285771377160491049',
         modlogs: '325648177178869760',
-        amaChannel: '1405679285620183070',
+        amaChannel: '1409996045676445829',
       }
     : {
         auctionsTickets: '1401293838059831377',
