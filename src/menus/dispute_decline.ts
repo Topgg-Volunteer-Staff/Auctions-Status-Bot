@@ -29,7 +29,7 @@ export const execute = async (
     .setColor('#E91E63')
     .setTitle('Why was my bot declined?')
     .setDescription(
-      'This ticket is to discuss the reasons your bot was rejected. If you still want to talk about your decline, click the button below.\n\nFor any other questions, please use the <#714045415707770900> channel!'
+      '**__This ticket is strictly for discussing bot rejections.__**\n\nIf you are disputing your bot’s decline, click the button below. For all other questions, please use the <#714045415707770900> channel!\n\n:x: Tickets opened for any other reason will be closed without explanation.'
     )
 
   await interaction.followUp({
