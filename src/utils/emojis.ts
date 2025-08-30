@@ -31,4 +31,6 @@ export const emoji = {
   rocket: '<:topgg_ico_rocket:1026869998070804640>',
   dogThumbUp: '<:DoggThumbsUp:1400113319905329264>',
   sunglasses: '<:DoggSunglasses:1400113207527477379>',
+  onion: `<:onionpray:954383559324471316>`,
+  pog: `<:DoggPog:1400113263840198839>`,
 }

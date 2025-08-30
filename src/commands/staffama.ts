@@ -29,14 +29,14 @@ export const execute = async (
   if (!channel || !(channel instanceof TextChannel)) return
 
   const panelEmbed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Staff Ask Me Anything Event`)
+    .setTitle(`<:topgg_ico_microphone:1026877531296649256> Top.gg Public AMA`)
     .setDescription(
-      'Click the button below to submit a question for the AMA!\n\n' +
-        'This event gives our community the opportunity to ask us questions about all things Top.gg — from how the site works, to ideas for new features, to feedback on existing ones.\n\n' +
-        'Please only submit questions related to Top.gg, its features, or things you’d like to see on the site.\n\n' +
-        'Our Staff AMA will take place on <t:1757202000:F> (<t:1757202000:R>) — don’t miss your chance to be part of the conversation!'
+      `Ask your question(s) for our upcoming **Public AMA**, hosted <t:1757163600:F> in **[Stage](https://discord.com/channels/264445053596991498/829020599200383016)**!\n\n` +
+        `Ever wanted to know what we have on our roadmap, how Top.gg is doing, or have personal questions for our Team? Now is your chance to ask them! ${emoji.pog}\n\n` +
+        `Submit your questions by <t:1757163600:F>. Please note that we can't answer all questions!\n\n` +
+        `> Set your reminder for our AMA here: [Link To Event]\n\n` +
+        `**We look forward to seeing you and answering your question(s)!** ${emoji.onion}`
     )
-
     .setColor('#ff3366')
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
