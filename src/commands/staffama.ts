@@ -10,6 +10,7 @@ import {
   MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js'
+import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
   .setName('staff-ama')
@@ -28,10 +29,13 @@ export const execute = async (
   if (!channel || !(channel instanceof TextChannel)) return
 
   const panelEmbed = new EmbedBuilder()
-    .setTitle('📢 Staff Ask Me Anything Event')
+    .setTitle(`<:topgg_ico_microphone:1026877531296649256> Top.gg Public AMA`)
     .setDescription(
-      'Click the button below to submit a question for the AMA!\n\n' +
-        'Please only ask questions about Top.gg, its features, or things you would like to see on the site.'
+      `Ask your question(s) for our upcoming **Public AMA**, hosted <t:1757163600:F> in **[Stage](https://discord.com/channels/264445053596991498/829020599200383016)**!\n\n` +
+        `Ever wanted to know what we have on our roadmap, how Top.gg is doing, or have personal questions for our Team? Now is your chance to ask them! ${emoji.pog}\n\n` +
+        `Submit your questions by <t:1757163600:F>. Please note that we can't answer all questions!\n\n` +
+        `> Set your reminder for our AMA here: https://discord.gg/dbl?event=1411780560442884337\n\n` +
+        `**We look forward to seeing you and answering your question(s)!** ${emoji.onion}`
     )
     .setColor('#ff3366')
 
