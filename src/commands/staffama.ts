@@ -14,7 +14,7 @@ import { emoji } from '../utils/emojis'
 
 export const command = new SlashCommandBuilder()
   .setName('staff-ama')
-  .setDescription('Trigger the staff AMA embed')
+  .setDescription('Trigger the staff AMA embed xd')
 
 export const execute = async (
   _client: Client,
