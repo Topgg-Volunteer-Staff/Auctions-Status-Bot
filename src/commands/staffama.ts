@@ -38,9 +38,9 @@ export const execute = async (
   const panelEmbed = new EmbedBuilder()
     .setTitle(`<:topgg_ico_microphone:1026877531296649256> Top.gg Public AMA`)
     .setDescription(
-      `Ask your question(s) for our upcoming **Public AMA**, hosted <t:{AMA_EPOCH}:f> in **[Stage](https://discord.com/channels/264445053596991498/829020599200383016)**!\n\n` +
+      `Ask your question(s) for our upcoming **Public AMA**, hosted <t:${AMA_EPOCH}:f> in **[Stage](https://discord.com/channels/264445053596991498/829020599200383016)**!\n\n` +
         `Ever wanted to know what we have on our roadmap, how Top.gg is doing, or have personal questions for our Team? Now is your chance to ask them! ${emoji.pog}\n\n` +
-        `Submit your questions by <t:{AMA_EPOCH}:f>. Please note that we can't answer all questions!\n\n` +
+        `Submit your questions by <t:${AMA_EPOCH}:f>. Please note that we can't answer all questions!\n\n` +
         `> Set your reminder for our AMA here: https://discord.com/events/264445053596991498/1413912629596000316\n\n` +
         `**We look forward to seeing you and answering your question(s)!** ${emoji.onion}`
     )
