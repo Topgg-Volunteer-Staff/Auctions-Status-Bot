@@ -29,10 +29,12 @@ export const execute = async (
   if (!channel || !(channel instanceof TextChannel)) return
 
   // Sat Dec 6th in epoch -> 1765044000
-  const AMA_UTC_DATE = '2025-12-06';
-  const AMA_UTC_TIME = '18:00';
-  const AMA_EPOCH   = Math.floor(new Date(AMA_UTC_DATE + 'T' + AMA_UTC_TIME + 'Z').getTime() / 1000);
-  
+  const AMA_UTC_DATE = '2025-12-06'
+  const AMA_UTC_TIME = '18:00'
+  const AMA_EPOCH = Math.floor(
+    new Date(AMA_UTC_DATE + 'T' + AMA_UTC_TIME + 'Z').getTime() / 1000
+  )
+
   const panelEmbed = new EmbedBuilder()
     .setTitle(`<:topgg_ico_microphone:1026877531296649256> Top.gg Public AMA`)
     .setDescription(
