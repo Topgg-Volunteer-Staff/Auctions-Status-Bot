@@ -38,7 +38,7 @@ export const biddingClosed = async (): Promise<BaseMessageOptions> => {
             `${emoji.dotred} Repeated unpaid bids can result in a ban from our platform!\n\n` +
             `:warning: If your payment request is still showing as open despite you having paid it, please contact staff in <#1012032743250595921> with your FastSpring invoice ID starting with \`DBOTSBV••••\`. You can find the invoice ID in the payment confirmation email you received from FastSpring.\n\n` +
             `Please make sure to click "Continue" in the FastSpring popup after paying as shown below! :point_down:\n\n` +
-            `Thanks for using Top.gg Auctions! ${emoji.topggthumbsup}`
+            `Thanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
         )
         .setImage('https://i.imgur.com/iGoGH6U.png')
         .setTimestamp(paymentEndsUTC),
