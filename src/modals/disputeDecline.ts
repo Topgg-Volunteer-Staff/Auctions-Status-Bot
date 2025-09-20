@@ -8,6 +8,8 @@ import {
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
+// @ts-ignore - import JSON
+import trialMentors from '../data/trialMentors.json'
 
 export const modal = {
   name: 'disputeDecline',
@@ -194,6 +196,7 @@ export const execute = async (
   })
 
   let reviewerId = ''
+  let mentorId = ''
   const logEmbed = matchingMessage.embeds[0]
   if (logEmbed) {
     const reviewerField = logEmbed.fields.find(
@@ -208,8 +211,18 @@ export const execute = async (
           const reviewerMember = await interaction.guild.members.fetch(
             potentialReviewerId
           )
+
+          // If reviewer has the regular reviewer role, use them.
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
+          } else {
+            // If reviewer has the Trial Reviewer role, ping reviewer and their mentor (from JSON)
+            const trialRoleId = '767392998157451265'
+            if (reviewerMember.roles.cache.has(trialRoleId)) {
+              reviewerId = potentialReviewerId
+              // trialMentors is a JSON object mapping reviewer user IDs -> mentor user IDs
+              mentorId = (trialMentors as Record<string, string>)[potentialReviewerId] || ''
+            }
           }
         } catch {
           console.log(
@@ -223,12 +236,16 @@ export const execute = async (
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
-        ? ` <@${reviewerId}> please take a look.`
+        ? ` <@${reviewerId}> please take a look.${mentorId ? ` <@${mentorId}> (mentor) please assist.` : ''}`
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
     embeds: [embed],
     allowedMentions: {
-      users: [interaction.user.id, ...(reviewerId ? [reviewerId] : [])],
+      users: [
+        interaction.user.id,
+        ...(reviewerId ? [reviewerId] : []),
+        ...(mentorId ? [mentorId] : []),
+      ],
       roles: [roleIds.reviewerNotifications],
     },
   })
