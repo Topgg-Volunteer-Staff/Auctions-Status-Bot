@@ -221,7 +221,9 @@ export const execute = async (
             if (reviewerMember.roles.cache.has(trialRoleId)) {
               reviewerId = potentialReviewerId
               // trialMentors is a JSON object mapping reviewer user IDs -> mentor user IDs
-              mentorId = (trialMentors as Record<string, string>)[potentialReviewerId] || ''
+              mentorId =
+                (trialMentors as Record<string, string>)[potentialReviewerId] ||
+                ''
             }
           }
         } catch {
@@ -236,7 +238,9 @@ export const execute = async (
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
-        ? ` <@${reviewerId}> please take a look.${mentorId ? ` <@${mentorId}> (mentor) please assist.` : ''}`
+        ? ` <@${reviewerId}> please take a look.${
+            mentorId ? ` <@${mentorId}> (mentor) please assist.` : ''
+          }`
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
     embeds: [embed],

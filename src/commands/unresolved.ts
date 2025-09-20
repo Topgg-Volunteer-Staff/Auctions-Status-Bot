@@ -39,12 +39,19 @@ export const execute = async (
   _client: Client,
   interaction: ChatInputCommandInteraction
 ): Promise<void> => {
-  const type = interaction.options.getString('type', true) as 'mod' | 'reviewer' | 'auctions'
+  const type = interaction.options.getString('type', true) as
+    | 'mod'
+    | 'reviewer'
+    | 'auctions'
 
-  const parentId = type === 'auctions' ? channelIds.auctionsTickets : channelIds.modTickets
+  const parentId =
+    type === 'auctions' ? channelIds.auctionsTickets : channelIds.modTickets
 
   if (!interaction.guild) {
-    await interaction.reply({ embeds: [errorEmbed('Guild not available')], flags: MessageFlags.Ephemeral })
+    await interaction.reply({
+      embeds: [errorEmbed('Guild not available')],
+      flags: MessageFlags.Ephemeral,
+    })
     return
   }
 
@@ -52,13 +59,18 @@ export const execute = async (
     const parent = await interaction.guild.channels.fetch(parentId)
 
     if (!parent) {
-      await interaction.reply({ embeds: [errorEmbed('Parent channel not found')], flags: MessageFlags.Ephemeral })
+      await interaction.reply({
+        embeds: [errorEmbed('Parent channel not found')],
+        flags: MessageFlags.Ephemeral,
+      })
       return
     }
 
     // Fetch active threads
     const threadManager = (parent as any).threads
-    const active = threadManager?.fetchActive ? await threadManager.fetchActive() : null
+    const active = threadManager?.fetchActive
+      ? await threadManager.fetchActive()
+      : null
     // For archived threads use fetchArchived or fetch({ archived: true }) depending on discord.js version
     let archived: any = null
     if (threadManager?.fetchArchived) {
@@ -74,7 +86,8 @@ export const execute = async (
     }
 
     if (archived && archived.threads) {
-      for (const t of archived.threads.values()) threads.push(t as ThreadChannel)
+      for (const t of archived.threads.values())
+        threads.push(t as ThreadChannel)
     }
 
     let unresolved: ThreadChannel[] = []
@@ -102,7 +115,15 @@ export const execute = async (
     }
 
     if (unresolved.length === 0) {
-      await interaction.reply({ embeds: [successEmbed('No unresolved tickets', `No unresolved ${type} tickets found.`)], flags: MessageFlags.Ephemeral })
+      await interaction.reply({
+        embeds: [
+          successEmbed(
+            'No unresolved tickets',
+            `No unresolved ${type} tickets found.`
+          ),
+        ],
+        flags: MessageFlags.Ephemeral,
+      })
       return
     }
 
@@ -112,12 +133,24 @@ export const execute = async (
 
     const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
 
-    const more = unresolved.length > max ? `\n...and ${unresolved.length - max} more` : ''
+    const more =
+      unresolved.length > max ? `\n...and ${unresolved.length - max} more` : ''
 
     const titleType = type === 'reviewer' ? 'reviewer' : type
-    await interaction.reply({ embeds: [successEmbed(`${unresolved.length} unresolved ${titleType} tickets`, lines + more)], flags: MessageFlags.Ephemeral })
+    await interaction.reply({
+      embeds: [
+        successEmbed(
+          `${unresolved.length} unresolved ${titleType} tickets`,
+          lines + more
+        ),
+      ],
+      flags: MessageFlags.Ephemeral,
+    })
   } catch (err) {
     console.error('Failed to list unresolved threads', err)
-    await interaction.reply({ embeds: [errorEmbed('Failed to list unresolved threads')], flags: MessageFlags.Ephemeral })
+    await interaction.reply({
+      embeds: [errorEmbed('Failed to list unresolved threads')],
+      flags: MessageFlags.Ephemeral,
+    })
   }
 }
