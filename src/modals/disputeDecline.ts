@@ -238,7 +238,7 @@ export const execute = async (
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
         ? ` <@${reviewerId}> please take a look.${
-            mentorId ? ` <@${mentorId}> (mentor) please assist.` : ''
+            mentorId ? ` cc <@${mentorId}>` : ''
           }`
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
