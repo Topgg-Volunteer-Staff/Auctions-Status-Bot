@@ -10,6 +10,15 @@ import {
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 
+// Normalize thread names to avoid invisible characters and different dash types
+const normalizeName = (s: string): string =>
+  s
+    .replace(/[\u200B-\u200D\uFEFF]/g, '') // remove zero-width spaces
+    .replace(/[–—−]/g, '-') // normalize various dashes to hyphen
+    .replace(/\s*-\s*/g, '-') // collapse spaces around hyphen
+    .trim()
+    .toLowerCase()
+
 export const command = new SlashCommandBuilder()
   .setName('unresolved')
   .setDescription('List unresolved tickets for mod, reviewer, or auctions')
@@ -70,13 +79,26 @@ export const execute = async (
 
     let unresolved: ThreadChannel[] = []
 
+    const resolvedNorm = normalizeName(resolvedFlag)
+
     if (type === 'reviewer') {
-      // Reviewer tickets use the `dispute-` prefix
-      unresolved = threads.filter(
-        (t) => t.name.toLowerCase().startsWith('dispute-') && !t.name.startsWith(resolvedFlag)
-      )
+      // Reviewer tickets use the `dispute-` prefix (allow spaces around hyphen)
+      unresolved = threads.filter((t) => {
+        const n = normalizeName(t.name)
+        return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
+      })
+    } else if (type === 'mod') {
+      // Mod tickets are any non-reviewer tickets (exclude `dispute-`)
+      unresolved = threads.filter((t) => {
+        const n = normalizeName(t.name)
+        return !n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
+      })
     } else {
-      unresolved = threads.filter((t) => !t.name.startsWith(resolvedFlag))
+      // auctions
+      unresolved = threads.filter((t) => {
+        const n = normalizeName(t.name)
+        return !n.startsWith(resolvedNorm)
+      })
     }
 
     if (unresolved.length === 0) {
