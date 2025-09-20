@@ -95,7 +95,7 @@ export const execute = async (
       if (!res || typeof res !== 'object') return new Collection()
       if ('threads' in (res as Record<string, unknown>)) {
         const maybe = (res as Record<string, unknown>).threads
-        if (maybe && typeof (maybe as any).forEach === 'function')
+        if (maybe && typeof (maybe as { forEach?: unknown }).forEach === 'function')
           return maybe as Collection<string, ThreadChannel>
       }
       return new Collection()

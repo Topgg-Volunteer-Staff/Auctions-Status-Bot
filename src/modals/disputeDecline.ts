@@ -8,12 +8,7 @@ import {
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
-
-// Import JSON mapping of trial mentors. Use require cast to keep TypeScript happy
-const trialMentors: Record<
-  string,
-  string
-> = require('../data/trialMentors.json')
+import trialMentors from '../data/trialMentors.json'
 
 export const modal = {
   name: 'disputeDecline',
