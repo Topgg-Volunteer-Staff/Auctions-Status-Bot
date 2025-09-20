@@ -5,6 +5,8 @@ import {
   InteractionContextType,
   ThreadChannel,
   MessageFlags,
+  TextChannel,
+  Collection,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -66,31 +68,61 @@ export const execute = async (
       return
     }
 
-    // Fetch active threads
-    const threadManager = (parent as any).threads
-    const active = threadManager?.fetchActive
-      ? await threadManager.fetchActive()
-      : null
-    // For archived threads use fetchArchived or fetch({ archived: true }) depending on discord.js version
-    let archived: any = null
-    if (threadManager?.fetchArchived) {
-      archived = await threadManager.fetchArchived({ limit: 100 })
-    } else if (threadManager?.fetch) {
-      archived = await threadManager.fetch({ archived: true, perPage: 100 })
+    // Ensure parent is a TextChannel so we can access threads
+    if (!(parent instanceof TextChannel)) {
+      await interaction.reply({
+        embeds: [errorEmbed('Parent channel is not a text channel')],
+        flags: MessageFlags.Ephemeral,
+      })
+      return
     }
 
-    const threads: ThreadChannel[] = []
+    const threadManager = parent.threads
 
-    if (active && active.threads) {
-      for (const t of active.threads.values()) threads.push(t as ThreadChannel)
+    // Minimal typed interface for thread manager fetch methods to avoid `any`.
+    type ThreadFetchMethods = {
+      fetchActive?: () => Promise<unknown>
+      fetchArchived?: (opts?: unknown) => Promise<unknown>
+      fetch?: (opts?: unknown) => Promise<unknown>
     }
 
-    if (archived && archived.threads) {
-      for (const t of archived.threads.values())
-        threads.push(t as ThreadChannel)
+    const threadFetcher = threadManager as unknown as ThreadFetchMethods
+
+    // Fetch active threads (if supported)
+    const extractThreads = (
+      res: unknown
+    ): Collection<string, ThreadChannel> => {
+      if (!res || typeof res !== 'object') return new Collection()
+      if ('threads' in (res as Record<string, unknown>)) {
+        const maybe = (res as Record<string, unknown>).threads
+        if (maybe && typeof (maybe as any).forEach === 'function')
+          return maybe as Collection<string, ThreadChannel>
+      }
+      return new Collection()
     }
 
-    let unresolved: ThreadChannel[] = []
+    let activeThreads: Collection<string, ThreadChannel> = new Collection()
+    if (typeof threadFetcher.fetchActive === 'function') {
+      const res = await threadFetcher.fetchActive()
+      activeThreads = extractThreads(res)
+    }
+
+    // Fetch archived threads (try fetchArchived then fetch with archived flag)
+    let archivedThreads: Collection<string, ThreadChannel> = new Collection()
+    if (typeof threadFetcher.fetchArchived === 'function') {
+      const res = await threadFetcher.fetchArchived({ limit: 100 })
+      archivedThreads = extractThreads(res)
+    } else if (typeof threadFetcher.fetch === 'function') {
+      const res = await threadFetcher.fetch({ archived: true, limit: 100 })
+      archivedThreads = extractThreads(res)
+    }
+
+    const threads: Array<ThreadChannel> = []
+
+    for (const t of activeThreads.values()) threads.push(t)
+    for (const t of archivedThreads.values()) threads.push(t)
+
+    let unresolved: Array<ThreadChannel> = []
 
     const resolvedNorm = normalizeName(resolvedFlag)
 
