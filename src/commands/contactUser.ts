@@ -23,16 +23,6 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  // Check if user has reviewer role
-  const hasReviewerRole = interaction.member.roles.cache.has(roleIds.reviewer)
-  if (!hasReviewerRole) {
-    await interaction.reply({
-      content: 'You do not have permission for this!',
-      flags: MessageFlags.Ephemeral,
-    })
-    return
-  }
-
   const modal = new ModalBuilder()
     .setCustomId('contactUserModal')
     .setTitle('Contact user')
