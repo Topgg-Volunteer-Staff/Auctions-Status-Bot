@@ -7,9 +7,7 @@ import {
   CommandInteraction,
   InteractionContextType,
   SlashCommandBuilder,
-  MessageFlags,
 } from 'discord.js'
-import { roleIds } from '../globals'
 
 export const command = new SlashCommandBuilder()
   .setName('contactuser')
