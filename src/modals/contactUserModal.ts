@@ -37,16 +37,16 @@ export const execute = async (
   // Get selected user from the user select component
   let userId = ''
   try {
-    const selectedUsers = interaction.fields.getSelectedUsers('contactUserSelect', true)
+    const selectedUsers = interaction.fields.getSelectedUsers(
+      'contactUserSelect',
+      true
+    )
     const firstUser = selectedUsers.first()
     userId = firstUser?.id ?? ''
   } catch {
     await interaction.editReply({
       embeds: [
-        errorEmbed(
-          'No User Selected',
-          'Please select a user to contact.'
-        ),
+        errorEmbed('No User Selected', 'Please select a user to contact.'),
       ],
     })
     return
@@ -55,10 +55,7 @@ export const execute = async (
   if (!userId) {
     await interaction.editReply({
       embeds: [
-        errorEmbed(
-          'No User Selected',
-          'Please select a user to contact.'
-        ),
+        errorEmbed('No User Selected', 'Please select a user to contact.'),
       ],
     })
     return
