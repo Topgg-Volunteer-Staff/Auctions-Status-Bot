@@ -142,7 +142,7 @@ export const execute = async (
       .setColor('#ff3366')
 
     const thread = await modTickets.threads.create({
-      name: `Dispute - ${interaction.user.username}`,
+      name: `Dispute - ${interaction.user.username} <> unknown`,
       type: ChannelType.PrivateThread,
       autoArchiveDuration: 10080,
     })
@@ -180,22 +180,10 @@ export const execute = async (
     return
   }
 
-  // Create ticket when matching message found
-  const embed = new EmbedBuilder()
-    .setTitle(`Dispute ticket for ${interaction.user.username}`)
-    .setDescription(
-      `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
-    )
-    .setColor('#ff3366')
-
-  const thread = await modTickets.threads.create({
-    name: `Dispute - ${interaction.user.username}`,
-    type: ChannelType.PrivateThread,
-    autoArchiveDuration: 10080,
-  })
-
+  // Extract reviewer information first
   let reviewerId = ''
   let mentorId = ''
+  let reviewerName = 'Unknown'
   const logEmbed = matchingMessage.embeds[0]
   if (logEmbed) {
     const reviewerField = logEmbed.fields.find(
@@ -214,11 +202,15 @@ export const execute = async (
           // If reviewer has the regular reviewer role, use them.
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
+            reviewerName =
+              reviewerMember.displayName || reviewerMember.user.username
           } else {
             // If reviewer has the Trial Reviewer role, ping reviewer and their mentor (from JSON)
             const trialRoleId = '767392998157451265'
             if (reviewerMember.roles.cache.has(trialRoleId)) {
               reviewerId = potentialReviewerId
+              reviewerName =
+                reviewerMember.displayName || reviewerMember.user.username
               // trialMentors is a JSON object mapping reviewer user IDs -> mentor user IDs
               mentorId =
                 (trialMentors as Record<string, string>)[potentialReviewerId] ||
@@ -233,6 +225,20 @@ export const execute = async (
       }
     }
   }
+
+  // Create ticket when matching message found
+  const embed = new EmbedBuilder()
+    .setTitle(`Dispute ticket for ${interaction.user.username}`)
+    .setDescription(
+      `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
+    )
+    .setColor('#ff3366')
+
+  const thread = await modTickets.threads.create({
+    name: `Dispute - ${interaction.user.username} <> ${reviewerName}`,
+    type: ChannelType.PrivateThread,
+    autoArchiveDuration: 10080,
+  })
 
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
