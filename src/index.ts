@@ -66,7 +66,10 @@ function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
  * Sends an error embed either to a dev channel or via webhook depending on ENVIRONMENT.
  */
 async function sendError(embed: EmbedBuilder): Promise<void> {
-  if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
+  const environment = process.env.ENVIRONMENT || 'DEVELOPMENT'
+  console.log(`Current environment: ${environment}`)
+
+  if (environment === 'DEVELOPMENT') {
     const channelId = '1403884779408986243'
     const channel = client.channels.cache.get(channelId)
 
@@ -82,7 +85,7 @@ async function sendError(embed: EmbedBuilder): Promise<void> {
         `Channel with ID ${channelId} not found or is not text-based`
       )
     }
-  } else if (process.env.ENVIRONMENT === 'PRODUCTION') {
+  } else if (environment === 'PRODUCTION') {
     const webhookUrl =
       'https://discord.com/api/webhooks/1404081951958368288/ozEfqM7v1gCcPdvrQgcvD5txm1tGX8bvpIzSddwQ_osMpk2AQWPrMt2Ye9Z4tZ1QRkfg'
     try {
