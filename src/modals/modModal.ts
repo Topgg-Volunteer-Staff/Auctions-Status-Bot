@@ -212,7 +212,8 @@ export const execute = async (
   let ownershipType = ''
   if (type === 'transfer_ownership') {
     try {
-      const typeValues = interaction.fields.getStringSelectValues('ownershipType')
+      const typeValues =
+        interaction.fields.getStringSelectValues('ownershipType')
       const raw = typeValues[0] || ''
       ownershipType = raw === 'bot' ? 'Bot' : raw === 'server' ? 'Server' : raw
     } catch {
