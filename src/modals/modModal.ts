@@ -8,6 +8,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   MessageFlags,
+  MessageType,
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
@@ -284,6 +285,18 @@ export const execute = async (
     allowedMentions: { users: [] },
   })
   await sentMessage.pin()
+  // Delete the auto-generated system "pinned a message" notice
+  try {
+    const recent = await thread.messages.fetch({ limit: 5 })
+    const pinNotice = recent.find(
+      (m) => m.type === MessageType.ChannelPinnedMessage
+    )
+    if (pinNotice) {
+      await pinNotice.delete().catch(() => {})
+    }
+  } catch {
+    // ignore
+  }
   await webhook.delete()
 
   await interaction.editReply({
