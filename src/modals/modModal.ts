@@ -208,11 +208,17 @@ export const execute = async (
     report_other: '',
   }
 
-  // Ownership type (select in modal) - optional context for transfer ownership
-  const typeValues = interaction.fields.getStringSelectValues('ownershipType')
-  const raw = typeValues[0] || ''
-  const ownershipType =
-    raw === 'bot' ? 'Bot' : raw === 'server' ? 'Server' : raw
+  // Ownership type (only for transfer ownership modal)
+  let ownershipType = ''
+  if (type === 'transfer_ownership') {
+    try {
+      const typeValues = interaction.fields.getStringSelectValues('ownershipType')
+      const raw = typeValues[0] || ''
+      ownershipType = raw === 'bot' ? 'Bot' : raw === 'server' ? 'Server' : raw
+    } catch {
+      ownershipType = ''
+    }
+  }
 
   let screenshot = ''
   try {
@@ -221,12 +227,20 @@ export const execute = async (
     screenshot = ''
   }
 
-  const selectedUsers = interaction.fields.getSelectedUsers(
-    'ownershipUserSelect',
-    true
-  )
-  const firstUser = selectedUsers.first()
-  const ownershipTransfer = firstUser?.id ?? ''
+  // Ownership transferee (only for transfer ownership modal)
+  let ownershipTransfer = ''
+  if (type === 'transfer_ownership') {
+    try {
+      const selectedUsers = interaction.fields.getSelectedUsers(
+        'ownershipUserSelect',
+        true
+      )
+      const firstUser = selectedUsers.first()
+      ownershipTransfer = firstUser?.id ?? ''
+    } catch {
+      ownershipTransfer = ''
+    }
+  }
 
   const parts: Array<string> = []
   // For ownership transfers, always show project type explicitly
