@@ -130,39 +130,51 @@ export const execute = async (
     }
   }
 
-  // 🔹 Different cases for different buttons
+  // Extract ownership type for transfer_ownership tickets
+  let selectedOwnershipType = ''
+  if (type === 'transfer_ownership') {
+    try {
+      const values = interaction.fields.getStringSelectValues('ownershipType')
+      selectedOwnershipType = values[0] || ''
+    } catch {
+      selectedOwnershipType = ''
+    }
+  }
+
+  // 🔹 Different cases for different tickets
+  let titleExtra = ''
   let descriptionExtra = ''
   switch (type) {
     case 'report_other':
-      descriptionExtra = `${emoji.bot} This ticket was opened for **other reasons.**`
+      titleExtra = 'Other Report'
       break
     case 'report_bot':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **report a bot.**`
+      titleExtra = 'Bot Report'
       break
     case 'report_review':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **report a review.**`
+      titleExtra = 'Review Report'
       break
     case 'report_server':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **report a server.**`
+      titleExtra = 'Server Report'
       break
     case 'report_user':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
+      titleExtra = 'User Report'
       break
     case 'transfer_ownership':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **request an ownership transfer.**`
-      break
-    case 'contactuser':
-      descriptionExtra = `${emoji.bot} This ticket was opened to **contact a user.**`
-      break
-    default:
-      descriptionExtra = `${emoji.bot} **General moderator ticket.**`
+      if (selectedOwnershipType === 'bot') {
+        titleExtra = 'Bot Ownership Transfer Request'
+        descriptionExtra = `${emoji.bot} To prove ownership, you must be able to do one of the following:\n- Change the bot's description on the Discord Developer Portal to "Top.gg Verification".\n- Send a Direct Message through the bot.\n- Edit a bot's command or add a new custom command saying "Top.gg Verification".\n\nIf you are unable to do any of these, unfortunately we cannot transfer ownership to you.`
+      } else if (selectedOwnershipType === 'server') {
+        titleExtra = 'Server Ownership Transfer Request'
+        descriptionExtra = `${emoji.server} To prove ownership, please **send your server's invite link** (e.g. .gg/dbl). We will join the server to verify ownership.`
+      }
       break
   }
 
   const embed = new EmbedBuilder()
-    .setTitle(`This is your private ticket, ${interaction.user.username}!`)
+    .setTitle(`${titleExtra}`)
     .setDescription(
-      `${descriptionExtra}\n\nPlease provide any additional context or evidence if applicable.\n\n${emoji.dotred} For auction related help, create a ticket in <#1012032743250595921> instead.\n${emoji.dotred} A mod will respond as soon as possible. Please don’t ping individual staff.`
+      `${descriptionExtra ? descriptionExtra + '\n\n' : ''}Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} For auction related help, create a ticket in <#1012032743250595921> instead.\n${emoji.dotred} A mod will respond as soon as possible. Please don't ping individual staff.`
     )
     .setColor('#ff3366')
 
