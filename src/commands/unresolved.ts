@@ -7,10 +7,14 @@ import {
   MessageFlags,
   TextChannel,
   Collection,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import { errorEmbed } from '../utils/embeds'
 
 // Normalize thread names to avoid invisible characters and different dash types
 const normalizeName = (s: string): string =>
@@ -25,30 +29,11 @@ export const command = new SlashCommandBuilder()
   .setName('unresolved')
   .setDescription('List unresolved tickets for mod, reviewer, or auctions')
   .setContexts(InteractionContextType.Guild)
-  .addStringOption((opt) =>
-    opt
-      .setName('type')
-      .setDescription('Type of tickets to check (mod, reviewer or auctions)')
-      .setRequired(true)
-      .addChoices(
-        { name: 'mod', value: 'mod' },
-        { name: 'reviewer', value: 'reviewer' },
-        { name: 'auctions', value: 'auctions' }
-      )
-  )
 
 export const execute = async (
   _client: Client,
   interaction: ChatInputCommandInteraction
 ): Promise<void> => {
-  const type = interaction.options.getString('type', true) as
-    | 'mod'
-    | 'reviewer'
-    | 'auctions'
-
-  const parentId =
-    type === 'auctions' ? channelIds.auctionsTickets : channelIds.modTickets
-
   if (!interaction.guild) {
     await interaction.reply({
       embeds: [errorEmbed('Guild not available')],
@@ -57,24 +42,56 @@ export const execute = async (
     return
   }
 
+  // Create embed with buttons
+  const embed = new EmbedBuilder()
+    .setTitle('Unresolved Tickets')
+    .setDescription('Select a category to view unresolved tickets:')
+    .setColor('#ff3366')
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('unresolved_all')
+      .setLabel('All')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('unresolved_mod')
+      .setLabel('Mod')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('unresolved_reviewer')
+      .setLabel('Reviewer')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('unresolved_auctions')
+      .setLabel('Auctions')
+      .setStyle(ButtonStyle.Secondary)
+  )
+
+  await interaction.reply({
+    embeds: [embed],
+    components: [row],
+    flags: MessageFlags.Ephemeral,
+  })
+}
+
+// Helper function to get unresolved tickets for a specific type
+export const getUnresolvedTickets = async (
+  guild: any,
+  type: 'mod' | 'reviewer' | 'auctions' | 'all'
+): Promise<{ content: string; title: string }> => {
+  const parentId =
+    type === 'auctions' ? channelIds.auctionsTickets : channelIds.modTickets
+
   try {
-    const parent = await interaction.guild.channels.fetch(parentId)
+    const parent = await guild.channels.fetch(parentId)
 
     if (!parent) {
-      await interaction.reply({
-        embeds: [errorEmbed('Parent channel not found')],
-        flags: MessageFlags.Ephemeral,
-      })
-      return
+      return { content: 'Parent channel not found', title: 'Error' }
     }
 
     // Ensure parent is a TextChannel so we can access threads
     if (!(parent instanceof TextChannel)) {
-      await interaction.reply({
-        embeds: [errorEmbed('Parent channel is not a text channel')],
-        flags: MessageFlags.Ephemeral,
-      })
-      return
+      return { content: 'Parent channel is not a text channel', title: 'Error' }
     }
 
     const threadManager = parent.threads
@@ -125,67 +142,125 @@ export const execute = async (
     for (const t of activeThreads.values()) threads.push(t)
     for (const t of archivedThreads.values()) threads.push(t)
 
-    let unresolved: Array<ThreadChannel> = []
-
     const resolvedNorm = normalizeName(resolvedFlag)
 
-    if (type === 'reviewer') {
-      // Reviewer tickets use the `dispute-` prefix (allow spaces around hyphen)
-      unresolved = threads.filter((t) => {
-        const n = normalizeName(t.name)
-        return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
-      })
-    } else if (type === 'mod') {
-      // Mod tickets are any non-reviewer tickets (exclude `dispute-`)
-      unresolved = threads.filter((t) => {
+    if (type === 'all') {
+      // Handle "all" case - categorize all unresolved tickets
+      const modTickets = threads.filter((t) => {
         const n = normalizeName(t.name)
         return !n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
       })
-    } else {
-      // auctions
-      unresolved = threads.filter((t) => {
+
+      const reviewerTickets = threads.filter((t) => {
+        const n = normalizeName(t.name)
+        return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
+      })
+
+      const auctionsTickets = threads.filter((t) => {
         const n = normalizeName(t.name)
         return !n.startsWith(resolvedNorm)
       })
+
+      const totalUnresolved =
+        modTickets.length + reviewerTickets.length + auctionsTickets.length
+
+      if (totalUnresolved === 0) {
+        return {
+          content: 'No unresolved tickets found across all categories.',
+          title: 'No unresolved tickets',
+        }
+      }
+
+      // Build categorized response
+      const maxPerCategory = 8
+      const buildCategoryList = (
+        tickets: ThreadChannel[],
+        categoryName: string
+      ) => {
+        const listed = tickets.slice(0, maxPerCategory)
+        const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
+        const more =
+          tickets.length > maxPerCategory
+            ? `\n...and ${tickets.length - maxPerCategory} more`
+            : ''
+        return `**${categoryName} (${tickets.length}):**\n${lines}${more}`
+      }
+
+      const modSection =
+        modTickets.length > 0
+          ? buildCategoryList(modTickets, 'Mod Tickets')
+          : ''
+      const reviewerSection =
+        reviewerTickets.length > 0
+          ? buildCategoryList(reviewerTickets, 'Reviewer Tickets')
+          : ''
+      const auctionsSection =
+        auctionsTickets.length > 0
+          ? buildCategoryList(auctionsTickets, 'Auctions Tickets')
+          : ''
+
+      const sections = [modSection, reviewerSection, auctionsSection].filter(
+        Boolean
+      )
+      const content = sections.join('\n\n')
+
+      return {
+        content,
+        title: `${totalUnresolved} total unresolved tickets`,
+      }
+    } else {
+      // Handle individual types (existing logic)
+      let unresolved: Array<ThreadChannel> = []
+
+      if (type === 'reviewer') {
+        // Reviewer tickets use the `dispute-` prefix (allow spaces around hyphen)
+        unresolved = threads.filter((t) => {
+          const n = normalizeName(t.name)
+          return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
+        })
+      } else if (type === 'mod') {
+        // Mod tickets are any non-reviewer tickets (exclude `dispute-`)
+        unresolved = threads.filter((t) => {
+          const n = normalizeName(t.name)
+          return !n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
+        })
+      } else {
+        // auctions
+        unresolved = threads.filter((t) => {
+          const n = normalizeName(t.name)
+          return !n.startsWith(resolvedNorm)
+        })
+      }
+
+      if (unresolved.length === 0) {
+        return {
+          content: `No unresolved ${type} tickets found.`,
+          title: 'No unresolved tickets',
+        }
+      }
+
+      // Build a message with a limited number of links (Discord limits 25 embeds/lines practically)
+      const max = 25
+      const listed = unresolved.slice(0, max)
+
+      const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
+
+      const more =
+        unresolved.length > max
+          ? `\n...and ${unresolved.length - max} more`
+          : ''
+
+      const titleType = type === 'reviewer' ? 'reviewer' : type
+      return {
+        content: lines + more,
+        title: `${unresolved.length} unresolved ${titleType} tickets`,
+      }
     }
-
-    if (unresolved.length === 0) {
-      await interaction.reply({
-        embeds: [
-          successEmbed(
-            'No unresolved tickets',
-            `No unresolved ${type} tickets found.`
-          ),
-        ],
-        flags: MessageFlags.Ephemeral,
-      })
-      return
-    }
-
-    // Build a message with a limited number of links (Discord limits 25 embeds/lines practically)
-    const max = 25
-    const listed = unresolved.slice(0, max)
-
-    const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
-
-    const more =
-      unresolved.length > max ? `\n...and ${unresolved.length - max} more` : ''
-
-    const titleType = type === 'reviewer' ? 'reviewer' : type
-    await interaction.reply({
-      embeds: [
-        successEmbed(
-          `${unresolved.length} unresolved ${titleType} tickets`,
-          lines + more
-        ),
-      ],
-      flags: MessageFlags.Ephemeral,
-    })
   } catch (err) {
     console.error('Failed to list unresolved threads', err)
-    await interaction.reply({
-      embeds: [errorEmbed('Failed to list unresolved threads')],
-      flags: MessageFlags.Ephemeral,
-    })
+    return {
+      content: 'Failed to list unresolved threads',
+      title: 'Error',
+    }
   }
 }
