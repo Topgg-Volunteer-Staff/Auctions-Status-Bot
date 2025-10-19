@@ -39,6 +39,9 @@ export const execute = async (
         .setMinValues(1)
         .setMaxValues(1)
     )
+    .setDescription(
+      "Want to transfer to a team? Select yourself, and we'll help you out in the ticket!"
+    )
 
   // Project type select – requested ids/values
   const projectTypeLabel = new LabelBuilder()
@@ -54,7 +57,6 @@ export const execute = async (
         )
     )
 
-  // Components in order: project type select → ID → user select
   const linkLabel = new LabelBuilder()
     .setLabel('ID')
     .setTextInputComponent(idInput)
