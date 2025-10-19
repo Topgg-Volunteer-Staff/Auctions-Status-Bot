@@ -7,6 +7,7 @@ export const emoji = {
   bulb: '<:topgg_ico_bulb:1026877525261033563>',
   home: '<:topgg_ico_home:1026877529753141309>',
   bot: '<:topgg_ico_bot:1031960241463631973>',
+  server: '<:topgg_ico_server:1031960243674038322>',
   star: '<:topgg_ico_star:1026879679451369493>',
   flag: '<:topgg_ico_flag:1036228644588224623>',
   bolt: '<:topgg_ico_mod:1036228646601506886>',
