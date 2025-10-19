@@ -1,10 +1,13 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   StringSelectMenuInteraction,
   Client,
+  LabelBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  UserSelectMenuBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -23,29 +26,48 @@ export const execute = async (
 
   const BotOrServer = new TextInputBuilder()
     .setCustomId('modOwnershipBotOrServer')
-    .setLabel('Bot/Server link')
+    .setLabel('Bot/Server ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
-    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
+    .setPlaceholder('E.g. 264445053596991498')
 
-  const userID = new TextInputBuilder()
-    .setCustomId('modOwnershipUserID')
-    .setLabel('User ID to transfer to')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder('E.g. 1376991905191039006')
+  // User select to choose the transferee
+  const ownershipUserLabel = new LabelBuilder()
+    .setLabel('User to transfer to')
+    .setUserSelectMenuComponent(
+      new UserSelectMenuBuilder()
+        .setCustomId('ownershipUserSelect')
+        .setPlaceholder('Select a user')
+        .setMinValues(1)
+        .setMaxValues(1)
+    )
 
-  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    userID
-  )
+  // Ownership type select
+  const ownershipTypeLabel = new LabelBuilder()
+    .setLabel('Select type')
+    .setStringSelectMenuComponent(
+      new StringSelectMenuBuilder()
+        .setCustomId('ownershipType')
+        .addOptions(
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Bot')
+            .setValue('bot')
+            .setDescription('Transfer a bot.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Server')
+            .setValue('server')
+            .setDescription('Transfer a server.')
+        )
+    )
 
-  const BotOrServerRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    BotOrServer
-  )
+  // Then the link input
+  const linkLabel = new LabelBuilder()
+    .setLabel('ID')
+    .setTextInputComponent(BotOrServer)
 
-  modal.addComponents(userIdRow, BotOrServerRow)
+  // Then the user id input
+  modal.addLabelComponents(ownershipTypeLabel, linkLabel, ownershipUserLabel)
 
   await interaction.showModal(modal)
 }

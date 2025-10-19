@@ -112,8 +112,7 @@ export const execute = async (
     entityIDField = ''
   }
   if (type === 'transfer_ownership') {
-    // For ownership transfers, the main entity is the bot/server link.
-    // The target user ID is appended separately later as "User ID to transfer to".
+    // For ownership transfers: entity is the link; ownershipType select is optional context
     modReasonField = ''
     entityIDField = 'modOwnershipBotOrServer'
   }
@@ -207,12 +206,21 @@ export const execute = async (
   })
 
   const idLabels: Record<string, string> = {
-    report_server: 'Server link',
-    report_bot: 'Bot link',
+    report_server: 'Server ID',
+    report_bot: 'Bot ID',
     report_user: 'User ID',
-    report_review: 'Bot/Server link',
-    transfer_ownership: 'Bot/Server link',
+    report_review: 'Bot/Server ID',
+    transfer_ownership: 'Bot/Server ID',
     report_other: '',
+  }
+
+  // Ownership type (select in modal) - optional context for transfer ownership
+  let ownershipType = ''
+  try {
+    const vals = interaction.fields.getStringSelectValues('ownershipType')
+    ownershipType = vals[0] || '' // 'bot' | 'server'
+  } catch {
+    ownershipType = ''
   }
 
   let screenshot = ''
@@ -224,17 +232,28 @@ export const execute = async (
 
   let ownershipTransfer = ''
   try {
-    ownershipTransfer =
-      interaction.fields.getTextInputValue('modOwnershipUserID')
+    // Prefer user select if provided
+    const selectedUsers = interaction.fields.getSelectedUsers(
+      'ownershipUserSelect'
+    )
+    const first = selectedUsers?.first()
+    ownershipTransfer = first?.id ?? ''
   } catch {
-    ownershipTransfer = ''
+    // Fallback to text input ID if present in older clients
+    try {
+      ownershipTransfer =
+        interaction.fields.getTextInputValue('modOwnershipUserID')
+    } catch {
+      ownershipTransfer = ''
+    }
   }
 
   const parts: Array<string> = []
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
-    parts.push(`${label}: ${entityID}`)
+    const prefix = ownershipType ? `${ownershipType.toUpperCase()} ` : ''
+    parts.push(`${prefix}${label}: ${entityID}`)
   }
 
   if (!ownershipTransfer.trim() && userInput.trim()) {
