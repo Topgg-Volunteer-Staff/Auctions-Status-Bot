@@ -79,84 +79,97 @@ export const getUnresolvedTickets = async (
   guild: any,
   type: 'mod' | 'reviewer' | 'auctions' | 'all'
 ): Promise<{ content: string; title: string }> => {
-  const parentId =
-    type === 'auctions' ? channelIds.auctionsTickets : channelIds.modTickets
-
   try {
-    const parent = await guild.channels.fetch(parentId)
-
-    if (!parent) {
-      return { content: 'Parent channel not found', title: 'Error' }
-    }
-
-    // Ensure parent is a TextChannel so we can access threads
-    if (!(parent instanceof TextChannel)) {
-      return { content: 'Parent channel is not a text channel', title: 'Error' }
-    }
-
-    const threadManager = parent.threads
-
-    // Minimal typed interface for thread manager fetch methods to avoid `any`.
-    type ThreadFetchMethods = {
-      fetchActive?: () => Promise<unknown>
-      fetchArchived?: (opts?: unknown) => Promise<unknown>
-      fetch?: (opts?: unknown) => Promise<unknown>
-    }
-
-    const threadFetcher = threadManager as unknown as ThreadFetchMethods
-
-    // Fetch active threads (if supported)
-    const extractThreads = (
-      res: unknown
-    ): Collection<string, ThreadChannel> => {
-      if (!res || typeof res !== 'object') return new Collection()
-      if ('threads' in (res as Record<string, unknown>)) {
-        const maybe = (res as Record<string, unknown>).threads
-        if (
-          maybe &&
-          typeof (maybe as { forEach?: unknown }).forEach === 'function'
-        )
-          return maybe as Collection<string, ThreadChannel>
+    // Helper function to fetch threads from a channel
+    const fetchThreadsFromChannel = async (
+      channelId: string
+    ): Promise<ThreadChannel[]> => {
+      const parent = await guild.channels.fetch(channelId)
+      if (!parent || !(parent instanceof TextChannel)) {
+        return []
       }
-      return new Collection()
+
+      const threadManager = parent.threads
+
+      // Minimal typed interface for thread manager fetch methods to avoid `any`.
+      type ThreadFetchMethods = {
+        fetchActive?: () => Promise<unknown>
+        fetchArchived?: (opts?: unknown) => Promise<unknown>
+        fetch?: (opts?: unknown) => Promise<unknown>
+      }
+
+      const threadFetcher = threadManager as unknown as ThreadFetchMethods
+
+      // Fetch active threads (if supported)
+      const extractThreads = (
+        res: unknown
+      ): Collection<string, ThreadChannel> => {
+        if (!res || typeof res !== 'object') return new Collection()
+        if ('threads' in (res as Record<string, unknown>)) {
+          const maybe = (res as Record<string, unknown>).threads
+          if (
+            maybe &&
+            typeof (maybe as { forEach?: unknown }).forEach === 'function'
+          )
+            return maybe as Collection<string, ThreadChannel>
+        }
+        return new Collection()
+      }
+
+      let activeThreads: Collection<string, ThreadChannel> = new Collection()
+      if (typeof threadFetcher.fetchActive === 'function') {
+        const res = await threadFetcher.fetchActive()
+        activeThreads = extractThreads(res)
+      }
+
+      // Fetch archived threads (try fetchArchived then fetch with archived flag)
+      let archivedThreads: Collection<string, ThreadChannel> = new Collection()
+      if (typeof threadFetcher.fetchArchived === 'function') {
+        const res = await threadFetcher.fetchArchived({ limit: 100 })
+        archivedThreads = extractThreads(res)
+      } else if (typeof threadFetcher.fetch === 'function') {
+        const res = await threadFetcher.fetch({ archived: true, limit: 100 })
+        archivedThreads = extractThreads(res)
+      }
+
+      const threads: Array<ThreadChannel> = []
+      for (const t of activeThreads.values()) threads.push(t)
+      for (const t of archivedThreads.values()) threads.push(t)
+      return threads
     }
 
-    let activeThreads: Collection<string, ThreadChannel> = new Collection()
-    if (typeof threadFetcher.fetchActive === 'function') {
-      const res = await threadFetcher.fetchActive()
-      activeThreads = extractThreads(res)
+    let modThreads: ThreadChannel[] = []
+    let auctionsThreads: ThreadChannel[] = []
+
+    if (type === 'all') {
+      // Fetch from both channels
+      modThreads = await fetchThreadsFromChannel(channelIds.modTickets)
+      auctionsThreads = await fetchThreadsFromChannel(
+        channelIds.auctionsTickets
+      )
+    } else if (type === 'auctions') {
+      auctionsThreads = await fetchThreadsFromChannel(
+        channelIds.auctionsTickets
+      )
+    } else {
+      modThreads = await fetchThreadsFromChannel(channelIds.modTickets)
     }
-
-    // Fetch archived threads (try fetchArchived then fetch with archived flag)
-    let archivedThreads: Collection<string, ThreadChannel> = new Collection()
-    if (typeof threadFetcher.fetchArchived === 'function') {
-      const res = await threadFetcher.fetchArchived({ limit: 100 })
-      archivedThreads = extractThreads(res)
-    } else if (typeof threadFetcher.fetch === 'function') {
-      const res = await threadFetcher.fetch({ archived: true, limit: 100 })
-      archivedThreads = extractThreads(res)
-    }
-
-    const threads: Array<ThreadChannel> = []
-
-    for (const t of activeThreads.values()) threads.push(t)
-    for (const t of archivedThreads.values()) threads.push(t)
 
     const resolvedNorm = normalizeName(resolvedFlag)
 
     if (type === 'all') {
       // Handle "all" case - categorize all unresolved tickets
-      const modTickets = threads.filter((t) => {
+      const modTickets = modThreads.filter((t) => {
         const n = normalizeName(t.name)
         return !n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
       })
 
-      const reviewerTickets = threads.filter((t) => {
+      const reviewerTickets = modThreads.filter((t) => {
         const n = normalizeName(t.name)
         return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
       })
 
-      const auctionsTickets = threads.filter((t) => {
+      const auctionsTickets = auctionsThreads.filter((t) => {
         const n = normalizeName(t.name)
         return !n.startsWith(resolvedNorm)
       })
@@ -214,19 +227,19 @@ export const getUnresolvedTickets = async (
 
       if (type === 'reviewer') {
         // Reviewer tickets use the `dispute-` prefix (allow spaces around hyphen)
-        unresolved = threads.filter((t) => {
+        unresolved = modThreads.filter((t) => {
           const n = normalizeName(t.name)
           return n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
         })
       } else if (type === 'mod') {
         // Mod tickets are any non-reviewer tickets (exclude `dispute-`)
-        unresolved = threads.filter((t) => {
+        unresolved = modThreads.filter((t) => {
           const n = normalizeName(t.name)
           return !n.startsWith('dispute-') && !n.startsWith(resolvedNorm)
         })
       } else {
         // auctions
-        unresolved = threads.filter((t) => {
+        unresolved = auctionsThreads.filter((t) => {
           const n = normalizeName(t.name)
           return !n.startsWith(resolvedNorm)
         })
