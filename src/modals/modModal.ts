@@ -174,7 +174,13 @@ export const execute = async (
   const embed = new EmbedBuilder()
     .setTitle(`${titleExtra}`)
     .setDescription(
-      `${descriptionExtra ? descriptionExtra + '\n\n' : ''}Please provide any additional context or evidence if applicable.\n\n${emoji.dotred} For auction related help, create a ticket in <#1012032743250595921> instead.\n${emoji.dotred} A mod will respond as soon as possible. Please don't ping individual staff.`
+      `${
+        descriptionExtra ? descriptionExtra + '\n\n' : ''
+      }Please provide any additional context or evidence if applicable.\n\n${
+        emoji.dotred
+      } For auction related help, create a ticket in <#1012032743250595921> instead.\n${
+        emoji.dotred
+      } A mod will respond as soon as possible. Please don't ping individual staff.`
     )
     .setColor('#ff3366')
 
