@@ -112,7 +112,9 @@ export const execute = async (
     entityIDField = ''
   }
   if (type === 'transfer_ownership') {
-    modReasonField = 'modOwnershipUserID'
+    // For ownership transfers, the main entity is the bot/server link.
+    // The target user ID is appended separately later as "User ID to transfer to".
+    modReasonField = ''
     entityIDField = 'modOwnershipBotOrServer'
   }
 
