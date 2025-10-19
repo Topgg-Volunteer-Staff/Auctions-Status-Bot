@@ -29,6 +29,7 @@ export const execute = async (
   const match = interaction.customId.match(/^modModal_(.+)$/)
   if (!match) return
   let type = match[1]
+  const originalType = type
 
   // Handle the new unified report modal (defensive: default to Other on any error)
   let reportSelectedLabel = ''
@@ -96,7 +97,7 @@ export const execute = async (
   let entityIDField = 'entityID'
 
   // Handle report modal fields
-  if (type && type.startsWith('report_')) {
+  if (type && type.startsWith('report_') && originalType !== 'other') {
     modReasonField = 'reason'
     entityIDField = 'entityID'
   } else if (type === 'modOwnershipUserID') {
