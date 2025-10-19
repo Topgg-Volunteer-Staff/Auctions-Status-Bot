@@ -30,6 +30,7 @@ export const execute = async (
   let type = match[1]
 
   // Handle the new unified report modal
+  let reportSelectedLabel = ''
   if (type === 'report') {
     // Read readable values directly ('bot' | 'server' | 'user' | 'review' | 'other')
     const values = interaction.fields.getStringSelectValues('reportType')
@@ -41,6 +42,14 @@ export const execute = async (
       review: 'report_review',
       other: 'report_other',
     }
+    const labelMap: Record<string, string> = {
+      bot: 'Bot',
+      server: 'Server',
+      user: 'User',
+      review: 'Review',
+      other: 'Other',
+    }
+    reportSelectedLabel = labelMap[selected] || 'Other'
     type = reportTypeMap[selected] || 'report_other'
   }
 
@@ -219,6 +228,10 @@ export const execute = async (
   // For ownership transfers, always show project type explicitly
   if (type === 'transfer_ownership' && ownershipType) {
     parts.push(`Project type: ${ownershipType}`)
+  }
+  // For reports, include the selected report type for clarity
+  if (type && type.startsWith('report_') && reportSelectedLabel) {
+    parts.push(`Report type: ${reportSelectedLabel}`)
   }
   if (entityID.trim()) {
     const label =
