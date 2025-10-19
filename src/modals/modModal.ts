@@ -220,7 +220,13 @@ export const execute = async (
     const vals = interaction.fields.getStringSelectValues(
       '60d695abbca14599914cbc60e4d49488'
     )
-    ownershipType = vals[0] || '' // 'bot' | 'server'
+    const raw = vals[0] || ''
+    // Map submitted values to human-readable labels
+    const typeMap: Record<string, string> = {
+      '1b75e705bb85414a92d6041ae3760fd7': 'BOT',
+      '3a416a1c4df443f6b8498bf7706f0c25': 'SERVER',
+    }
+    ownershipType = typeMap[raw] || raw
   } catch {
     ownershipType = ''
   }
@@ -238,8 +244,13 @@ export const execute = async (
     const selectedUsers = interaction.fields.getSelectedUsers(
       '1a6b4e0e74f1424e9b34b6fa393d933f'
     )
-    const first = selectedUsers?.first()
-    ownershipTransfer = first?.id ?? ''
+    // Ensure we have at least one selected user
+    if (selectedUsers && selectedUsers.size > 0) {
+      const first = selectedUsers.first()
+      ownershipTransfer = first?.id ?? ''
+    } else {
+      ownershipTransfer = ''
+    }
   } catch {
     // Fallback to text input ID if present in older clients
     try {
