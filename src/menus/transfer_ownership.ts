@@ -1,11 +1,11 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   StringSelectMenuInteraction,
   Client,
 } from 'discord.js'
+import { LabelBuilder } from '@discordjs/builders'
 
 export const menu = {
   name: 'transfer_ownership',
@@ -18,7 +18,7 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_requestownershiptransfer') // modal custom id
+    .setCustomId('modModal_transfer_ownership') // modal custom id
     .setTitle('Request an ownership transfer')
 
   const BotOrServer = new TextInputBuilder()
@@ -37,15 +37,17 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. 1376991905191039006')
 
-  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    userID
-  )
+  // Create labels with text input components
+  const botOrServerLabel = new LabelBuilder()
+    .setLabel('Bot/Server link')
+    .setTextInputComponent(BotOrServer)
 
-  const BotOrServerRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    BotOrServer
-  )
+  const userIdLabel = new LabelBuilder()
+    .setLabel('User ID to transfer to')
+    .setTextInputComponent(userID)
 
-  modal.addComponents(userIdRow, BotOrServerRow)
+  // Add label components to modal (replacing deprecated addComponents)
+  modal.addLabelComponents(botOrServerLabel, userIdLabel)
 
   await interaction.showModal(modal)
 }

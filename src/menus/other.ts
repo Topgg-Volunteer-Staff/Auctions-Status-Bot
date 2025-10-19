@@ -8,7 +8,7 @@ import {
 } from 'discord.js'
 
 export const menu = {
-  name: 'otherreport_report',
+  name: 'other',
 }
 
 export const execute = async (
@@ -18,7 +18,7 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_otherreport') // modal custom id
+    .setCustomId('modModal_other') // modal custom id
     .setTitle('I need help with something else')
 
   const reasonInput = new TextInputBuilder()

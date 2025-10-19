@@ -55,28 +55,19 @@ export const execute = async (
         value: 'reset',
       },
       {
-        label: 'Report a user',
-        value: 'report_user',
-      },
-      {
-        label: 'Report a bot',
-        value: 'report_bot',
-      },
-      {
-        label: 'Report a server',
-        value: 'report_server',
-      },
-      {
-        label: 'Report a review',
-        value: 'report_review',
+        label: 'Report',
+        value: 'report',
+        description: 'Report bots, servers, users, reviews or other issues',
       },
       {
         label: 'Request ownership transfer',
         value: 'transfer_ownership',
+        description: 'Transfer ownership of a bot or server',
       },
       {
         label: 'Other',
-        value: 'report_other',
+        value: 'other',
+        description: 'General help or other issues',
       },
     ])
 

@@ -27,7 +27,46 @@ export const execute = async (
   // Extract type from modal's customId
   const match = interaction.customId.match(/^modModal_(.+)$/)
   if (!match) return
-  const type = match[1]
+  let type = match[1]
+
+  // Handle the new unified report modal
+  if (type === 'report') {
+    // Get the report type from the select menu value
+    let reportType = 'other'
+    try {
+      const reportTypeValues =
+        interaction.fields.getStringSelectValues('reportType')
+      const selectedValue = reportTypeValues[0] // Get the first selected value
+
+      // Map the select menu values to report types
+      const valueMap: Record<string, string> = {
+        eb6bd3a320984ac0bc0f68b3d7e475e6: 'user',
+        '2ff456c1bd4545e1b7f12e6d07e6d012': 'bot',
+        '8705f9f12c084938a0be8d06d4766237': 'server',
+        '56425f6f71974ee995c870c1e0a31052': 'review',
+        c4cbfd581fb24e3ead3f852ff9e34b87: 'other',
+      }
+      reportType = selectedValue ? valueMap[selectedValue] || 'other' : 'other'
+    } catch {
+      // If no report type provided, default to other
+    }
+
+    // Map the report type to the old naming for compatibility
+    const reportTypeMap: Record<string, string> = {
+      bot: 'report_bot',
+      server: 'report_server',
+      user: 'report_user',
+      review: 'report_review',
+      other: 'report_other',
+    }
+
+    type = reportTypeMap[reportType] || 'report_other'
+  }
+
+  // Handle the general other modal
+  if (type === 'other') {
+    type = 'report_other'
+  }
 
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
@@ -61,14 +100,18 @@ export const execute = async (
   let modReasonField = 'modReason'
   let entityIDField = 'entityID'
 
-  if (type === 'modOwnershipUserID') {
+  // Handle report modal fields
+  if (type && type.startsWith('report_')) {
+    modReasonField = 'reason'
+    entityIDField = 'entityID'
+  } else if (type === 'modOwnershipUserID') {
     modReasonField = 'modOwnershipUserID'
     entityIDField = ''
   } else if (type === 'modOwnershipBotOrServer') {
     modReasonField = 'modOwnershipBotOrServer'
     entityIDField = ''
   }
-  if (type === 'requestownershiptransfer') {
+  if (type === 'transfer_ownership') {
     modReasonField = 'modOwnershipUserID'
     entityIDField = 'modOwnershipBotOrServer'
   }
@@ -93,22 +136,22 @@ export const execute = async (
   // 🔹 Different cases for different buttons
   let descriptionExtra = ''
   switch (type) {
-    case 'otherreport':
+    case 'report_other':
       descriptionExtra = `${emoji.bot} This ticket was opened for **other reasons.**`
       break
-    case 'reportbot':
+    case 'report_bot':
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a bot.**`
       break
-    case 'reportreview':
+    case 'report_review':
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a review.**`
       break
-    case 'reportserver':
+    case 'report_server':
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a server.**`
       break
-    case 'reportuser':
+    case 'report_user':
       descriptionExtra = `${emoji.bot} This ticket was opened to **report a user.**`
       break
-    case 'requestownershiptransfer':
+    case 'transfer_ownership':
       descriptionExtra = `${emoji.bot} This ticket was opened to **request an ownership transfer.**`
       break
     case 'contactuser':
@@ -162,17 +205,17 @@ export const execute = async (
   })
 
   const idLabels: Record<string, string> = {
-    reportserver: 'Server link',
-    reportbot: 'Bot link',
-    reportuser: 'User ID',
-    reportreview: 'Bot/Server link',
-    requestownershiptransfer: 'Bot/Server link',
-    otherreport: '',
+    report_server: 'Server link',
+    report_bot: 'Bot link',
+    report_user: 'User ID',
+    report_review: 'Bot/Server link',
+    transfer_ownership: 'Bot/Server link',
+    report_other: '',
   }
 
   let screenshot = ''
   try {
-    screenshot = interaction.fields.getTextInputValue('Screenshot')
+    screenshot = interaction.fields.getTextInputValue('screenshot')
   } catch {
     screenshot = ''
   }
