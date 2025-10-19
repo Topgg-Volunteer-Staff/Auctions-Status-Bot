@@ -1,13 +1,14 @@
 import {
   ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   StringSelectMenuInteraction,
   Client,
   LabelBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   UserSelectMenuBuilder,
+  TextDisplayBuilder,
+  TextInputBuilder,
+  TextInputStyle,
 } from 'discord.js'
 
 export const menu = {
@@ -57,13 +58,19 @@ export const execute = async (
         )
     )
 
-  // Then the link input
+  // Components in order: type select → link ID → user select
   const linkLabel = new LabelBuilder()
     .setLabel('ID')
     .setTextInputComponent(BotOrServer)
 
-  // Then the user id input
   modal.addLabelComponents(ownershipTypeLabel, linkLabel, ownershipUserLabel)
+
+  // Add informational text display
+  modal.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      'To prove you are the owner of the project, you must be able to do one of these 3 things:\n1. Change your bot\'s "about me" to include "top.gg verification" from the Discord Developer Portal.\n2. Send a Direct Message to the Moderator (who will help you in the ticket) through the bot.\n3. Making changes on code (botinfo, custom command, etc.)'
+    )
+  )
 
   await interaction.showModal(modal)
 }
