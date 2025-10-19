@@ -40,7 +40,6 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
