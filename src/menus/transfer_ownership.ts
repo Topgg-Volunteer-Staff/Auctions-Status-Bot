@@ -38,9 +38,6 @@ export const execute = async (
     .setUserSelectMenuComponent(
       new UserSelectMenuBuilder()
         .setCustomId('ownershipUserSelect')
-        .setPlaceholder('Select a user')
-        .setMinValues(1)
-        .setMaxValues(1)
     )
 
   // Ownership type select
