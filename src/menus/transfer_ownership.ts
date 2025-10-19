@@ -6,7 +6,6 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   UserSelectMenuBuilder,
-  TextDisplayBuilder,
   TextInputBuilder,
   TextInputStyle,
 } from 'discord.js'
