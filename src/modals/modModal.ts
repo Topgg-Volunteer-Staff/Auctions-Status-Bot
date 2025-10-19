@@ -251,11 +251,14 @@ export const execute = async (
   }
 
   const parts: Array<string> = []
+  // For ownership transfers, always show project type explicitly
+  if (type === 'transfer_ownership' && ownershipType) {
+    parts.push(`Project type: ${ownershipType.toUpperCase()}`)
+  }
   if (entityID.trim()) {
     const label =
       (type && idLabels[type as keyof typeof idLabels]) ?? 'Entity/User ID'
-    const prefix = ownershipType ? `${ownershipType.toUpperCase()} ` : ''
-    parts.push(`${prefix}${label}: ${entityID}`)
+    parts.push(`${label}: ${entityID}`)
   }
 
   if (!ownershipTransfer.trim() && userInput.trim()) {
@@ -267,7 +270,9 @@ export const execute = async (
   }
 
   if (ownershipTransfer.trim()) {
-    parts.push(`User ID to transfer to: ${ownershipTransfer}`)
+    parts.push(
+      `User to transfer to: <@${ownershipTransfer}> (${ownershipTransfer})`
+    )
   }
 
   let messageContent = parts.join('\n\n')
