@@ -5,6 +5,7 @@ import {
   ThreadAutoArchiveDuration,
   EmbedBuilder,
   MessageFlags,
+  MessageType,
 } from 'discord.js'
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
@@ -83,6 +84,19 @@ export const execute = async (
     })
 
     await sentMessage.pin()
+
+    // Delete the auto-generated system "pinned a message" notice
+    try {
+      const recent = await thread.messages.fetch({ limit: 5 })
+      const pinNotice = recent.find(
+        (m) => m.type === MessageType.ChannelPinnedMessage
+      )
+      if (pinNotice) {
+        await pinNotice.delete().catch(() => {})
+      }
+    } catch {
+      // ignore
+    }
 
     await interaction.editReply({
       embeds: [
