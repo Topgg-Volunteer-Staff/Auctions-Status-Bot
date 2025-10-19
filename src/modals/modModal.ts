@@ -215,21 +215,15 @@ export const execute = async (
   }
 
   // Ownership type (select in modal) - optional context for transfer ownership
-  let ownershipType = ''
-  try {
-    const vals = interaction.fields.getStringSelectValues(
-      '60d695abbca14599914cbc60e4d49488'
-    )
-    const raw = vals[0] || ''
-    // Map submitted values to human-readable labels
-    const typeMap: Record<string, string> = {
-      '1b75e705bb85414a92d6041ae3760fd7': 'BOT',
-      '3a416a1c4df443f6b8498bf7706f0c25': 'SERVER',
-    }
-    ownershipType = typeMap[raw] || raw
-  } catch {
-    ownershipType = ''
+  const typeValues = interaction.fields.getStringSelectValues(
+    '60d695abbca14599914cbc60e4d49488'
+  )
+  const raw = typeValues[0] || ''
+  const typeMap: Record<string, string> = {
+    '1b75e705bb85414a92d6041ae3760fd7': 'Bot',
+    '3a416a1c4df443f6b8498bf7706f0c25': 'Server',
   }
+  const ownershipType = typeMap[raw] || raw
 
   let screenshot = ''
   try {
@@ -238,28 +232,12 @@ export const execute = async (
     screenshot = ''
   }
 
-  let ownershipTransfer = ''
-  try {
-    // Prefer user select if provided
-    const selectedUsers = interaction.fields.getSelectedUsers(
-      '1a6b4e0e74f1424e9b34b6fa393d933f'
-    )
-    // Ensure we have at least one selected user
-    if (selectedUsers && selectedUsers.size > 0) {
-      const first = selectedUsers.first()
-      ownershipTransfer = first?.id ?? ''
-    } else {
-      ownershipTransfer = ''
-    }
-  } catch {
-    // Fallback to text input ID if present in older clients
-    try {
-      ownershipTransfer =
-        interaction.fields.getTextInputValue('modOwnershipUserID')
-    } catch {
-      ownershipTransfer = ''
-    }
-  }
+  const selectedUsers = interaction.fields.getSelectedUsers(
+    '1a6b4e0e74f1424e9b34b6fa393d933f',
+    true
+  )
+  const firstUser = selectedUsers.first()
+  const ownershipTransfer = firstUser?.id ?? ''
 
   const parts: Array<string> = []
   // For ownership transfers, always show project type explicitly
