@@ -34,7 +34,10 @@ export const execute = async (
   const ownershipUserLabel = new LabelBuilder()
     .setLabel('User to transfer to')
     .setUserSelectMenuComponent(
-      new UserSelectMenuBuilder().setCustomId('ownershipUserSelect')
+      new UserSelectMenuBuilder()
+        .setCustomId('1a6b4e0e74f1424e9b34b6fa393d933f')
+        .setMinValues(1)
+        .setMaxValues(1)
     )
 
   // Project type select – requested ids/values
