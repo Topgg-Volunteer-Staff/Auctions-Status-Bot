@@ -31,27 +31,9 @@ export const execute = async (
 
   // Handle the new unified report modal
   if (type === 'report') {
-    // Get the report type from the select menu value
-    let reportType = 'other'
-    try {
-      const reportTypeValues =
-        interaction.fields.getStringSelectValues('reportType')
-      const selectedValue = reportTypeValues[0] // Get the first selected value
-
-      // Map the select menu values to report types
-      const valueMap: Record<string, string> = {
-        eb6bd3a320984ac0bc0f68b3d7e475e6: 'user',
-        '2ff456c1bd4545e1b7f12e6d07e6d012': 'bot',
-        '8705f9f12c084938a0be8d06d4766237': 'server',
-        '56425f6f71974ee995c870c1e0a31052': 'review',
-        c4cbfd581fb24e3ead3f852ff9e34b87: 'other',
-      }
-      reportType = selectedValue ? valueMap[selectedValue] || 'other' : 'other'
-    } catch {
-      // If no report type provided, default to other
-    }
-
-    // Map the report type to the old naming for compatibility
+    // Read readable values directly ('bot' | 'server' | 'user' | 'review' | 'other')
+    const values = interaction.fields.getStringSelectValues('reportType')
+    const selected = values[0] || 'other'
     const reportTypeMap: Record<string, string> = {
       bot: 'report_bot',
       server: 'report_server',
@@ -59,8 +41,7 @@ export const execute = async (
       review: 'report_review',
       other: 'report_other',
     }
-
-    type = reportTypeMap[reportType] || 'report_other'
+    type = reportTypeMap[selected] || 'report_other'
   }
 
   // Handle the general other modal
@@ -114,7 +95,7 @@ export const execute = async (
   if (type === 'transfer_ownership') {
     // For ownership transfers: entity is the provided project ID from the modal
     modReasonField = ''
-    entityIDField = '46dd2203eef64d4c9ec44536f3756cdc'
+    entityIDField = 'projectID'
   }
 
   // Extract user inputs safely
@@ -210,20 +191,15 @@ export const execute = async (
     report_bot: 'Bot ID',
     report_user: 'User ID',
     report_review: 'Bot/Server ID',
-    transfer_ownership: 'Bot/Server ID',
+    transfer_ownership: 'ID',
     report_other: '',
   }
 
   // Ownership type (select in modal) - optional context for transfer ownership
-  const typeValues = interaction.fields.getStringSelectValues(
-    '60d695abbca14599914cbc60e4d49488'
-  )
+  const typeValues = interaction.fields.getStringSelectValues('ownershipType')
   const raw = typeValues[0] || ''
-  const typeMap: Record<string, string> = {
-    '1b75e705bb85414a92d6041ae3760fd7': 'Bot',
-    '3a416a1c4df443f6b8498bf7706f0c25': 'Server',
-  }
-  const ownershipType = typeMap[raw] || raw
+  const ownershipType =
+    raw === 'bot' ? 'Bot' : raw === 'server' ? 'Server' : raw
 
   let screenshot = ''
   try {
@@ -233,7 +209,7 @@ export const execute = async (
   }
 
   const selectedUsers = interaction.fields.getSelectedUsers(
-    '1a6b4e0e74f1424e9b34b6fa393d933f',
+    'ownershipUserSelect',
     true
   )
   const firstUser = selectedUsers.first()
@@ -242,7 +218,7 @@ export const execute = async (
   const parts: Array<string> = []
   // For ownership transfers, always show project type explicitly
   if (type === 'transfer_ownership' && ownershipType) {
-    parts.push(`Project type: ${ownershipType.toUpperCase()}`)
+    parts.push(`Project type: ${ownershipType}`)
   }
   if (entityID.trim()) {
     const label =

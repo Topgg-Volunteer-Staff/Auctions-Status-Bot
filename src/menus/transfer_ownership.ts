@@ -26,7 +26,7 @@ export const execute = async (
 
   // ID input – requested customId
   const idInput = new TextInputBuilder()
-    .setCustomId('46dd2203eef64d4c9ec44536f3756cdc')
+    .setCustomId('projectID')
     .setStyle(TextInputStyle.Short)
     .setPlaceholder('E.g. 264445053596991498')
 
@@ -35,7 +35,7 @@ export const execute = async (
     .setLabel('User to transfer to')
     .setUserSelectMenuComponent(
       new UserSelectMenuBuilder()
-        .setCustomId('1a6b4e0e74f1424e9b34b6fa393d933f')
+        .setCustomId('ownershipUserSelect')
         .setMinValues(1)
         .setMaxValues(1)
     )
@@ -45,14 +45,12 @@ export const execute = async (
     .setLabel('Select project type')
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
-        .setCustomId('60d695abbca14599914cbc60e4d49488')
+        .setCustomId('ownershipType')
         .addOptions(
-          new StringSelectMenuOptionBuilder()
-            .setLabel('Bot')
-            .setValue('1b75e705bb85414a92d6041ae3760fd7'),
+          new StringSelectMenuOptionBuilder().setLabel('Bot').setValue('bot'),
           new StringSelectMenuOptionBuilder()
             .setLabel('Server')
-            .setValue('3a416a1c4df443f6b8498bf7706f0c25')
+            .setValue('server')
         )
     )
 
