@@ -29,28 +29,32 @@ export const execute = async (
   if (!match) return
   let type = match[1]
 
-  // Handle the new unified report modal
+  // Handle the new unified report modal (defensive: default to Other on any error)
   let reportSelectedLabel = ''
   if (type === 'report') {
-    // Read readable values directly ('bot' | 'server' | 'user' | 'review' | 'other')
-    const values = interaction.fields.getStringSelectValues('reportType')
-    const selected = values[0] || 'other'
-    const reportTypeMap: Record<string, string> = {
-      bot: 'report_bot',
-      server: 'report_server',
-      user: 'report_user',
-      review: 'report_review',
-      other: 'report_other',
+    try {
+      const values = interaction.fields.getStringSelectValues('reportType')
+      const selected = values[0] || 'other'
+      const reportTypeMap: Record<string, string> = {
+        bot: 'report_bot',
+        server: 'report_server',
+        user: 'report_user',
+        review: 'report_review',
+        other: 'report_other',
+      }
+      const labelMap: Record<string, string> = {
+        bot: 'Bot',
+        server: 'Server',
+        user: 'User',
+        review: 'Review',
+        other: 'Other',
+      }
+      reportSelectedLabel = labelMap[selected] || 'Other'
+      type = reportTypeMap[selected] || 'report_other'
+    } catch {
+      reportSelectedLabel = 'Other'
+      type = 'report_other'
     }
-    const labelMap: Record<string, string> = {
-      bot: 'Bot',
-      server: 'Server',
-      user: 'User',
-      review: 'Review',
-      other: 'Other',
-    }
-    reportSelectedLabel = labelMap[selected] || 'Other'
-    type = reportTypeMap[selected] || 'report_other'
   }
 
   // Handle the general other modal
