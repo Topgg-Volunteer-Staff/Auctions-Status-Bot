@@ -25,12 +25,10 @@ export const execute = async (
     .setCustomId('modModal_transfer_ownership') // modal custom id
     .setTitle('Request an ownership transfer')
 
-  const BotOrServer = new TextInputBuilder()
-    .setCustomId('modOwnershipBotOrServer')
-    .setLabel('Bot/Server ID')
+  // ID input – requested customId
+  const idInput = new TextInputBuilder()
+    .setCustomId('46dd2203eef64d4c9ec44536f3756cdc')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(1000)
     .setPlaceholder('E.g. 264445053596991498')
 
   // User select to choose the transferee
@@ -40,30 +38,28 @@ export const execute = async (
       new UserSelectMenuBuilder().setCustomId('ownershipUserSelect')
     )
 
-  // Ownership type select
-  const ownershipTypeLabel = new LabelBuilder()
-    .setLabel('Select type')
+  // Project type select – requested ids/values
+  const projectTypeLabel = new LabelBuilder()
+    .setLabel('Select project type')
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
-        .setCustomId('ownershipType')
+        .setCustomId('60d695abbca14599914cbc60e4d49488')
         .addOptions(
           new StringSelectMenuOptionBuilder()
             .setLabel('Bot')
-            .setValue('bot')
-            .setDescription('Transfer a bot.'),
+            .setValue('1b75e705bb85414a92d6041ae3760fd7'),
           new StringSelectMenuOptionBuilder()
             .setLabel('Server')
-            .setValue('server')
-            .setDescription('Transfer a server.')
+            .setValue('3a416a1c4df443f6b8498bf7706f0c25')
         )
     )
 
-  // Components in order: type select → link ID → user select
+  // Components in order: project type select → ID → user select
   const linkLabel = new LabelBuilder()
     .setLabel('ID')
-    .setTextInputComponent(BotOrServer)
+    .setTextInputComponent(idInput)
 
-  modal.addLabelComponents(ownershipTypeLabel, linkLabel, ownershipUserLabel)
+  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel)
 
   // Add informational text display
   modal.addTextDisplayComponents(

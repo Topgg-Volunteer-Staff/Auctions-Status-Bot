@@ -112,9 +112,9 @@ export const execute = async (
     entityIDField = ''
   }
   if (type === 'transfer_ownership') {
-    // For ownership transfers: entity is the link; ownershipType select is optional context
+    // For ownership transfers: entity is the provided project ID from the modal
     modReasonField = ''
-    entityIDField = 'modOwnershipBotOrServer'
+    entityIDField = '46dd2203eef64d4c9ec44536f3756cdc'
   }
 
   // Extract user inputs safely
@@ -217,7 +217,9 @@ export const execute = async (
   // Ownership type (select in modal) - optional context for transfer ownership
   let ownershipType = ''
   try {
-    const vals = interaction.fields.getStringSelectValues('ownershipType')
+    const vals = interaction.fields.getStringSelectValues(
+      '60d695abbca14599914cbc60e4d49488'
+    )
     ownershipType = vals[0] || '' // 'bot' | 'server'
   } catch {
     ownershipType = ''
@@ -234,7 +236,7 @@ export const execute = async (
   try {
     // Prefer user select if provided
     const selectedUsers = interaction.fields.getSelectedUsers(
-      'ownershipUserSelect'
+      '1a6b4e0e74f1424e9b34b6fa393d933f'
     )
     const first = selectedUsers?.first()
     ownershipTransfer = first?.id ?? ''
