@@ -7,14 +7,13 @@ import {
   MessageFlags,
   TextChannel,
   Collection,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
-import { errorEmbed } from '../utils/embeds'
+import { errorEmbed, successEmbed } from '../utils/embeds'
 
 // Normalize thread names to avoid invisible characters and different dash types
 const normalizeName = (s: string): string =>
@@ -42,11 +41,10 @@ export const execute = async (
     return
   }
 
-  // Create embed with buttons
-  const embed = new EmbedBuilder()
-    .setTitle('Unresolved Tickets')
-    .setDescription('Select a category to view unresolved tickets:')
-    .setColor('#ff3366')
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
+
+  // Get all unresolved tickets by default
+  const result = await getUnresolvedTickets(interaction.guild, 'all')
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -67,10 +65,17 @@ export const execute = async (
       .setStyle(ButtonStyle.Secondary)
   )
 
-  await interaction.reply({
-    embeds: [embed],
+  if (result.title === 'Error') {
+    await interaction.editReply({
+      embeds: [errorEmbed('Error', result.content)],
+      components: [row],
+    })
+    return
+  }
+
+  await interaction.editReply({
+    embeds: [successEmbed(result.title, result.content)],
     components: [row],
-    flags: MessageFlags.Ephemeral,
   })
 }
 
