@@ -1,5 +1,4 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -8,6 +7,8 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
   MessageFlags,
+  LabelBuilder,
+  UserSelectMenuBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
@@ -37,14 +38,6 @@ export const execute = async (
     .setCustomId('contactUserModal')
     .setTitle('Contact user')
 
-  const userId = new TextInputBuilder()
-    .setCustomId('userId')
-    .setLabel('User ID')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(20)
-    .setPlaceholder('E.g. 264811613708746752')
-
   const reason = new TextInputBuilder()
     .setCustomId('reason')
     .setLabel('Reason')
@@ -53,13 +46,21 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
 
-  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    userId
-  )
-  const reasonRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reason
-  )
+  // User select to choose the user to contact
+  const userSelectLabel = new LabelBuilder()
+    .setLabel('User to contact')
+    .setUserSelectMenuComponent(
+      new UserSelectMenuBuilder()
+        .setCustomId('contactUserSelect')
+        .setMinValues(1)
+        .setMaxValues(1)
+    )
 
-  modal.addComponents(userIdRow, reasonRow)
+  // Reason input
+  const reasonLabel = new LabelBuilder()
+    .setLabel('Reason')
+    .setTextInputComponent(reason)
+
+  modal.addLabelComponents(userSelectLabel, reasonLabel)
   await interaction.showModal(modal)
 }

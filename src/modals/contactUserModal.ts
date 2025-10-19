@@ -32,15 +32,32 @@ export const execute = async (
     return
   }
 
-  const userId = interaction.fields.getTextInputValue('userId').trim()
   const reason = interaction.fields.getTextInputValue('reason').trim()
 
-  if (!/^\d{17,19}$/.test(userId)) {
+  // Get selected user from the user select component
+  let userId = ''
+  try {
+    const selectedUsers = interaction.fields.getSelectedUsers('contactUserSelect', true)
+    const firstUser = selectedUsers.first()
+    userId = firstUser?.id ?? ''
+  } catch {
     await interaction.editReply({
       embeds: [
         errorEmbed(
-          'Invalid User ID',
-          'Please provide a valid Discord user ID.'
+          'No User Selected',
+          'Please select a user to contact.'
+        ),
+      ],
+    })
+    return
+  }
+
+  if (!userId) {
+    await interaction.editReply({
+      embeds: [
+        errorEmbed(
+          'No User Selected',
+          'Please select a user to contact.'
         ),
       ],
     })
@@ -52,7 +69,7 @@ export const execute = async (
     const username = user.username
 
     const thread = await modTickets.threads.create({
-      name: `Contact User - ${username}`,
+      name: `Contact User - ${username} <> ${interaction.user.username}`,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       type: 12,
     })
