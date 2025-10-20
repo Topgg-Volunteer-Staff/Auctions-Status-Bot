@@ -26,7 +26,7 @@ export const execute = async (
     .setTitle('Request an ownership transfer')
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(
-        `**For bot ownership:**\n- You must be able to do one of the following:\n- Change the bot's description on the Discord Developer Portal to "Top.gg Verification".\n- Send a Direct Message through the bot.\n- Edit a bot's command or add a new custom command saying "Top.gg Verification".\n\nIf you are unable to do any of these, unfortunately we cannot transfer ownership to you.`
+        `**For bot ownership:**\nYou must be able to do one of the following:\n- Change the bot's description on the Discord Developer Portal to "Top.gg Verification".\n- Send a Direct Message through the bot.\n- Edit a bot's command or add a new custom command saying "Top.gg Verification".\n\nIf you are unable to do any of these, unfortunately we cannot transfer ownership to you.`
       ),
       new TextDisplayBuilder().setContent(
         `**For server ownership:**\n- Please send your server's invite link (e.g. .gg/dbl). We will join the server to verify ownership.`
@@ -52,6 +52,19 @@ export const execute = async (
       "Want to transfer to a team? Select yourself, and we'll help you out in the ticket!"
     )
 
+  // Additional comments text input
+  const additionalCommentsInput = new TextInputBuilder()
+    .setCustomId('additionalComments')
+    .setLabel('Additional Comments')
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false)
+    .setMaxLength(1000)
+    .setPlaceholder('Any additional information you\'d like to provide...')
+
+  const additionalCommentsLabel = new LabelBuilder()
+    .setLabel('Additional Comments')
+    .setTextInputComponent(additionalCommentsInput)
+
   // Project type select – requested ids/values
   const projectTypeLabel = new LabelBuilder()
     .setLabel('Select project type')
@@ -70,7 +83,7 @@ export const execute = async (
     .setLabel('ID')
     .setTextInputComponent(idInput)
 
-  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel)
+  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel, additionalCommentsLabel)
 
   await interaction.showModal(modal)
 }

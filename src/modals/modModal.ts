@@ -284,6 +284,16 @@ export const execute = async (
     }
   }
 
+  // Additional comments (only for transfer ownership modal)
+  let additionalComments = ''
+  if (type === 'transfer_ownership') {
+    try {
+      additionalComments = interaction.fields.getTextInputValue('additionalComments').trim()
+    } catch {
+      additionalComments = ''
+    }
+  }
+
   const parts: Array<string> = []
   // For ownership transfers, always show project type explicitly
   if (type === 'transfer_ownership' && ownershipType) {
@@ -327,6 +337,10 @@ export const execute = async (
     parts.push(
       `User to transfer to: <@${ownershipTransfer}> (${ownershipTransfer})`
     )
+  }
+
+  if (additionalComments.trim()) {
+    parts.push(`Additional Comments: ${additionalComments}`)
   }
 
   let messageContent = parts.join('\n\n')
