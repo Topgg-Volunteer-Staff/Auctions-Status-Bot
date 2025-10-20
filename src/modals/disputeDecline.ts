@@ -29,6 +29,25 @@ export const execute = async (
   }
   const appealMessage = interaction.fields.getTextInputValue('reason').trim()
 
+  // Extract selected dispute reason
+  let selectedDisputeReason = ''
+  try {
+    const values = interaction.fields.getStringSelectValues('disputeReason')
+    selectedDisputeReason = values[0] || ''
+  } catch {
+    selectedDisputeReason = ''
+  }
+
+  // Map dispute reason values to readable labels
+  const disputeReasonLabels: Record<string, string> = {
+    extra_perms: 'Bot needs extra permissions',
+    dashboard_setup: 'Bot needs to be setup through dashboard',
+    not_clone: 'Not a clone (I added my own features)',
+    specific_setup: 'Bot works but needs specific setup',
+    misunderstood: 'Reviewer misunderstood bot functionality',
+    other: 'Other',
+  }
+
   if (!/^\d+$/.test(disputeID)) {
     await interaction.editReply({
       embeds: [
@@ -161,8 +180,14 @@ export const execute = async (
       avatar: interaction.user.displayAvatarURL(),
     })
 
+    const disputeReasonText = selectedDisputeReason
+      ? `**Dispute Reason:** ${
+          disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
+        }\n\n`
+      : ''
+
     const sentMessage = await webhook.send({
-      content: `${appealMessage}`,
+      content: `${disputeReasonText}${appealMessage}`,
       threadId: thread.id,
       allowedMentions: { users: [] },
     })
@@ -274,8 +299,14 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
+  const disputeReasonText = selectedDisputeReason
+    ? `**Dispute Reason:** ${
+        disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
+      }\n\n`
+    : ''
+
   const sentMessage = await webhook.send({
-    content: `${appealMessage}`,
+    content: `${disputeReasonText}${appealMessage}`,
     threadId: thread.id,
     allowedMentions: { users: [] },
   })
