@@ -42,9 +42,11 @@ export const execute = async (
   const disputeReasonLabels: Record<string, string> = {
     extra_perms: 'Bot needs extra permissions',
     dashboard_setup: 'Bot needs to be setup through dashboard',
+    code_grant: 'Bot requires code grant',
     not_clone: 'Not a clone (I added my own features)',
-    specific_setup: 'Bot works but needs specific setup',
-    misunderstood: 'Reviewer misunderstood bot functionality',
+    under_maintenance: 'Bot under maintenance',
+    wrongly_reviewed: 'Wrongly reviewed',
+    could_not_contact: 'Reviewer could not contact me',
     other: 'Other',
   }
 
