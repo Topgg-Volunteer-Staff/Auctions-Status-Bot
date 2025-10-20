@@ -38,18 +38,6 @@ export const execute = async (
     .setLabel('Bot/Application ID')
     .setTextInputComponent(reasonInput)
 
-  // Dispute reason text input
-  const disputeReasonInput = new TextInputBuilder()
-    .setCustomId('disputeReason')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(100)
-    .setPlaceholder('e.g., extra_perms, not_clone, wrongly_reviewed, etc.')
-
-  const disputeReasonLabel = new LabelBuilder()
-    .setLabel('Dispute Reason')
-    .setTextInputComponent(disputeReasonInput)
-
   const reason = new TextInputBuilder()
     .setCustomId('reason')
     .setStyle(TextInputStyle.Paragraph)
@@ -61,6 +49,6 @@ export const execute = async (
     .setLabel('Additional Details')
     .setTextInputComponent(reason)
 
-  modal.addLabelComponents(disputeReasonLabel, reasonInputLabel, reasonLabel)
+  modal.addLabelComponents(reasonInputLabel, reasonLabel)
   await interaction.showModal(modal)
 }
