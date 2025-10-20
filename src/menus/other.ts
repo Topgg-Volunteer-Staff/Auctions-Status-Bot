@@ -72,9 +72,7 @@ export const execute = async (
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true)
         .setMaxLength(1000)
-        .setPlaceholder(
-          'Please give as much detail as possible!'
-        )
+        .setPlaceholder('Please give as much detail as possible!')
     )
 
   modal.addLabelComponents(categorySelectLabel, reasonLabel)
