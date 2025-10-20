@@ -52,19 +52,6 @@ export const execute = async (
       "Want to transfer to a team? Select yourself, and we'll help you out in the ticket!"
     )
 
-  // Additional comments text input
-  const additionalCommentsInput = new TextInputBuilder()
-    .setCustomId('additionalComments')
-    .setLabel('Additional Comments')
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(false)
-    .setMaxLength(1000)
-    .setPlaceholder("Any additional information you'd like to provide...")
-
-  const additionalCommentsLabel = new LabelBuilder()
-    .setLabel('Additional Comments')
-    .setTextInputComponent(additionalCommentsInput)
-
   // Project type select – requested ids/values
   const projectTypeLabel = new LabelBuilder()
     .setLabel('Select project type')
@@ -83,12 +70,7 @@ export const execute = async (
     .setLabel('ID')
     .setTextInputComponent(idInput)
 
-  modal.addLabelComponents(
-    projectTypeLabel,
-    linkLabel,
-    ownershipUserLabel,
-    additionalCommentsLabel
-  )
+  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel)
 
   await interaction.showModal(modal)
 }
