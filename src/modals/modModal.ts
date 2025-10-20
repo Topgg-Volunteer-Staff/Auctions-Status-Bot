@@ -141,6 +141,17 @@ export const execute = async (
     }
   }
 
+  // Extract category type for other modal
+  let selectedCategoryType = ''
+  if (type === 'other') {
+    try {
+      const values = interaction.fields.getStringSelectValues('categoryType')
+      selectedCategoryType = values[0] || ''
+    } catch {
+      selectedCategoryType = ''
+    }
+  }
+
   // 🔹 Different cases for different tickets
   let titleExtra = ''
   let descriptionExtra = ''
@@ -159,6 +170,18 @@ export const execute = async (
       break
     case 'report_user':
       titleExtra = 'User Report'
+      break
+    case 'other':
+      // Handle the new other modal with category selection
+      const categoryLabels: Record<string, string> = {
+        account: 'Account Issue',
+        ban_appeal: 'Ban Appeal',
+        bug: 'Bug Report',
+        project_listing: 'Project Listing Issue',
+        unable_to_vote: 'Unable to Vote Issue',
+        other: 'Other Issue',
+      }
+      titleExtra = categoryLabels[selectedCategoryType] || 'Other Issue'
       break
     case 'transfer_ownership':
       if (selectedOwnershipType === 'bot') {
@@ -179,8 +202,6 @@ export const execute = async (
         : `${
             descriptionExtra ? descriptionExtra + '\n\n' : ''
           }Please provide any additional context or evidence if applicable.\n\n${
-            emoji.dotred
-          } For auction related help, create a ticket in <#1012032743250595921> instead.\n${
             emoji.dotred
           } A mod will respond as soon as possible. Please don't ping individual staff.`
     )
@@ -273,6 +294,22 @@ export const execute = async (
   // For reports, include the selected report type for clarity
   if (type && type.startsWith('report_') && reportSelectedLabel) {
     parts.push(`Report type: ${reportSelectedLabel}`)
+  }
+  // For other modal, include the selected category
+  if (type === 'other' && selectedCategoryType) {
+    const categoryLabels: Record<string, string> = {
+      account: 'Account Issue',
+      ban_appeal: 'Ban Appeal',
+      bug: 'Bug Report',
+      other: 'Other Issue',
+      project_listing: 'Project Listing Issue',
+      unable_to_vote: 'Unable to Vote Issue',
+    }
+    parts.push(
+      `Category: ${
+        categoryLabels[selectedCategoryType] || selectedCategoryType
+      }`
+    )
   }
   if (entityID.trim()) {
     const label =

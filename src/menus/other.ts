@@ -1,10 +1,13 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   StringSelectMenuInteraction,
   Client,
+  LabelBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  TextDisplayBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -20,21 +23,60 @@ export const execute = async (
   const modal = new ModalBuilder()
     .setCustomId('modModal_other') // modal custom id
     .setTitle('I need help with something else')
-
-  const reasonInput = new TextInputBuilder()
-    .setCustomId('modReason')
-    .setLabel('How can we help?')
-    .setStyle(TextInputStyle.Paragraph)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder(
-      'E.g. I need help with my account, I have a suggestion, etc.'
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        'For auction related help, create a ticket in <#1012032743250595921> instead.'
+      )
     )
 
-  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reasonInput
-  )
+  // Select menu for category selection
+  const categorySelectLabel = new LabelBuilder()
+    .setLabel('Select category')
+    .setStringSelectMenuComponent(
+      new StringSelectMenuBuilder()
+        .setCustomId('categoryType')
+        .addOptions(
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Account Issues')
+            .setValue('account')
+            .setDescription('Problems with your Top.gg account.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Ban Appeal')
+            .setValue('ban_appeal')
+            .setDescription('Appeal a ban.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Bug Report')
+            .setValue('bug')
+            .setDescription('Report a bug or technical issue.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Project Listing Issues')
+            .setValue('project_listing')
+            .setDescription('Problems with your project listing.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Unable to Vote')
+            .setValue('unable_to_vote')
+            .setDescription('Unable to vote on a project.'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Other')
+            .setValue('other')
+            .setDescription('Something else not listed above.')
+        )
+    )
 
-  modal.addComponents(reasonInputRow)
+  // Main reason text input
+  const reasonLabel = new LabelBuilder()
+    .setLabel('How can we help?')
+    .setTextInputComponent(
+      new TextInputBuilder()
+        .setCustomId('modReason')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000)
+        .setPlaceholder(
+          'Please give as much detail as possible!'
+        )
+    )
+
+  modal.addLabelComponents(categorySelectLabel, reasonLabel)
   await interaction.showModal(modal)
 }
