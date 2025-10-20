@@ -197,9 +197,9 @@ export const execute = async (
     .setDescription(
       type === 'transfer_ownership'
         ? descriptionExtra
-        : `${
-            descriptionExtra ? descriptionExtra + '\n\n' : ''
-          }Please provide any additional context or evidence if applicable.\n\n${
+        : `${descriptionExtra ? descriptionExtra + '\n\n' : ''}${
+            emoji.dotred
+          } Please provide any additional context or evidence if applicable.\n${
             emoji.dotred
           } A mod will respond as soon as possible. Please don't ping individual staff.`
     )
