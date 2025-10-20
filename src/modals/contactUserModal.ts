@@ -83,7 +83,7 @@ export const execute = async (
     })
 
     const embed = new EmbedBuilder()
-      .setTitle(`Contact ${username} - ${botId}`)
+      .setTitle(`Contact ${username}`)
       .setColor('#E91E63')
       .setDescription(
         botId

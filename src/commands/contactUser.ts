@@ -50,7 +50,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Short)
     .setRequired(false)
     .setMaxLength(100)
-    .setPlaceholder('E.g. 394594679221518336')
+    .setPlaceholder('E.g. 422087909634736160')
 
   // User select to choose the user to contact
   const userSelectLabel = new LabelBuilder()
@@ -66,7 +66,6 @@ export const execute = async (
   const botIdLabel = new LabelBuilder()
     .setLabel('Bot ID')
     .setTextInputComponent(botId)
-    .setDescription('Optional: Bot ID if contacting about a specific bot')
 
   // Reason input
   const reasonLabel = new LabelBuilder()
