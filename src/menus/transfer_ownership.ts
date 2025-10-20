@@ -8,6 +8,7 @@ import {
   UserSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle,
+  TextDisplayBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -23,6 +24,14 @@ export const execute = async (
   const modal = new ModalBuilder()
     .setCustomId('modModal_transfer_ownership') // modal custom id
     .setTitle('Request an ownership transfer')
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**For bot ownership:**\n- You must be able to do one of the following:\n- Change the bot's description on the Discord Developer Portal to "Top.gg Verification".\n- Send a Direct Message through the bot.\n- Edit a bot's command or add a new custom command saying "Top.gg Verification".\n\nIf you are unable to do any of these, unfortunately we cannot transfer ownership to you.`
+      ),
+      new TextDisplayBuilder().setContent(
+        `**For server ownership:**\n- Please send your server's invite link (e.g. .gg/dbl). We will join the server to verify ownership.`
+      )
+    )
 
   // ID input – requested customId
   const idInput = new TextInputBuilder()
