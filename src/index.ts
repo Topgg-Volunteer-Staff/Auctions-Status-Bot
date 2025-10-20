@@ -41,7 +41,7 @@ commandHandler(client)
 /**
  * Creates a standardized error embed for reporting errors.
  */
-function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
+export function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message
@@ -65,25 +65,29 @@ function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
 /**
  * Sends an error embed either to a dev channel or via webhook depending on ENVIRONMENT.
  */
-async function sendError(embed: EmbedBuilder): Promise<void> {
+export async function sendError(embed: EmbedBuilder): Promise<void> {
   const environment = process.env.ENVIRONMENT || 'DEVELOPMENT'
   console.log(`Current environment: ${environment}`)
 
   if (environment === 'DEVELOPMENT') {
     const channelId = '1403884779408986243'
+    console.log(`Attempting to send error to channel ${channelId}`)
     const channel = client.channels.cache.get(channelId)
 
     if (channel?.isTextBased()) {
       try {
+        console.log('Channel found, sending error message...')
         await (channel as TextChannel).send({ embeds: [embed] })
         console.log('Error message sent successfully to channel')
       } catch (sendErr) {
         console.error('Error sending message:', sendErr)
+        console.error('Channel permissions or other issues may be preventing message sending')
       }
     } else {
       console.error(
         `Channel with ID ${channelId} not found or is not text-based`
       )
+      console.error('Available channels:', client.channels.cache.map(c => ({ id: c.id, type: c.type, name: 'name' in c ? c.name : 'unknown' })))
     }
   } else if (environment === 'PRODUCTION') {
     const webhookUrl =
