@@ -55,6 +55,7 @@ export const execute = async (
   // Additional comments text input
   const additionalCommentsInput = new TextInputBuilder()
     .setCustomId('additionalComments')
+    .setLabel('Additional Comments')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(false)
     .setMaxLength(1000)
