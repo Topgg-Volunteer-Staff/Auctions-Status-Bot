@@ -5,6 +5,7 @@ import {
   EmbedBuilder,
   TextChannel,
   MessageFlags,
+  MessageType,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
@@ -199,6 +200,19 @@ export const execute = async (
       allowedMentions: { users: [] },
     })
     await sentMessage.pin()
+
+    // Delete the auto-generated system "pinned a message" notice
+    try {
+      const recent = await thread.messages.fetch({ limit: 5 })
+      const pinNotice = recent.find(
+        (m) => m.type === MessageType.ChannelPinnedMessage
+      )
+      if (pinNotice) {
+        await pinNotice.delete().catch(() => {})
+      }
+    } catch {
+      // ignore
+    }
     await webhook.delete()
 
     await interaction.editReply({
@@ -323,6 +337,20 @@ export const execute = async (
     allowedMentions: { users: [] },
   })
   await sentMessage.pin()
+
+  // Delete the auto-generated system "pinned a message" notice
+  try {
+    const recent = await thread.messages.fetch({ limit: 5 })
+    const pinNotice = recent.find(
+      (m) => m.type === MessageType.ChannelPinnedMessage
+    )
+    if (pinNotice) {
+      await pinNotice.delete().catch(() => {})
+    }
+  } catch {
+    // ignore
+  }
+
   await webhook.delete()
 
   await interaction.editReply({
