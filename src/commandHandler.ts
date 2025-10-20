@@ -311,7 +311,7 @@ export const commandHandler = async (client: Client) => {
       }
     } catch (err) {
       console.error('Interaction handler error:', err)
-      
+
       // Send error to error channel
       try {
         const { createErrorEmbed, sendError } = await import('./index')
@@ -319,7 +319,7 @@ export const commandHandler = async (client: Client) => {
       } catch (errorReportErr) {
         console.error('Failed to send error report:', errorReportErr)
       }
-      
+
       // Best-effort: avoid throwing
       if (interaction.isRepliable()) {
         try {

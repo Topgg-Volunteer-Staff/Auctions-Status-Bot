@@ -41,7 +41,10 @@ commandHandler(client)
 /**
  * Creates a standardized error embed for reporting errors.
  */
-export function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
+export function createErrorEmbed(
+  title: string,
+  errorData: unknown
+): EmbedBuilder {
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message
@@ -81,13 +84,22 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
         console.log('Error message sent successfully to channel')
       } catch (sendErr) {
         console.error('Error sending message:', sendErr)
-        console.error('Channel permissions or other issues may be preventing message sending')
+        console.error(
+          'Channel permissions or other issues may be preventing message sending'
+        )
       }
     } else {
       console.error(
         `Channel with ID ${channelId} not found or is not text-based`
       )
-      console.error('Available channels:', client.channels.cache.map(c => ({ id: c.id, type: c.type, name: 'name' in c ? c.name : 'unknown' })))
+      console.error(
+        'Available channels:',
+        client.channels.cache.map((c) => ({
+          id: c.id,
+          type: c.type,
+          name: 'name' in c ? c.name : 'unknown',
+        }))
+      )
     }
   } else if (environment === 'PRODUCTION') {
     const webhookUrl =
