@@ -59,11 +59,6 @@ export const execute = async (
     }
   }
 
-  // Handle the general other modal
-  if (type === 'other') {
-    type = 'report_other'
-  }
-
   const modTickets = interaction.client.channels.cache.get(
     channelIds.modTickets
   ) as TextChannel | undefined
@@ -100,6 +95,9 @@ export const execute = async (
   if (type && type.startsWith('report_') && originalType !== 'other') {
     modReasonField = 'reason'
     entityIDField = 'entityID'
+  } else if (type === 'other') {
+    modReasonField = 'modReason'
+    entityIDField = ''
   } else if (type === 'modOwnershipUserID') {
     modReasonField = 'modOwnershipUserID'
     entityIDField = ''
