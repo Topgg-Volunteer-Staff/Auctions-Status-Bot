@@ -120,17 +120,35 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
 // Global error handlers
 process.on('uncaughtException', async (err) => {
   console.error('Caught exception:', err)
-  await sendError(createErrorEmbed('uncaughtException', err))
+  console.log('Attempting to send uncaughtException error...')
+  try {
+    await sendError(createErrorEmbed('uncaughtException', err))
+    console.log('uncaughtException error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send uncaughtException error:', sendErr)
+  }
 })
 
 process.on('unhandledRejection', async (reason) => {
   console.error('Unhandled rejection:', reason)
-  await sendError(createErrorEmbed('unhandledRejection', reason))
+  console.log('Attempting to send unhandledRejection error...')
+  try {
+    await sendError(createErrorEmbed('unhandledRejection', reason))
+    console.log('unhandledRejection error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send unhandledRejection error:', sendErr)
+  }
 })
 
 client.on('error', async (err) => {
   console.error('Client error:', err)
-  await sendError(createErrorEmbed('ClientError', err))
+  console.log('Attempting to send client error...')
+  try {
+    await sendError(createErrorEmbed('ClientError', err))
+    console.log('Client error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send client error:', sendErr)
+  }
 })
 
 client.login(process.env.DISCORD_TOKEN)
