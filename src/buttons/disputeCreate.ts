@@ -1,5 +1,4 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -38,11 +37,14 @@ export const execute = async (
 
   const reasonInput = new TextInputBuilder()
     .setCustomId('disputeID')
-    .setLabel('Bot/Application ID')
     .setStyle(TextInputStyle.Short)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. 264811613708746752')
+
+  const reasonInputLabel = new LabelBuilder()
+    .setLabel('Bot/Application ID')
+    .setTextInputComponent(reasonInput)
 
   // Common dispute reasons select menu
   const reasonSelectLabel = new LabelBuilder()
@@ -98,21 +100,15 @@ export const execute = async (
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Additional Details')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('Please provide additional details about your dispute...')
 
-  const reasonInputRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reasonInput
-  )
+  const reasonLabel = new LabelBuilder()
+    .setLabel('Additional Details')
+    .setTextInputComponent(reason)
 
-  const reasonRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reason
-  )
-
-  modal.addLabelComponents(reasonSelectLabel)
-  modal.addComponents(reasonInputRow, reasonRow)
+  modal.addLabelComponents(reasonSelectLabel, reasonInputLabel, reasonLabel)
   await interaction.showModal(modal)
 }
