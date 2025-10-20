@@ -195,7 +195,7 @@ export const execute = async (
       : ''
 
     const sentMessage = await webhook.send({
-      content: `${disputeReasonText}${appealMessage}`,
+      content: `**Additional Details:** ${disputeReasonText}${appealMessage}`,
       threadId: thread.id,
       allowedMentions: { users: [] },
     })

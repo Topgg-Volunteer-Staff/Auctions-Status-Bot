@@ -42,7 +42,7 @@ export const execute = async (
 
   // Common dispute reasons select menu
   const reasonSelectLabel = new LabelBuilder()
-    .setLabel('Reason')
+    .setLabel('The decline was incorrect because...')
     .setStringSelectMenuComponent(
       new StringSelectMenuBuilder()
         .setCustomId('disputeReason')
