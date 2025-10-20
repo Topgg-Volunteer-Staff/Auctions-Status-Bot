@@ -288,7 +288,9 @@ export const execute = async (
   let additionalComments = ''
   if (type === 'transfer_ownership') {
     try {
-      additionalComments = interaction.fields.getTextInputValue('additionalComments').trim()
+      additionalComments = interaction.fields
+        .getTextInputValue('additionalComments')
+        .trim()
     } catch {
       additionalComments = ''
     }

@@ -59,7 +59,7 @@ export const execute = async (
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(false)
     .setMaxLength(1000)
-    .setPlaceholder('Any additional information you\'d like to provide...')
+    .setPlaceholder("Any additional information you'd like to provide...")
 
   const additionalCommentsLabel = new LabelBuilder()
     .setLabel('Additional Comments')
@@ -83,7 +83,12 @@ export const execute = async (
     .setLabel('ID')
     .setTextInputComponent(idInput)
 
-  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel, additionalCommentsLabel)
+  modal.addLabelComponents(
+    projectTypeLabel,
+    linkLabel,
+    ownershipUserLabel,
+    additionalCommentsLabel
+  )
 
   await interaction.showModal(modal)
 }
