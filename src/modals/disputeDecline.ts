@@ -32,7 +32,9 @@ export const execute = async (
   // Extract selected dispute reason
   let selectedDisputeReason = ''
   try {
-    selectedDisputeReason = interaction.fields.getTextInputValue('disputeReason').trim()
+    selectedDisputeReason = interaction.fields
+      .getTextInputValue('disputeReason')
+      .trim()
   } catch {
     selectedDisputeReason = ''
   }
