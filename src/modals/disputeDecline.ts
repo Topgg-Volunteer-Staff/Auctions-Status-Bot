@@ -156,8 +156,12 @@ export const execute = async (
 
   // If not found in last 2 weeks
   if (!matchingMessage) {
+    const disputeTitle = selectedDisputeReason
+      ? disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
+      : 'Dispute ticket'
+
     const embed = new EmbedBuilder()
-      .setTitle(`Dispute ticket for ${interaction.user.username}`)
+      .setTitle(`${disputeTitle} - ${interaction.user.username}`)
       .setDescription(
         `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
       )
@@ -255,8 +259,13 @@ export const execute = async (
   }
 
   // Create ticket when matching message found
+  // Create title based on dispute reason
+  const disputeTitle = selectedDisputeReason
+    ? disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
+    : 'Dispute ticket'
+
   const embed = new EmbedBuilder()
-    .setTitle(`Dispute ticket for ${interaction.user.username}`)
+    .setTitle(`${disputeTitle} - ${interaction.user.username}`)
     .setDescription(
       `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
     )
