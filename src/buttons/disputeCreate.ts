@@ -49,9 +49,6 @@ export const execute = async (
   const disputeReasonLabel = new LabelBuilder()
     .setLabel('Dispute Reason')
     .setTextInputComponent(disputeReasonInput)
-    .setDescription(
-      'Common reasons: extra_perms, dashboard_setup, code_grant, not_clone, under_maintenance, wrongly_reviewed, could_not_contact, other'
-    )
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
