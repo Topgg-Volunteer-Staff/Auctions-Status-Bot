@@ -7,6 +7,7 @@ import {
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
+import { channelIds } from './globals'
 
 const client = new Client({
   intents: [
@@ -73,9 +74,22 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
   console.log(`Current environment: ${environment}`)
 
   if (environment === 'DEVELOPMENT') {
-    const channelId = '1403884779408986243'
+    const channelId = channelIds.errors
     console.log(`Attempting to send error to channel ${channelId}`)
-    const channel = client.channels.cache.get(channelId)
+
+    let channel = client.channels.cache.get(channelId)
+    if (!channel) {
+      try {
+        console.log(`Channel ${channelId} not in cache, fetching from API...`)
+        const fetched = await client.channels.fetch(channelId).catch((e) => {
+          console.error(`Failed to fetch channel ${channelId}:`, e)
+          return undefined
+        })
+        channel = fetched ?? undefined
+      } catch (fetchErr) {
+        console.error('Unexpected error while fetching channel:', fetchErr)
+      }
+    }
 
     if (channel?.isTextBased()) {
       try {
