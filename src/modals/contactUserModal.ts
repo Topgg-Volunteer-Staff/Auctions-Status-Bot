@@ -35,6 +35,14 @@ export const execute = async (
 
   const reason = interaction.fields.getTextInputValue('reason').trim()
 
+  // Get bot ID if provided
+  let botId = ''
+  try {
+    botId = interaction.fields.getTextInputValue('botId').trim()
+  } catch {
+    botId = ''
+  }
+
   // Get selected user from the user select component
   let userId = ''
   try {
@@ -66,16 +74,22 @@ export const execute = async (
     const user = await interaction.client.users.fetch(userId)
     const username = user.username
 
+    const threadName = `Contact User - ${username} <> ${interaction.user.username}`
+
     const thread = await modTickets.threads.create({
-      name: `Contact User - ${username} <> ${interaction.user.username}`,
+      name: threadName,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       type: 12,
     })
 
     const embed = new EmbedBuilder()
-      .setTitle('Contact user')
+      .setTitle(`Contact ${username} - ${botId}`)
       .setColor('#E91E63')
-      .setDescription(`**Reason:** ${reason}`)
+      .setDescription(
+        botId
+          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
+          : `**Reason:** ${reason}`
+      )
       .setTimestamp()
 
     const sentMessage = await thread.send({

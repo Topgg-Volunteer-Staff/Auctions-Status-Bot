@@ -45,6 +45,13 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
 
+  const botId = new TextInputBuilder()
+    .setCustomId('botId')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(100)
+    .setPlaceholder('E.g. 394594679221518336')
+
   // User select to choose the user to contact
   const userSelectLabel = new LabelBuilder()
     .setLabel('User to contact')
@@ -55,11 +62,17 @@ export const execute = async (
         .setMaxValues(1)
     )
 
+  // Bot ID input
+  const botIdLabel = new LabelBuilder()
+    .setLabel('Bot ID')
+    .setTextInputComponent(botId)
+    .setDescription('Optional: Bot ID if contacting about a specific bot')
+
   // Reason input
   const reasonLabel = new LabelBuilder()
     .setLabel('Reason')
     .setTextInputComponent(reason)
 
-  modal.addLabelComponents(userSelectLabel, reasonLabel)
+  modal.addLabelComponents(userSelectLabel, botIdLabel, reasonLabel)
   await interaction.showModal(modal)
 }
