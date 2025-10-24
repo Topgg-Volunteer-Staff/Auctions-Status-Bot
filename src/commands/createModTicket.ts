@@ -110,7 +110,7 @@ export const execute = async (
     .setDescription(
       `Want to appeal a bot decline? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
-    .setColor('#E91E63')
+    .setColor('#ff6b00')
 
   await channel.send({
     embeds: [embed],
