@@ -1,6 +1,6 @@
 export const emoji = {
   topgg: '<:topgg:918280202398875758>',
-  br: '<:topggBotReviewer:916114557179686944>',
+  br: '<:topggReviewer:916114557179686944>',
   mod: '<:topggModerator:916114556944789535>',
   mentor: '<:topggBRMentor:1018532023050178632>',
   cm: '<:topggCommunityManager:916114556852535307>',
