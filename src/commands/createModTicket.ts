@@ -77,7 +77,7 @@ export const execute = async (
     .setPlaceholder('Select a reason to contact a reviewer')
     .addOptions([
       {
-        label: 'Why was my bot declined?',
+        label: 'DISPUTE - Why was my bot declined?',
         value: 'dispute_decline',
       },
       {
