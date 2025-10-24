@@ -3,6 +3,7 @@ import {
   Client,
   TextChannel,
   ThreadAutoArchiveDuration,
+  EmbedBuilder,
   MessageFlags,
   MessageType,
 } from 'discord.js'
@@ -90,15 +91,19 @@ export const execute = async (
       type: 12,
     })
 
-    // Create the main message content
-    let messageContent = `<@${userId}>, ${interaction.user} would like to talk to you`
-    if (botId) {
-      messageContent += ` about your bot - ${botId}`
-    }
-    messageContent += `!\n\n**Reason:** ${reason}`
+    const embed = new EmbedBuilder()
+      .setTitle(`Contact ${username}`)
+      .setColor('#E91E63')
+      .setDescription(
+        botId
+          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
+          : `**Reason:** ${reason}`
+      )
+      .setTimestamp()
 
     const sentMessage = await thread.send({
-      content: messageContent,
+      content: `<@${userId}>, ${interaction.user} would like to talk to you!`,
+      embeds: [embed],
       ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
     })
 
