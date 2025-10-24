@@ -104,10 +104,21 @@ export const execute = async (
     const sentMessage = await thread.send({
       content: `<@${userId}>, ${interaction.user} would like to talk to you!`,
       embeds: [embed],
-      ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
     })
 
     await sentMessage.pin()
+
+    // If there are uploaded files, send them as a separate follow-up message
+    if (uploadedFiles.length > 0) {
+      try {
+        await thread.send({ files: uploadedFiles })
+      } catch (fileErr) {
+        console.error(
+          'Failed to send uploaded files as separate message:',
+          fileErr
+        )
+      }
+    }
 
     // Delete the auto-generated system "pinned a message" notice
     try {
