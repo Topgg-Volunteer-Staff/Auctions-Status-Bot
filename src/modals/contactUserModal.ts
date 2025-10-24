@@ -45,7 +45,8 @@ export const execute = async (
   // Get uploaded files if any
   let uploadedFiles: any[] = []
   try {
-    uploadedFiles = (interaction as any).files || []
+    const files = interaction.fields.getUploadedFiles('fileUpload')
+    uploadedFiles = files ? Array.from(files.values()) : []
   } catch {
     uploadedFiles = []
   }
