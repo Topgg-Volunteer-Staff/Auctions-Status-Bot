@@ -8,6 +8,7 @@ import {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   TextDisplayBuilder,
+  FileUploadBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -75,6 +76,18 @@ export const execute = async (
         .setPlaceholder('Please give as much detail as possible!')
     )
 
-  modal.addLabelComponents(categorySelectLabel, reasonLabel)
+  // Optional image upload (non-required)
+  const imagesLabel = new LabelBuilder()
+    .setLabel('Images')
+    .setDescription('Optional: upload one or more image files (png/jpg).')
+    .setFileUploadComponent(
+      new FileUploadBuilder()
+        .setCustomId('screenshot')
+        .setMinValues(0)
+        .setMaxValues(5)
+        .setRequired(false)
+    )
+
+  modal.addLabelComponents(categorySelectLabel, reasonLabel, imagesLabel)
   await interaction.showModal(modal)
 }

@@ -7,6 +7,7 @@ import {
   TextInputStyle,
   StringSelectMenuInteraction,
   Client,
+  FileUploadBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -76,12 +77,13 @@ export const execute = async (
       .addLabelComponents(
         new LabelBuilder()
           .setLabel('Screenshots')
-          .setDescription('Please include any image link here.')
-          .setTextInputComponent(
-            new TextInputBuilder()
+          .setDescription('Please upload relevant images.')
+          .setFileUploadComponent(
+            new FileUploadBuilder()
               .setCustomId('screenshot')
-              .setStyle(TextInputStyle.Short)
-              .setPlaceholder('E.g. https://i.imgur.com/example.png')
+              .setMinValues(1)
+              .setMaxValues(5)
+              .setRequired(true)
           )
       )
   )

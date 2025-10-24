@@ -192,28 +192,26 @@ export const execute = async (
       break
   }
 
+  const closeLine = `${emoji.dotred} If this ticket was opened by mistake, you can close it below.`
+
+  const baseDescription =
+    type === 'transfer_ownership'
+      ? descriptionExtra
+      : `${descriptionExtra ? descriptionExtra + '\n\n' : ''}${
+          emoji.dotred
+        } Please provide any additional context or evidence if applicable.\n${
+          emoji.dotred
+        } A mod will respond as soon as possible. Please don't ping individual staff.`
+
   const embed = new EmbedBuilder()
     .setTitle(`${titleExtra}`)
-    .setDescription(
-      type === 'transfer_ownership'
-        ? descriptionExtra
-        : `${descriptionExtra ? descriptionExtra + '\n\n' : ''}${
-            emoji.dotred
-          } Please provide any additional context or evidence if applicable.\n${
-            emoji.dotred
-          } A mod will respond as soon as possible. Please don't ping individual staff.`
-    )
+    .setDescription(`${baseDescription}\n\n${closeLine}`)
     .setColor('#ff3366')
 
   const thread = await modTickets.threads.create({
     name: interaction.user.username,
     type: ChannelType.PrivateThread,
     autoArchiveDuration: 10080,
-  })
-
-  await thread.send({
-    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
-    embeds: [embed],
   })
 
   const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -223,14 +221,10 @@ export const execute = async (
       .setStyle(ButtonStyle.Danger)
   )
 
-  const closeEmbed = new EmbedBuilder()
-    .setColor('#ff3366')
-    .setDescription(
-      `${emoji.dotred} If this ticket was opened by mistake, you can close it below.`
-    )
-
+  // Send the initial embed together with the close button (single embed + button)
   await thread.send({
-    embeds: [closeEmbed],
+    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
+    embeds: [embed],
     components: [closeButton],
   })
 
@@ -262,11 +256,13 @@ export const execute = async (
     }
   }
 
-  let screenshot = ''
+  // Extract uploaded screenshot files (if any)
+  let uploadedScreenshots: any[] = []
   try {
-    screenshot = interaction.fields.getTextInputValue('screenshot')
+    const files = interaction.fields.getUploadedFiles('screenshot')
+    uploadedScreenshots = files ? Array.from(files.values()) : []
   } catch {
-    screenshot = ''
+    uploadedScreenshots = []
   }
 
   // Ownership transferee (only for transfer ownership modal)
@@ -319,10 +315,6 @@ export const execute = async (
     parts.push(`Reason: ${userInput}`)
   }
 
-  if (screenshot.trim()) {
-    parts.push(`Screenshot: ${screenshot}`)
-  }
-
   if (ownershipTransfer.trim()) {
     parts.push(
       `User to transfer to: <@${ownershipTransfer}> (${ownershipTransfer})`
@@ -339,6 +331,7 @@ export const execute = async (
     content: messageContent,
     threadId: thread.id,
     allowedMentions: { users: [] },
+    ...(uploadedScreenshots.length > 0 && { files: uploadedScreenshots }),
   })
   await sentMessage.pin()
   // Delete the auto-generated system "pinned a message" notice
