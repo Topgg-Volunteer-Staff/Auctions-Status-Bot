@@ -92,6 +92,10 @@ export const execute = async (
         label: "How do I check my project's position in the queue?",
         value: 'info_projectstatus',
       },
+      {
+        label: 'How do I become a Reviewer?',
+        value: 'info_reviewer_app',
+      },
     ])
 
   const embed = new EmbedBuilder()
