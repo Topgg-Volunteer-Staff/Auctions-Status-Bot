@@ -79,7 +79,7 @@ export const execute = async (
   // Optional image upload (non-required)
   const imagesLabel = new LabelBuilder()
     .setLabel('Images')
-    .setDescription('Optional: upload one or more image files (png/jpg).')
+    .setDescription('Optional: upload any relevant image files.')
     .setFileUploadComponent(
       new FileUploadBuilder()
         .setCustomId('screenshot')
