@@ -6,6 +6,8 @@ import {
   EmbedBuilder,
   MessageFlags,
   MessageType,
+  type Collection,
+  type Attachment,
 } from 'discord.js'
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
@@ -44,9 +46,11 @@ export const execute = async (
   }
 
   // Get uploaded files if any
-  let uploadedFiles: any[] = []
+  let uploadedFiles: Array<Attachment> = []
   try {
-    const files = interaction.fields.getUploadedFiles('fileUpload')
+    const files = interaction.fields.getUploadedFiles('fileUpload') as
+      | Collection<string, Attachment>
+      | undefined
     uploadedFiles = files ? Array.from(files.values()) : []
   } catch {
     uploadedFiles = []
@@ -127,7 +131,7 @@ export const execute = async (
         (m) => m.type === MessageType.ChannelPinnedMessage
       )
       if (pinNotice) {
-        await pinNotice.delete().catch(() => {})
+        await pinNotice.delete().catch(() => void 0)
       }
     } catch {
       // ignore

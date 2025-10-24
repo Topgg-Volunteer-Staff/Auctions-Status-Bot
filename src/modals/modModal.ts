@@ -9,6 +9,8 @@ import {
   ButtonStyle,
   MessageFlags,
   MessageType,
+  type Collection,
+  type Attachment,
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
@@ -169,7 +171,7 @@ export const execute = async (
     case 'report_user':
       titleExtra = 'User Report'
       break
-    case 'other':
+    case 'other': {
       // Handle the new other modal with category selection
       const categoryLabels: Record<string, string> = {
         account: 'Account Issue',
@@ -181,6 +183,7 @@ export const execute = async (
       }
       titleExtra = categoryLabels[selectedCategoryType] || 'Other Issue'
       break
+    }
     case 'transfer_ownership':
       if (selectedOwnershipType === 'bot') {
         titleExtra = 'Bot Ownership Transfer Request'
@@ -257,9 +260,11 @@ export const execute = async (
   }
 
   // Extract uploaded screenshot files (if any)
-  let uploadedScreenshots: any[] = []
+  let uploadedScreenshots: Array<Attachment> = []
   try {
-    const files = interaction.fields.getUploadedFiles('screenshot')
+    const files = interaction.fields.getUploadedFiles('screenshot') as
+      | Collection<string, Attachment>
+      | undefined
     uploadedScreenshots = files ? Array.from(files.values()) : []
   } catch {
     uploadedScreenshots = []
@@ -341,7 +346,7 @@ export const execute = async (
       (m) => m.type === MessageType.ChannelPinnedMessage
     )
     if (pinNotice) {
-      await pinNotice.delete().catch(() => {})
+      await pinNotice.delete().catch(() => void 0)
     }
   } catch {
     // ignore

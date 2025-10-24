@@ -10,6 +10,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  type Guild,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -81,14 +82,14 @@ export const execute = async (
 
 // Helper function to get unresolved tickets for a specific type
 export const getUnresolvedTickets = async (
-  guild: any,
+  guild: Guild,
   type: 'mod' | 'reviewer' | 'auctions' | 'all'
 ): Promise<{ content: string; title: string }> => {
   try {
     // Helper function to fetch threads from a channel
     const fetchThreadsFromChannel = async (
       channelId: string
-    ): Promise<ThreadChannel[]> => {
+    ): Promise<Array<ThreadChannel>> => {
       const parent = await guild.channels.fetch(channelId)
       if (!parent || !(parent instanceof TextChannel)) {
         return []
@@ -143,8 +144,8 @@ export const getUnresolvedTickets = async (
       return threads
     }
 
-    let modThreads: ThreadChannel[] = []
-    let auctionsThreads: ThreadChannel[] = []
+    let modThreads: Array<ThreadChannel> = []
+    let auctionsThreads: Array<ThreadChannel> = []
 
     if (type === 'all') {
       // Fetch from both channels
@@ -192,7 +193,7 @@ export const getUnresolvedTickets = async (
       // Build categorized response
       const maxPerCategory = 8
       const buildCategoryList = (
-        tickets: ThreadChannel[],
+        tickets: Array<ThreadChannel>,
         categoryName: string
       ) => {
         const listed = tickets.slice(0, maxPerCategory)

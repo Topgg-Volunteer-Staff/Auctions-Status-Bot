@@ -6,6 +6,8 @@ import {
   TextChannel,
   MessageFlags,
   MessageType,
+  type Collection,
+  type Attachment,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
@@ -31,9 +33,11 @@ export const execute = async (
   const appealMessage = interaction.fields.getTextInputValue('reason').trim()
 
   // Extract uploaded screenshot files (optional)
-  let uploadedFiles: any[] = []
+  let uploadedFiles: Array<Attachment> = []
   try {
-    const files = interaction.fields.getUploadedFiles('disputeScreenshots')
+    const files = interaction.fields.getUploadedFiles('disputeScreenshots') as
+      | Collection<string, Attachment>
+      | undefined
     uploadedFiles = files ? Array.from(files.values()) : []
   } catch {
     uploadedFiles = []
@@ -218,7 +222,7 @@ export const execute = async (
         (m) => m.type === MessageType.ChannelPinnedMessage
       )
       if (pinNotice) {
-        await pinNotice.delete().catch(() => {})
+        await pinNotice.delete().catch(() => void 0)
       }
     } catch {
       // ignore
@@ -356,7 +360,7 @@ export const execute = async (
       (m) => m.type === MessageType.ChannelPinnedMessage
     )
     if (pinNotice) {
-      await pinNotice.delete().catch(() => {})
+      await pinNotice.delete().catch(() => void 0)
     }
   } catch {
     // ignore
