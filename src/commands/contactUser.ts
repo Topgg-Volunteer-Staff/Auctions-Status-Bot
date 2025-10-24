@@ -75,21 +75,21 @@ export const execute = async (
     .setLabel('Bot ID')
     .setTextInputComponent(botId)
 
-  // File upload component
-  const fileUploadLabel = new LabelBuilder()
-    .setLabel('Attachments (Optional)')
-    .setFileUploadComponent(fileUpload)
-
   // Reason input
   const reasonLabel = new LabelBuilder()
     .setLabel('Reason')
     .setTextInputComponent(reason)
 
+  // File upload component
+  const fileUploadLabel = new LabelBuilder()
+    .setLabel('Attachments')
+    .setFileUploadComponent(fileUpload)
+
   modal.addLabelComponents(
     userSelectLabel,
     botIdLabel,
-    fileUploadLabel,
-    reasonLabel
+    reasonLabel,
+    fileUploadLabel
   )
   await interaction.showModal(modal)
 }
