@@ -240,7 +240,7 @@ export const execute = async (
     report_user: 'User ID',
     report_review: 'Bot/Server ID',
     transfer_ownership: 'ID',
-    report_other: '',
+    report_other: 'ID',
   }
 
   // Ownership type (only for transfer ownership modal)
