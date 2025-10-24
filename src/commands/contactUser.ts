@@ -9,6 +9,7 @@ import {
   MessageFlags,
   LabelBuilder,
   UserSelectMenuBuilder,
+  FileUploadBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
@@ -52,6 +53,13 @@ export const execute = async (
     .setMaxLength(100)
     .setPlaceholder('E.g. 422087909634736160')
 
+  // File upload component
+  const fileUpload = new FileUploadBuilder()
+    .setCustomId('fileUpload')
+    .setMinValues(0)
+    .setMaxValues(5)
+    .setRequired(false)
+
   // User select to choose the user to contact
   const userSelectLabel = new LabelBuilder()
     .setLabel('User to contact')
@@ -67,11 +75,21 @@ export const execute = async (
     .setLabel('Bot ID')
     .setTextInputComponent(botId)
 
+  // File upload component
+  const fileUploadLabel = new LabelBuilder()
+    .setLabel('Attachments (Optional)')
+    .setFileUploadComponent(fileUpload)
+
   // Reason input
   const reasonLabel = new LabelBuilder()
     .setLabel('Reason')
     .setTextInputComponent(reason)
 
-  modal.addLabelComponents(userSelectLabel, botIdLabel, reasonLabel)
+  modal.addLabelComponents(
+    userSelectLabel,
+    botIdLabel,
+    fileUploadLabel,
+    reasonLabel
+  )
   await interaction.showModal(modal)
 }

@@ -43,6 +43,14 @@ export const execute = async (
     botId = ''
   }
 
+  // Get uploaded files if any
+  let uploadedFiles: any[] = []
+  try {
+    uploadedFiles = (interaction as any).files || []
+  } catch {
+    uploadedFiles = []
+  }
+
   // Get selected user from the user select component
   let userId = ''
   try {
@@ -87,14 +95,23 @@ export const execute = async (
       .setColor('#E91E63')
       .setDescription(
         botId
-          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
-          : `**Reason:** ${reason}`
+          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}${
+              uploadedFiles.length > 0
+                ? `\n**Attachments:** ${uploadedFiles.length} file(s)`
+                : ''
+            }`
+          : `**Reason:** ${reason}${
+              uploadedFiles.length > 0
+                ? `\n**Attachments:** ${uploadedFiles.length} file(s)`
+                : ''
+            }`
       )
       .setTimestamp()
 
     const sentMessage = await thread.send({
       content: `<@${userId}>, ${interaction.user} would like to talk to you!`,
       embeds: [embed],
+      ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
     })
 
     await sentMessage.pin()
