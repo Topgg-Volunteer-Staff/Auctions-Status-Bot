@@ -8,6 +8,7 @@ import {
   LabelBuilder,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
+  FileUploadBuilder,
 } from 'discord.js'
 
 export const button = {
@@ -103,6 +104,22 @@ export const execute = async (
     .setLabel('Additional Details')
     .setTextInputComponent(reason)
 
-  modal.addLabelComponents(reasonSelectLabel, reasonInputLabel, reasonLabel)
+  // Optional image upload for evidence
+  const fileUpload = new FileUploadBuilder()
+    .setCustomId('disputeScreenshots')
+    .setMinValues(0)
+    .setMaxValues(5)
+    .setRequired(false)
+
+  const fileUploadLabel = new LabelBuilder()
+    .setLabel('Screenshots')
+    .setDescription('Optional: upload relevant images to support your dispute.')
+    .setFileUploadComponent(fileUpload)
+  modal.addLabelComponents(
+    reasonSelectLabel,
+    reasonInputLabel,
+    reasonLabel,
+    fileUploadLabel
+  )
   await interaction.showModal(modal)
 }

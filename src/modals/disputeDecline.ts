@@ -30,6 +30,15 @@ export const execute = async (
   }
   const appealMessage = interaction.fields.getTextInputValue('reason').trim()
 
+  // Extract uploaded screenshot files (optional)
+  let uploadedFiles: any[] = []
+  try {
+    const files = interaction.fields.getUploadedFiles('disputeScreenshots')
+    uploadedFiles = files ? Array.from(files.values()) : []
+  } catch {
+    uploadedFiles = []
+  }
+
   // Extract selected dispute reason
   let selectedDisputeReason = ''
   try {
@@ -198,6 +207,7 @@ export const execute = async (
       content: `${disputeReasonText}**Additional Details:**\n${appealMessage}`,
       threadId: thread.id,
       allowedMentions: { users: [] },
+      ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
     })
     await sentMessage.pin()
 
@@ -335,6 +345,7 @@ export const execute = async (
     content: `${disputeReasonText}**Additional Details:**\n${appealMessage}`,
     threadId: thread.id,
     allowedMentions: { users: [] },
+    ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
   })
   await sentMessage.pin()
 
