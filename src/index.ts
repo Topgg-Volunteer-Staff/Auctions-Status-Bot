@@ -48,13 +48,13 @@ client.on('ready', async () => {
         console.error('Failed to send dev test error:', err)
       }
     }, 2000)
-      // Also trigger an unhandled rejection to test the unhandledRejection handler
-      setTimeout(() => {
-        console.log('Triggering an unhandled rejection (dev test)...')
-        // Use void to intentionally create an unhandled rejected promise (no catch)
-        // eslint-disable-next-line @typescript-eslint/no-floating-promises
-        void Promise.reject(new Error('Dev: test unhandled rejection'))
-      }, 4000)
+    // Also trigger an unhandled rejection to test the unhandledRejection handler
+    setTimeout(() => {
+      console.log('Triggering an unhandled rejection (dev test)...')
+      // Use void to intentionally create an unhandled rejected promise (no catch)
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      void Promise.reject(new Error('Dev: test unhandled rejection'))
+    }, 4000)
   }
 })
 
