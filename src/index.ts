@@ -48,6 +48,13 @@ client.on('ready', async () => {
         console.error('Failed to send dev test error:', err)
       }
     }, 2000)
+      // Also trigger an unhandled rejection to test the unhandledRejection handler
+      setTimeout(() => {
+        console.log('Triggering an unhandled rejection (dev test)...')
+        // Use void to intentionally create an unhandled rejected promise (no catch)
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        void Promise.reject(new Error('Dev: test unhandled rejection'))
+      }, 4000)
   }
 })
 
@@ -68,7 +75,7 @@ export function createErrorEmbed(
 
   return new EmbedBuilder()
     .setAuthor({
-      name: 'Top.gg Bot',
+      name: 'Top.gg Testing',
       iconURL: 'https://i.imgur.com/W2d2UY7.jpeg',
     })
     .setTitle(title)
