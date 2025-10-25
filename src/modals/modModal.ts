@@ -176,7 +176,6 @@ export const execute = async (
       const categoryLabels: Record<string, string> = {
         account: 'Account Issue',
         ban_appeal: 'Ban Appeal',
-        bug: 'Bug Report',
         project_listing: 'Project Listing Issue',
         unable_to_vote: 'Unable to Vote Issue',
         other: 'Other Issue',
