@@ -7,6 +7,7 @@ import {
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
+import { channelIds } from './globals'
 
 const client = new Client({
   intents: [
@@ -35,6 +36,19 @@ client.on('ready', async () => {
     activities: [{ name: 'the clock!', type: 3 }],
   })
   startReminders(client)
+  // Development-only: send a test error to verify the errors channel is receiving messages
+  if ((process.env.ENVIRONMENT || 'DEVELOPMENT') === 'DEVELOPMENT') {
+    setTimeout(() => {
+      console.log('Sending development test error to errors channel...')
+      try {
+        sendError(
+          createErrorEmbed('Dev Test Error', 'This is a dev test error.')
+        )
+      } catch (err) {
+        console.error('Failed to send dev test error:', err)
+      }
+    }, 2000)
+  }
 })
 
 commandHandler(client)
@@ -73,11 +87,27 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
   console.log(`Current environment: ${environment}`)
 
   if (environment === 'DEVELOPMENT') {
-    const channelId = '1403884779408986243'
+    const channelId = channelIds.errors
+    if (!channelId) {
+      console.error('No errors channel configured; aborting sendError')
+      return
+    }
     console.log(`Attempting to send error to channel ${channelId}`)
-    const channel = client.channels.cache.get(channelId)
 
-    if (channel?.isTextBased()) {
+    // Try cache first, then fetch as fallback
+    let channel = client.channels.cache.get(channelId)
+    if (!channel) {
+      try {
+        channel = await client.channels
+          .fetch(channelId)
+          .then((c) => c ?? undefined)
+          .catch(() => undefined)
+      } catch {
+        channel = undefined
+      }
+    }
+
+    if (channel && 'isTextBased' in channel && channel.isTextBased()) {
       try {
         console.log('Channel found, sending error message...')
         await (channel as TextChannel).send({ embeds: [embed] })
