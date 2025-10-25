@@ -36,26 +36,6 @@ client.on('ready', async () => {
     activities: [{ name: 'the clock!', type: 3 }],
   })
   startReminders(client)
-  // Development-only: send a test error to verify the errors channel is receiving messages
-  if ((process.env.ENVIRONMENT || 'DEVELOPMENT') === 'DEVELOPMENT') {
-    setTimeout(() => {
-      console.log('Sending development test error to errors channel...')
-      try {
-        sendError(
-          createErrorEmbed('Dev Test Error', 'This is a dev test error.')
-        )
-      } catch (err) {
-        console.error('Failed to send dev test error:', err)
-      }
-    }, 2000)
-    // Also trigger an unhandled rejection to test the unhandledRejection handler
-    setTimeout(() => {
-      console.log('Triggering an unhandled rejection (dev test)...')
-      // Use void to intentionally create an unhandled rejected promise (no catch)
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      void Promise.reject(new Error('Dev: test unhandled rejection'))
-    }, 4000)
-  }
 })
 
 commandHandler(client)
