@@ -1,5 +1,4 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
@@ -8,6 +7,9 @@ import {
   InteractionContextType,
   SlashCommandBuilder,
   MessageFlags,
+  LabelBuilder,
+  UserSelectMenuBuilder,
+  FileUploadBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
 
@@ -37,29 +39,57 @@ export const execute = async (
     .setCustomId('contactUserModal')
     .setTitle('Contact user')
 
-  const userId = new TextInputBuilder()
-    .setCustomId('userId')
-    .setLabel('User ID')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(20)
-    .setPlaceholder('E.g. 264811613708746752')
-
   const reason = new TextInputBuilder()
     .setCustomId('reason')
-    .setLabel('Reason')
     .setStyle(TextInputStyle.Paragraph)
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
 
-  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    userId
-  )
-  const reasonRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    reason
-  )
+  const botId = new TextInputBuilder()
+    .setCustomId('botId')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false)
+    .setMaxLength(100)
+    .setPlaceholder('E.g. 422087909634736160')
 
-  modal.addComponents(userIdRow, reasonRow)
+  // File upload component
+  const fileUpload = new FileUploadBuilder()
+    .setCustomId('fileUpload')
+    .setMinValues(0)
+    .setMaxValues(5)
+    .setRequired(false)
+
+  // User select to choose the user to contact
+  const userSelectLabel = new LabelBuilder()
+    .setLabel('User to contact')
+    .setUserSelectMenuComponent(
+      new UserSelectMenuBuilder()
+        .setCustomId('contactUserSelect')
+        .setMinValues(1)
+        .setMaxValues(1)
+    )
+
+  // Bot ID input
+  const botIdLabel = new LabelBuilder()
+    .setLabel('Bot ID')
+    .setTextInputComponent(botId)
+
+  // Reason input
+  const reasonLabel = new LabelBuilder()
+    .setLabel('Reason')
+    .setTextInputComponent(reason)
+
+  // File upload component
+  const fileUploadLabel = new LabelBuilder()
+    .setLabel('Attachments')
+    .setFileUploadComponent(fileUpload)
+
+  modal.addLabelComponents(
+    userSelectLabel,
+    botIdLabel,
+    reasonLabel,
+    fileUploadLabel
+  )
   await interaction.showModal(modal)
 }

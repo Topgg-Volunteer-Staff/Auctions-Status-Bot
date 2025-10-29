@@ -5,6 +5,9 @@ import {
   ThreadAutoArchiveDuration,
   EmbedBuilder,
   MessageFlags,
+  MessageType,
+  type Collection,
+  type Attachment,
 } from 'discord.js'
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
@@ -32,16 +35,49 @@ export const execute = async (
     return
   }
 
-  const userId = interaction.fields.getTextInputValue('userId').trim()
   const reason = interaction.fields.getTextInputValue('reason').trim()
 
-  if (!/^\d{17,19}$/.test(userId)) {
+  // Get bot ID if provided
+  let botId = ''
+  try {
+    botId = interaction.fields.getTextInputValue('botId').trim()
+  } catch {
+    botId = ''
+  }
+
+  // Get uploaded files if any
+  let uploadedFiles: Array<Attachment> = []
+  try {
+    const files = interaction.fields.getUploadedFiles('fileUpload') as
+      | Collection<string, Attachment>
+      | undefined
+    uploadedFiles = files ? Array.from(files.values()) : []
+  } catch {
+    uploadedFiles = []
+  }
+
+  // Get selected user from the user select component
+  let userId = ''
+  try {
+    const selectedUsers = interaction.fields.getSelectedUsers(
+      'contactUserSelect',
+      true
+    )
+    const firstUser = selectedUsers.first()
+    userId = firstUser?.id ?? ''
+  } catch {
     await interaction.editReply({
       embeds: [
-        errorEmbed(
-          'Invalid User ID',
-          'Please provide a valid Discord user ID.'
-        ),
+        errorEmbed('No User Selected', 'Please select a user to contact.'),
+      ],
+    })
+    return
+  }
+
+  if (!userId) {
+    await interaction.editReply({
+      embeds: [
+        errorEmbed('No User Selected', 'Please select a user to contact.'),
       ],
     })
     return
@@ -51,16 +87,22 @@ export const execute = async (
     const user = await interaction.client.users.fetch(userId)
     const username = user.username
 
+    const threadName = `Contact User - ${username} <> ${interaction.user.username}`
+
     const thread = await modTickets.threads.create({
-      name: `Contact User - ${username}`,
+      name: threadName,
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       type: 12,
     })
 
     const embed = new EmbedBuilder()
-      .setTitle('Contact user')
+      .setTitle(`Contact ${username}`)
       .setColor('#E91E63')
-      .setDescription(`**User ID:** ${userId}\n\n**Reason:** ${reason}`)
+      .setDescription(
+        botId
+          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
+          : `**Reason:** ${reason}`
+      )
       .setTimestamp()
 
     const sentMessage = await thread.send({
@@ -69,6 +111,31 @@ export const execute = async (
     })
 
     await sentMessage.pin()
+
+    // If there are uploaded files, send them as a separate follow-up message
+    if (uploadedFiles.length > 0) {
+      try {
+        await thread.send({ files: uploadedFiles })
+      } catch (fileErr) {
+        console.error(
+          'Failed to send uploaded files as separate message:',
+          fileErr
+        )
+      }
+    }
+
+    // Delete the auto-generated system "pinned a message" notice
+    try {
+      const recent = await thread.messages.fetch({ limit: 5 })
+      const pinNotice = recent.find(
+        (m) => m.type === MessageType.ChannelPinnedMessage
+      )
+      if (pinNotice) {
+        await pinNotice.delete().catch(() => void 0)
+      }
+    } catch {
+      // ignore
+    }
 
     await interaction.editReply({
       embeds: [

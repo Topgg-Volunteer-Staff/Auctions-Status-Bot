@@ -7,6 +7,7 @@ import {
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
+import { channelIds } from './globals'
 
 const client = new Client({
   intents: [
@@ -41,7 +42,10 @@ commandHandler(client)
 /**
  * Creates a standardized error embed for reporting errors.
  */
-function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
+export function createErrorEmbed(
+  title: string,
+  errorData: unknown
+): EmbedBuilder {
   const errorText =
     errorData instanceof Error
       ? errorData.stack || errorData.message
@@ -51,7 +55,7 @@ function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
 
   return new EmbedBuilder()
     .setAuthor({
-      name: 'Top.gg Bot',
+      name: 'Top.gg Testing',
       iconURL: 'https://i.imgur.com/W2d2UY7.jpeg',
     })
     .setTitle(title)
@@ -65,24 +69,56 @@ function createErrorEmbed(title: string, errorData: unknown): EmbedBuilder {
 /**
  * Sends an error embed either to a dev channel or via webhook depending on ENVIRONMENT.
  */
-async function sendError(embed: EmbedBuilder): Promise<void> {
-  if (process.env.ENVIRONMENT === 'DEVELOPMENT') {
-    const channelId = '1403884779408986243'
-    const channel = client.channels.cache.get(channelId)
+export async function sendError(embed: EmbedBuilder): Promise<void> {
+  const environment = process.env.ENVIRONMENT || 'DEVELOPMENT'
+  console.log(`Current environment: ${environment}`)
 
-    if (channel?.isTextBased()) {
+  if (environment === 'DEVELOPMENT') {
+    const channelId = channelIds.errors
+    if (!channelId) {
+      console.error('No errors channel configured; aborting sendError')
+      return
+    }
+    console.log(`Attempting to send error to channel ${channelId}`)
+
+    // Try cache first, then fetch as fallback
+    let channel = client.channels.cache.get(channelId)
+    if (!channel) {
       try {
+        channel = await client.channels
+          .fetch(channelId)
+          .then((c) => c ?? undefined)
+          .catch(() => undefined)
+      } catch {
+        channel = undefined
+      }
+    }
+
+    if (channel && 'isTextBased' in channel && channel.isTextBased()) {
+      try {
+        console.log('Channel found, sending error message...')
         await (channel as TextChannel).send({ embeds: [embed] })
         console.log('Error message sent successfully to channel')
       } catch (sendErr) {
         console.error('Error sending message:', sendErr)
+        console.error(
+          'Channel permissions or other issues may be preventing message sending'
+        )
       }
     } else {
       console.error(
         `Channel with ID ${channelId} not found or is not text-based`
       )
+      console.error(
+        'Available channels:',
+        client.channels.cache.map((c) => ({
+          id: c.id,
+          type: c.type,
+          name: 'name' in c ? c.name : 'unknown',
+        }))
+      )
     }
-  } else if (process.env.ENVIRONMENT === 'PRODUCTION') {
+  } else if (environment === 'PRODUCTION') {
     const webhookUrl =
       'https://discord.com/api/webhooks/1404081951958368288/ozEfqM7v1gCcPdvrQgcvD5txm1tGX8bvpIzSddwQ_osMpk2AQWPrMt2Ye9Z4tZ1QRkfg'
     try {
@@ -101,17 +137,35 @@ async function sendError(embed: EmbedBuilder): Promise<void> {
 // Global error handlers
 process.on('uncaughtException', async (err) => {
   console.error('Caught exception:', err)
-  await sendError(createErrorEmbed('uncaughtException', err))
+  console.log('Attempting to send uncaughtException error...')
+  try {
+    await sendError(createErrorEmbed('uncaughtException', err))
+    console.log('uncaughtException error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send uncaughtException error:', sendErr)
+  }
 })
 
 process.on('unhandledRejection', async (reason) => {
   console.error('Unhandled rejection:', reason)
-  await sendError(createErrorEmbed('unhandledRejection', reason))
+  console.log('Attempting to send unhandledRejection error...')
+  try {
+    await sendError(createErrorEmbed('unhandledRejection', reason))
+    console.log('unhandledRejection error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send unhandledRejection error:', sendErr)
+  }
 })
 
 client.on('error', async (err) => {
   console.error('Client error:', err)
-  await sendError(createErrorEmbed('ClientError', err))
+  console.log('Attempting to send client error...')
+  try {
+    await sendError(createErrorEmbed('ClientError', err))
+    console.log('Client error sent successfully')
+  } catch (sendErr) {
+    console.error('Failed to send client error:', sendErr)
+  }
 })
 
 client.login(process.env.DISCORD_TOKEN)

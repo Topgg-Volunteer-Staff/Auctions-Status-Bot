@@ -55,28 +55,19 @@ export const execute = async (
         value: 'reset',
       },
       {
-        label: 'Report a user',
-        value: 'report_user',
-      },
-      {
-        label: 'Report a bot',
-        value: 'report_bot',
-      },
-      {
-        label: 'Report a server',
-        value: 'report_server',
-      },
-      {
-        label: 'Report a review',
-        value: 'report_review',
+        label: 'Report',
+        value: 'report',
+        description: 'Report bots, servers, users, reviews or other issues',
       },
       {
         label: 'Request ownership transfer',
         value: 'transfer_ownership',
+        description: 'Transfer ownership of a bot or server',
       },
       {
         label: 'Other',
-        value: 'report_other',
+        value: 'other',
+        description: 'General help or other issues',
       },
     ])
 
@@ -86,7 +77,7 @@ export const execute = async (
     .setPlaceholder('Select a reason to contact a reviewer')
     .addOptions([
       {
-        label: 'Why was my bot declined?',
+        label: 'DISPUTE - Why was my bot declined?',
         value: 'dispute_decline',
       },
       {
@@ -100,6 +91,10 @@ export const execute = async (
       {
         label: "How do I check my project's position in the queue?",
         value: 'info_projectstatus',
+      },
+      {
+        label: 'How do I become a Reviewer?',
+        value: 'info_reviewer_app',
       },
     ])
 
@@ -115,7 +110,7 @@ export const execute = async (
     .setDescription(
       `Want to appeal a bot decline? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
-    .setColor('#E91E63')
+    .setColor('#ff6b00')
 
   await channel.send({
     embeds: [embed],

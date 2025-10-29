@@ -1,10 +1,14 @@
 import {
-  ActionRowBuilder,
   ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
   StringSelectMenuInteraction,
   Client,
+  LabelBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  UserSelectMenuBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  TextDisplayBuilder,
 } from 'discord.js'
 
 export const menu = {
@@ -18,34 +22,55 @@ export const execute = async (
   if (!interaction.inCachedGuild()) return
 
   const modal = new ModalBuilder()
-    .setCustomId('modModal_requestownershiptransfer') // modal custom id
+    .setCustomId('modModal_transfer_ownership') // modal custom id
     .setTitle('Request an ownership transfer')
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**For bot ownership:**\nYou must be able to do one of the following:\n- Change the bot's description on the Discord Developer Portal to "Top.gg Verification".\n- Send a Direct Message through the bot.\n- Edit a bot's command or add a new custom command saying "Top.gg Verification".\n\nIf you are unable to do any of these, unfortunately we cannot transfer ownership to you.`
+      ),
+      new TextDisplayBuilder().setContent(
+        `**For server ownership:**\n- Please send your server's invite link (e.g. .gg/dbl). We will join the server to verify ownership.`
+      )
+    )
 
-  const BotOrServer = new TextInputBuilder()
-    .setCustomId('modOwnershipBotOrServer')
-    .setLabel('Bot/Server link')
+  // ID input – requested customId
+  const idInput = new TextInputBuilder()
+    .setCustomId('projectID')
     .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder('https://top.gg/bot/id | https://top.gg/discord/servers/id')
+    .setPlaceholder('E.g. 264445053596991498')
 
-  const userID = new TextInputBuilder()
-    .setCustomId('modOwnershipUserID')
-    .setLabel('User ID to transfer to')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(1000)
-    .setPlaceholder('E.g. 1376991905191039006')
+  // User select to choose the transferee
+  const ownershipUserLabel = new LabelBuilder()
+    .setLabel('User to transfer to')
+    .setUserSelectMenuComponent(
+      new UserSelectMenuBuilder()
+        .setCustomId('ownershipUserSelect')
+        .setMinValues(1)
+        .setMaxValues(1)
+    )
+    .setDescription(
+      "Want to transfer to a team? Select yourself, and we'll help you out in the ticket!"
+    )
 
-  const userIdRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    userID
-  )
+  // Project type select – requested ids/values
+  const projectTypeLabel = new LabelBuilder()
+    .setLabel('Select project type')
+    .setStringSelectMenuComponent(
+      new StringSelectMenuBuilder()
+        .setCustomId('ownershipType')
+        .addOptions(
+          new StringSelectMenuOptionBuilder().setLabel('Bot').setValue('bot'),
+          new StringSelectMenuOptionBuilder()
+            .setLabel('Server')
+            .setValue('server')
+        )
+    )
 
-  const BotOrServerRow = new ActionRowBuilder<TextInputBuilder>().addComponents(
-    BotOrServer
-  )
+  const linkLabel = new LabelBuilder()
+    .setLabel('ID')
+    .setTextInputComponent(idInput)
 
-  modal.addComponents(userIdRow, BotOrServerRow)
+  modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel)
 
   await interaction.showModal(modal)
 }
