@@ -225,7 +225,11 @@ export const execute = async (
       const displayType = reportTypeMap[reportType] || 'Other'
       threadName = `Report ${displayType} - ${interaction.user.username}`
     } else if (type === 'transfer_ownership') {
-      threadName = `Transfer Ownership - ${interaction.user.username}`
+      const ownershipType =
+        interaction.fields.getStringSelectValues('ownershipType')[0] ||
+        'Unknown'
+      const displayType = ownershipType === 'bot' ? 'Bot' : 'Server'
+      threadName = `Transfer ${displayType} - ${interaction.user.username}`
     } else if (type === 'other' && selectedCategoryType) {
       const categoryLabels: Record<string, string> = {
         account: 'Account',
