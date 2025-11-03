@@ -11,7 +11,6 @@ import {
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
-import trialMentors from '../data/trialMentors.json'
 
 export const modal = {
   name: 'disputeDecline',
@@ -240,57 +239,43 @@ export const execute = async (
     return
   }
 
-  // Extract reviewer information first
+  // Extract reviewer information
   let reviewerId = ''
-  let mentorId = ''
   let reviewerName = 'Unknown'
-  const logEmbed = matchingMessage.embeds[0]
-  if (logEmbed) {
-    const reviewerField = logEmbed.fields.find(
-      (f) => f.name.toLowerCase() === 'reviewer'
-    )
-    if (reviewerField) {
-      const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
-      if (reviewerMatch && reviewerMatch[1]) {
-        const potentialReviewerId = reviewerMatch[1]
 
-        try {
+  try {
+    const logEmbed = matchingMessage.embeds[0]
+    if (logEmbed) {
+      const reviewerField = logEmbed.fields.find(
+        (f) => f.name.toLowerCase() === 'reviewer'
+      )
+      if (reviewerField) {
+        const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
+        if (reviewerMatch && reviewerMatch[1]) {
+          const potentialReviewerId = reviewerMatch[1]
           const reviewerMember = await interaction.guild.members.fetch(
             potentialReviewerId
           )
 
-          // If reviewer has the regular reviewer role, use them.
+          // If user has the reviewer role, use them as the reviewer
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
             reviewerName =
               reviewerMember.displayName || reviewerMember.user.username
-          } else {
-            // If reviewer has the Trial Reviewer role, ping reviewer and their mentor (from JSON)
-            const trialRoleId = '767392998157451265'
-            if (reviewerMember.roles.cache.has(trialRoleId)) {
-              reviewerId = potentialReviewerId
-              reviewerName =
-                reviewerMember.displayName || reviewerMember.user.username
-              // trialMentors is a JSON object mapping reviewer user IDs -> mentor user IDs
-              mentorId =
-                (trialMentors as Record<string, string>)[potentialReviewerId] ||
-                ''
-            }
           }
-        } catch {
-          console.log(
-            `Reviewer ${potentialReviewerId} not found or not accessible`
-          )
         }
       }
     }
+  } catch (error) {
+    console.error('Error fetching reviewer information:', error)
   }
 
   // Create ticket when matching message found
   // Create title based on dispute reason
-  const disputeTitle = selectedDisputeReason
-    ? disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
-    : 'Dispute ticket'
+  const disputeTitle =
+    selectedDisputeReason && disputeReasonLabels[selectedDisputeReason]
+      ? disputeReasonLabels[selectedDisputeReason]
+      : 'Dispute ticket'
 
   const embed = new EmbedBuilder()
     .setTitle(`${disputeTitle} - ${interaction.user.username}`)
@@ -308,18 +293,12 @@ export const execute = async (
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
-        ? ` <@${reviewerId}> please take a look.${
-            mentorId ? ` cc <@${mentorId}>` : ''
-          }`
+        ? ` <@${reviewerId}> please take a look.`
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
     embeds: [embed],
     allowedMentions: {
-      users: [
-        interaction.user.id,
-        ...(reviewerId ? [reviewerId] : []),
-        ...(mentorId ? [mentorId] : []),
-      ],
+      users: [interaction.user.id, ...(reviewerId ? [reviewerId] : [])],
       roles: [roleIds.reviewerNotifications],
     },
   })
@@ -349,7 +328,9 @@ export const execute = async (
     content: `${disputeReasonText}**Additional Details:** ${appealMessage}`,
     threadId: thread.id,
     allowedMentions: { users: [] },
-    ...(uploadedFiles.length > 0 && { files: uploadedFiles }),
+    ...(uploadedFiles && uploadedFiles.length > 0
+      ? { files: uploadedFiles }
+      : {}),
   })
   await sentMessage.pin()
 

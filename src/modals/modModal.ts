@@ -211,8 +211,37 @@ export const execute = async (
     .setDescription(`${baseDescription}\n\n${closeLine}`)
     .setColor('#ff3366')
 
+  let threadName = interaction.user.username
+  if (type) {
+    if (type.startsWith('report_')) {
+      const reportType = type.split('_')[1] || 'Other' // Get the part after 'report_'
+      const reportTypeMap: Record<string, string> = {
+        bot: 'Bot',
+        server: 'Server',
+        user: 'User',
+        review: 'Review',
+        other: 'Other',
+      }
+      const displayType = reportTypeMap[reportType] || 'Other'
+      threadName = `Report ${displayType} - ${interaction.user.username}`
+    } else if (type === 'transfer_ownership') {
+      threadName = `Transfer Ownership - ${interaction.user.username}`
+    } else if (type === 'other' && selectedCategoryType) {
+      const categoryLabels: Record<string, string> = {
+        account: 'Account',
+        ban_appeal: 'Ban Appeal',
+        bug: 'Bug',
+        project_listing: 'Listing',
+        unable_to_vote: 'Voting',
+        other: 'Ticket',
+      }
+      const prefix = categoryLabels[selectedCategoryType] || 'Ticket'
+      threadName = `${prefix} - ${interaction.user.username}`
+    }
+  }
+
   const thread = await modTickets.threads.create({
-    name: interaction.user.username,
+    name: threadName,
     type: ChannelType.PrivateThread,
     autoArchiveDuration: 10080,
   })
