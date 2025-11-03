@@ -168,4 +168,43 @@ client.on('error', async (err) => {
   }
 })
 
+// Handle user leaving the server
+client.on('guildMemberRemove', async (member) => {
+  try {
+    const guild = member.guild
+    const modTicketsChannel = guild.channels.cache.get(
+      channelIds.modTickets
+    ) as TextChannel | undefined
+
+    if (!modTicketsChannel) return
+
+    // Only fetch active threads
+    const activeThreads = await modTicketsChannel.threads.fetchActive()
+
+    // Find active threads that belong to this user by checking the username in the thread name
+    const userThreads = Array.from(activeThreads.threads.values()).filter(
+      (thread) => thread.name.endsWith(`- ${member.user.username}`)
+    )
+
+    // Post a message in each of the user's active threads
+    for (const thread of userThreads) {
+      try {
+        if (thread.isThread() && thread.send) {
+          await thread.send({
+            content: `:warning: <@${member.user.id}> (${member.user.tag} | ${member.id}) has left the server.`,
+            allowedMentions: { users: [] },
+          })
+        }
+      } catch (error) {
+        console.error(
+          `Failed to send leave message in thread ${thread.id}:`,
+          error
+        )
+      }
+    }
+  } catch (error) {
+    console.error('Error in guildMemberRemove handler:', error)
+  }
+})
+
 client.login(process.env.DISCORD_TOKEN)
