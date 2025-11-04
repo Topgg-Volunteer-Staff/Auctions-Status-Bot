@@ -189,7 +189,7 @@ client.on('guildMemberRemove', async (member) => {
     // Post a message in each of the user's active threads
     for (const thread of userThreads) {
       try {
-        if (thread.isThread() && thread.send) {
+        if (thread.isThread()) {
           await thread.send({
             content: `:warning: <@${member.user.id}> (${member.user.tag} | ${member.id}) has left the server.`,
             allowedMentions: { users: [] },

@@ -328,9 +328,7 @@ export const execute = async (
     content: `${disputeReasonText}**Additional Details:** ${appealMessage}`,
     threadId: thread.id,
     allowedMentions: { users: [] },
-    ...(uploadedFiles && uploadedFiles.length > 0
-      ? { files: uploadedFiles }
-      : {}),
+    ...(uploadedFiles.length > 0 ? { files: uploadedFiles } : {}),
   })
   await sentMessage.pin()
 
