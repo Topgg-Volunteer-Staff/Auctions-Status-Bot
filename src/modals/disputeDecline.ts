@@ -260,8 +260,7 @@ export const execute = async (
           // If user has the reviewer role, use them as the reviewer
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
-            reviewerName =
-              reviewerMember.displayName || reviewerMember.user.username
+            reviewerName = reviewerMember.user.username
           }
         }
       }
