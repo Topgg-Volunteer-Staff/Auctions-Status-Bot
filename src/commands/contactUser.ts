@@ -8,7 +8,6 @@ import {
   SlashCommandBuilder,
   MessageFlags,
   LabelBuilder,
-  UserSelectMenuBuilder,
   FileUploadBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
@@ -46,6 +45,13 @@ export const execute = async (
     .setMaxLength(1000)
     .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
 
+  const userId = new TextInputBuilder()
+    .setCustomId('userId')
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true)
+    .setMaxLength(20)
+    .setPlaceholder('E.g. 422087909634736160')
+
   const botId = new TextInputBuilder()
     .setCustomId('botId')
     .setStyle(TextInputStyle.Short)
@@ -60,15 +66,10 @@ export const execute = async (
     .setMaxValues(5)
     .setRequired(false)
 
-  // User select to choose the user to contact
-  const userSelectLabel = new LabelBuilder()
-    .setLabel('User to contact')
-    .setUserSelectMenuComponent(
-      new UserSelectMenuBuilder()
-        .setCustomId('contactUserSelect')
-        .setMinValues(1)
-        .setMaxValues(1)
-    )
+  // User ID input
+  const userIdLabel = new LabelBuilder()
+    .setLabel('User ID to contact')
+    .setTextInputComponent(userId)
 
   // Bot ID input
   const botIdLabel = new LabelBuilder()
@@ -86,7 +87,7 @@ export const execute = async (
     .setFileUploadComponent(fileUpload)
 
   modal.addLabelComponents(
-    userSelectLabel,
+    userIdLabel,
     botIdLabel,
     reasonLabel,
     fileUploadLabel

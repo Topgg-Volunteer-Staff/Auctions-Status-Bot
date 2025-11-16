@@ -56,28 +56,44 @@ export const execute = async (
     uploadedFiles = []
   }
 
-  // Get selected user from the user select component
+  // ensure user id is provided
   let userId = ''
   try {
-    const selectedUsers = interaction.fields.getSelectedUsers(
-      'contactUserSelect',
-      true
-    )
-    const firstUser = selectedUsers.first()
-    userId = firstUser?.id ?? ''
+    userId = interaction.fields.getTextInputValue('userId').trim()
   } catch {
+    // display error on failure
     await interaction.editReply({
       embeds: [
-        errorEmbed('No User Selected', 'Please select a user to contact.'),
+        errorEmbed(
+          'No User ID Provided',
+          'The ID of the user to contact is required'
+        ),
       ],
     })
     return
   }
 
+  // display error if no user id
   if (!userId) {
     await interaction.editReply({
       embeds: [
-        errorEmbed('No User Selected', 'Please select a user to contact.'),
+        errorEmbed(
+          'No User ID Provided',
+          'The ID of the user to contact is required'
+        ),
+      ],
+    })
+    return
+  }
+
+  // ensure the provided user id is numeric
+  if (!/^\d+$/.test(userId)) {
+    await interaction.editReply({
+      embeds: [
+        errorEmbed(
+          'Invalid User ID',
+          'The ID of the user to contact must be a snowflake'
+        ),
       ],
     })
     return
@@ -86,6 +102,22 @@ export const execute = async (
   try {
     const user = await interaction.client.users.fetch(userId)
     const username = user.username
+
+    // make sure the user is in the server
+    const member = await interaction.guild.members
+      .fetch(userId)
+      .catch(() => null)
+    if (!member) {
+      await interaction.editReply({
+        embeds: [
+          errorEmbed(
+            `User Not Found`,
+            `User **\`${userId}\`** is not in the server`
+          ),
+        ],
+      })
+      return
+    }
 
     const threadName = `Contact User - ${username} <> ${interaction.user.username}`
 
