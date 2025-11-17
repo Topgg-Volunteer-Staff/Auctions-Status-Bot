@@ -35,6 +35,15 @@ export const execute = async (
     return
   }
 
+  // Extract user ID from customId (format: "contactUserModal_123456789")
+  const userId = interaction.customId.split('_')[1]
+  if (!userId) {
+    await interaction.editReply({
+      embeds: [errorEmbed('Error', 'Invalid modal data. Please try again.')],
+    })
+    return
+  }
+
   const reason = interaction.fields.getTextInputValue('reason').trim()
 
   // Get bot ID if provided
@@ -54,49 +63,6 @@ export const execute = async (
     uploadedFiles = files ? Array.from(files.values()) : []
   } catch {
     uploadedFiles = []
-  }
-
-  // ensure user id is provided
-  let userId = ''
-  try {
-    userId = interaction.fields.getTextInputValue('userId').trim()
-  } catch {
-    // display error on failure
-    await interaction.editReply({
-      embeds: [
-        errorEmbed(
-          'No User ID Provided',
-          'The ID of the user to contact is required'
-        ),
-      ],
-    })
-    return
-  }
-
-  // display error if no user id
-  if (!userId) {
-    await interaction.editReply({
-      embeds: [
-        errorEmbed(
-          'No User ID Provided',
-          'The ID of the user to contact is required'
-        ),
-      ],
-    })
-    return
-  }
-
-  // ensure the provided user id is numeric
-  if (!/^\d+$/.test(userId)) {
-    await interaction.editReply({
-      embeds: [
-        errorEmbed(
-          'Invalid User ID',
-          'The ID of the user to contact must be a snowflake'
-        ),
-      ],
-    })
-    return
   }
 
   try {

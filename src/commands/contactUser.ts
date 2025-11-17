@@ -3,7 +3,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   Client,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   InteractionContextType,
   SlashCommandBuilder,
   MessageFlags,
@@ -17,10 +17,16 @@ export const command = new SlashCommandBuilder()
   .setDescription('Contact a specific user')
   .setContexts(InteractionContextType.Guild)
   .setDefaultMemberPermissions('0')
+  .addUserOption((option) =>
+    option
+      .setName('user')
+      .setDescription('The user to contact')
+      .setRequired(true)
+  )
 
 export const execute = async (
   _client: Client,
-  interaction: CommandInteraction
+  interaction: ChatInputCommandInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
@@ -34,9 +40,33 @@ export const execute = async (
     return
   }
 
+  // Get the user from the command options
+  const user = interaction.options.getUser('user', true)
+
+  // Validate the user is in the guild before showing the modal (fail fast)
+  try {
+    const member = await interaction.guild.members
+      .fetch(user.id)
+      .catch(() => null)
+    if (!member) {
+      await interaction.reply({
+        content: `User **${user.username}** (\`${user.id}\`) is not in the server.`,
+        flags: MessageFlags.Ephemeral,
+      })
+      return
+    }
+  } catch (error) {
+    await interaction.reply({
+      content: 'Failed to validate user. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    })
+    return
+  }
+
+  // Pass the user ID in the customId so the modal handler can access it
   const modal = new ModalBuilder()
-    .setCustomId('contactUserModal')
-    .setTitle('Contact user')
+    .setCustomId(`contactUserModal_${user.id}`)
+    .setTitle(`Contact ${user.username}`)
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
@@ -44,13 +74,6 @@ export const execute = async (
     .setRequired(true)
     .setMaxLength(1000)
     .setPlaceholder('E.g. Need to discuss bot issues, account issues, etc.')
-
-  const userId = new TextInputBuilder()
-    .setCustomId('userId')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(20)
-    .setPlaceholder('E.g. 422087909634736160')
 
   const botId = new TextInputBuilder()
     .setCustomId('botId')
@@ -65,11 +88,6 @@ export const execute = async (
     .setMinValues(0)
     .setMaxValues(5)
     .setRequired(false)
-
-  // User ID input
-  const userIdLabel = new LabelBuilder()
-    .setLabel('User ID to contact')
-    .setTextInputComponent(userId)
 
   // Bot ID input
   const botIdLabel = new LabelBuilder()
@@ -86,11 +104,6 @@ export const execute = async (
     .setLabel('Attachments')
     .setFileUploadComponent(fileUpload)
 
-  modal.addLabelComponents(
-    userIdLabel,
-    botIdLabel,
-    reasonLabel,
-    fileUploadLabel
-  )
+  modal.addLabelComponents(botIdLabel, reasonLabel, fileUploadLabel)
   await interaction.showModal(modal)
 }
