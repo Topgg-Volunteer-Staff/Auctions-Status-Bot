@@ -101,10 +101,6 @@ export const execute = async (
     .setLabel('Attachments')
     .setFileUploadComponent(fileUpload)
 
-  modal.addLabelComponents(
-    botIdLabel,
-    reasonLabel,
-    fileUploadLabel
-  )
+  modal.addLabelComponents(botIdLabel, reasonLabel, fileUploadLabel)
   await interaction.showModal(modal)
 }

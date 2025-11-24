@@ -56,28 +56,13 @@ export const execute = async (
     uploadedFiles = []
   }
 
-  // Get selected user from the user select component
-  let userId = ''
-  try {
-    const selectedUsers = interaction.fields.getSelectedUsers(
-      'contactUserSelect',
-      true
-    )
-    const firstUser = selectedUsers.first()
-    userId = firstUser?.id ?? ''
-  } catch {
-    await interaction.editReply({
-      embeds: [
-        errorEmbed('No User Selected', 'Please select a user to contact.'),
-      ],
-    })
-    return
-  }
+  // parse user id from customId (_ as separator)
+  const userId = interaction.customId.split('_')[1]
 
   if (!userId) {
     await interaction.editReply({
       embeds: [
-        errorEmbed('No User Selected', 'Please select a user to contact.'),
+        errorEmbed('Invalid User', 'Could not determine the user to contact.'),
       ],
     })
     return
