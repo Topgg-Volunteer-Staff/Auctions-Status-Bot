@@ -119,8 +119,8 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
       )
     }
   } else if (environment === 'PRODUCTION') {
-    const webhookUrl =
-      'https://discord.com/api/webhooks/1404081951958368288/ozEfqM7v1gCcPdvrQgcvD5txm1tGX8bvpIzSddwQ_osMpk2AQWPrMt2Ye9Z4tZ1QRkfg'
+    const webhookUrl = process.env.ERROR_WEBHOOK_URL || '';
+    if (!webhookUrl) return;
     try {
       await fetch(webhookUrl, {
         method: 'POST',
