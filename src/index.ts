@@ -119,8 +119,8 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
       )
     }
   } else if (environment === 'PRODUCTION') {
-    const webhookUrl = process.env.ERROR_WEBHOOK_URL || '';
-    if (!webhookUrl) return;
+    const webhookUrl = process.env.ERROR_WEBHOOK_URL || ''
+    if (!webhookUrl) return
     try {
       await fetch(webhookUrl, {
         method: 'POST',
