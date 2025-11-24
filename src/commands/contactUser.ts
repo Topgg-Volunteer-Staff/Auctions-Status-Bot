@@ -25,7 +25,7 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  // Check if user has reviewer role
+  // check for reviewer role
   const hasReviewerRole = interaction.member.roles.cache.has(roleIds.reviewer)
   if (!hasReviewerRole) {
     await interaction.reply({
@@ -35,9 +35,33 @@ export const execute = async (
     return
   }
 
+  // fetch target user
+  const user = interaction.options.getUser('user', true)
+
+  // ensure target user is in the server
+  try {
+    const member = await interaction.guild.members
+      .fetch(user.id)
+      .catch(() => null)
+    if (!member) {
+      await interaction.reply({
+        content: `User **${user.username}** (\`${user.id}\`) is not in the server.`,
+        flags: MessageFlags.Ephemeral,
+      })
+      return
+    }
+  } catch (error) {
+    await interaction.reply({
+      content: 'Failed to validate user. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    })
+    return
+  }
+
   const modal = new ModalBuilder()
-    .setCustomId('contactUserModal')
-    .setTitle('Contact user')
+    // user id passed through customId
+    .setCustomId(`contactUserModal_${user.id}`)
+    .setTitle(`Contact ${user.username}`)
 
   const reason = new TextInputBuilder()
     .setCustomId('reason')
@@ -53,34 +77,21 @@ export const execute = async (
     .setMaxLength(100)
     .setPlaceholder('E.g. 422087909634736160')
 
-  // File upload component
   const fileUpload = new FileUploadBuilder()
     .setCustomId('fileUpload')
     .setMinValues(0)
     .setMaxValues(5)
     .setRequired(false)
 
-  // User select to choose the user to contact
-  const userSelectLabel = new LabelBuilder()
-    .setLabel('User to contact')
-    .setUserSelectMenuComponent(
-      new UserSelectMenuBuilder()
-        .setCustomId('contactUserSelect')
-        .setMinValues(1)
-        .setMaxValues(1)
-    )
-
-  // Bot ID input
+  // regular string input, no validation
   const botIdLabel = new LabelBuilder()
     .setLabel('Bot ID')
     .setTextInputComponent(botId)
 
-  // Reason input
   const reasonLabel = new LabelBuilder()
     .setLabel('Reason')
     .setTextInputComponent(reason)
 
-  // File upload component
   const fileUploadLabel = new LabelBuilder()
     .setLabel('Attachments')
     .setFileUploadComponent(fileUpload)

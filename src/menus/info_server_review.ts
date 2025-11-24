@@ -17,11 +17,14 @@ export const execute = async (
 
   await interaction.update({})
 
+  // update to real server guidelines url when available
+  const SERVER_GUIDELINES_URL = 'https://top.gg'
+
   const embed = new EmbedBuilder()
     .setColor('#E91E63')
     .setTitle('When will my server be reviewed?')
     .setDescription(
-      '**Our average review time is 1 week or more.**\n\nIf your server does not get approved within a few minutes after submitting, it means it failed our automoderator checks. When this happens, the server will be put in the manual queue.\n\nPlease make sure your server follows all of our [Server Guidelines](https://support.top.gg/support/solutions/articles/73000502503-server-guidelines) for a quick and smooth approval!\n\nNote: you must delete and re-add your server to get it reviewed again if it fails our initial checks.'
+      `**Our average review time is 1 week or more.**\n\nIf your server does not get approved within a few minutes after submitting, it means it failed our automoderator checks. When this happens, the server will be put in the manual queue.\n\nPlease make sure your server follows all of our **[Server Guidelines](${SERVER_GUIDELINES_URL})** for a quick and smooth approval!\n\nNote: you must delete and re-add your server to get it reviewed again if it fails our initial checks.`
     )
 
   await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral })
