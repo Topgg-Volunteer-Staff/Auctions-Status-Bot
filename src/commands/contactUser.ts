@@ -3,12 +3,11 @@ import {
   TextInputBuilder,
   TextInputStyle,
   Client,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   InteractionContextType,
   SlashCommandBuilder,
   MessageFlags,
   LabelBuilder,
-  UserSelectMenuBuilder,
   FileUploadBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
@@ -18,10 +17,16 @@ export const command = new SlashCommandBuilder()
   .setDescription('Contact a specific user')
   .setContexts(InteractionContextType.Guild)
   .setDefaultMemberPermissions('0')
+  .addUserOption((option) =>
+    option
+      .setName('user')
+      .setDescription('The user to contact')
+      .setRequired(true)
+  )
 
 export const execute = async (
   _client: Client,
-  interaction: CommandInteraction
+  interaction: ChatInputCommandInteraction
 ) => {
   if (!interaction.inCachedGuild()) return
 
@@ -97,7 +102,6 @@ export const execute = async (
     .setFileUploadComponent(fileUpload)
 
   modal.addLabelComponents(
-    userSelectLabel,
     botIdLabel,
     reasonLabel,
     fileUploadLabel
