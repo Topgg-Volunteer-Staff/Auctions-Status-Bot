@@ -18,7 +18,8 @@ export const execute = async (
   await interaction.update({})
 
   // update to real server guidelines url when available
-  const SERVER_GUIDELINES_URL = 'https://support.top.gg/hc/en-us/sections/23146848169116-Guidelines'
+  const SERVER_GUIDELINES_URL =
+    'https://support.top.gg/hc/en-us/sections/23146848169116-Guidelines'
 
   const embed = new EmbedBuilder()
     .setColor('#E91E63')
