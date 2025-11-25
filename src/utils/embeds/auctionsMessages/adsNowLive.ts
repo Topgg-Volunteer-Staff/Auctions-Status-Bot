@@ -20,7 +20,7 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
     adsEndYMD.y,
     adsEndYMD.m,
     adsEndYMD.d,
-    16,
+    14,
     0,
     0,
     TZ
@@ -32,7 +32,7 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
     biddingEndYMD.y,
     biddingEndYMD.m,
     biddingEndYMD.d,
-    15,
+    14,
     0,
     0,
     TZ
