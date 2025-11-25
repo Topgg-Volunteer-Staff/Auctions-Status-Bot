@@ -50,8 +50,7 @@ export default function startReminders(client: Client) {
 
   // Every Tuesday at 20:01 UTC - Ads live
   cron.schedule(
-    // '0 1 20 * * Tue',
-    '* * * * *',
+    '0 1 20 * * Tue',
     () =>
       runAuctionsMessage(client, 'ads-now-live', {
         ping: false,
