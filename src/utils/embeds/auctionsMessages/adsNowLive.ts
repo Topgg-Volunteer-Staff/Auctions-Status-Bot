@@ -36,7 +36,7 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
 
   // Events
   // Ads run until next Tuesday: 7 days from now, 20:00 UTC
-  const adsEndUnix = getUnixUTC(7, 20, 0);
+  const adsEndUnix = getUnixUTC(7, 19, 0);
   // Bidding ends next Monday: 6 days from now, 19:00 UTC
   const biddingEndUnix = getUnixUTC(6, 19, 0);
 
