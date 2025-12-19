@@ -84,7 +84,7 @@ async function sendInactiveAlert(
 ): Promise<void> {
   try {
     await alertChannel.send(
-      `:warning:Please check <#${thread.id}> - inactive since ${timeSince}`
+      `:warning: Please check <#${thread.id}> - inactive since ${timeSince}`
     )
   } catch (error) {
     console.error('Failed to send inactive thread alert:', error)
