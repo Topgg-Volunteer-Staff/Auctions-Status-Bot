@@ -4,10 +4,15 @@ import {
   GatewayIntentBits,
   EmbedBuilder,
   TextChannel,
+  ThreadChannel,
+  ChannelType,
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds } from './globals'
+import { threadAlerts } from './commands/alert'
+import { getTicketCreatorId } from './utils/tickets/getTicketCreator'
+import { updateThreadActivity } from './utils/tickets/trackActivity'
 
 const client = new Client({
   intents: [
@@ -168,7 +173,68 @@ client.on('error', async (err) => {
   }
 })
 
-// Handle user leaving the server
+client.on('messageCreate', async (message) => {
+  if (!message.channel.isThread()) return
+
+  const thread = message.channel as ThreadChannel
+
+  // Track activity for mod tickets and auctions tickets
+  if (
+    (thread.parent?.id === channelIds.modTickets ||
+      thread.parent?.id === channelIds.auctionsTickets) &&
+    !message.author.bot
+  ) {
+    updateThreadActivity(thread.id)
+  }
+
+  // Only process mod ticket threads for alerts
+  if (
+    thread.parent?.id !== channelIds.modTickets ||
+    thread.type !== ChannelType.PrivateThread
+  ) {
+    return
+  }
+
+  if (message.author.bot) return
+
+  const alerts = threadAlerts.get(thread.id)
+  if (!alerts || alerts.size === 0) return
+
+  try {
+    const ticketCreatorId = await getTicketCreatorId(thread)
+
+    if (!ticketCreatorId || message.author.id !== ticketCreatorId) {
+      return
+    }
+
+    const modUserIdsToRemove: string[] = []
+
+    for (const modUserId of alerts) {
+      try {
+        const modUser = await client.users.fetch(modUserId)
+        await modUser.send({
+          content: `📬 New message from **${message.author.username}** in <#${thread.id}>`,
+          allowedMentions: { users: [] },
+        })
+        modUserIdsToRemove.push(modUserId)
+      } catch (error) {
+        console.error(`Failed to DM mod ${modUserId}:`, error)
+        modUserIdsToRemove.push(modUserId)
+      }
+    }
+
+    for (const modUserId of modUserIdsToRemove) {
+      alerts.delete(modUserId)
+    }
+
+    if (alerts.size === 0) {
+      threadAlerts.delete(thread.id)
+    }
+  } catch (error) {
+    console.error('Error handling ticket creator message:', error)
+  }
+})
+
 client.on('guildMemberRemove', async (member) => {
   try {
     const guild = member.guild
@@ -178,10 +244,8 @@ client.on('guildMemberRemove', async (member) => {
 
     if (!modTicketsChannel) return
 
-    // Only fetch active threads
     const activeThreads = await modTicketsChannel.threads.fetchActive()
 
-    // Find active threads that belong to this user by checking the username in the thread name
     const userThreads = Array.from(activeThreads.threads.values()).filter(
       (thread) => thread.name.endsWith(`- ${member.user.username}`)
     )
