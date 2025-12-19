@@ -11,7 +11,6 @@ import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds } from './globals'
 import { threadAlerts } from './commands/alert'
-import { getTicketCreatorId } from './utils/tickets/getTicketCreator'
 import { updateThreadActivity } from './utils/tickets/trackActivity'
 
 const client = new Client({
@@ -195,41 +194,59 @@ client.on('messageCreate', async (message) => {
 
   if (message.author.bot) return
 
-  const alerts = threadAlerts.get(thread.id)
-  if (!alerts || alerts.size === 0) return
+  const threadAlertMap = threadAlerts.get(thread.id)
+  if (!threadAlertMap || threadAlertMap.size === 0) return
 
   try {
-    const ticketCreatorId = await getTicketCreatorId(thread)
+    const messageAuthorId = message.author.id
+    const modsToNotify: string[] = []
 
-    if (!ticketCreatorId || message.author.id !== ticketCreatorId) {
-      return
+    // Check each mod's alert list to see if they're tracking this user
+    for (const [modUserId, trackedUserIds] of threadAlertMap.entries()) {
+      if (trackedUserIds.has(messageAuthorId)) {
+        modsToNotify.push(modUserId)
+      }
     }
 
-    const modUserIdsToRemove: string[] = []
+    if (modsToNotify.length === 0) return
 
-    for (const modUserId of alerts) {
+    // Send DMs to all mods who are tracking this user
+    for (const modUserId of modsToNotify) {
       try {
         const modUser = await client.users.fetch(modUserId)
         await modUser.send({
           content: `📬 New message from **${message.author.username}** in <#${thread.id}>`,
           allowedMentions: { users: [] },
         })
-        modUserIdsToRemove.push(modUserId)
+
+        // Remove the alert after sending (one-time alert)
+        const userAlerts = threadAlertMap.get(modUserId)
+        if (userAlerts) {
+          userAlerts.delete(messageAuthorId)
+          // Clean up empty sets
+          if (userAlerts.size === 0) {
+            threadAlertMap.delete(modUserId)
+          }
+        }
       } catch (error) {
         console.error(`Failed to DM mod ${modUserId}:`, error)
-        modUserIdsToRemove.push(modUserId)
+        // Still remove the alert even if DM fails
+        const userAlerts = threadAlertMap.get(modUserId)
+        if (userAlerts) {
+          userAlerts.delete(messageAuthorId)
+          if (userAlerts.size === 0) {
+            threadAlertMap.delete(modUserId)
+          }
+        }
       }
     }
 
-    for (const modUserId of modUserIdsToRemove) {
-      alerts.delete(modUserId)
-    }
-
-    if (alerts.size === 0) {
+    // Clean up empty thread alert maps
+    if (threadAlertMap.size === 0) {
       threadAlerts.delete(thread.id)
     }
   } catch (error) {
-    console.error('Error handling ticket creator message:', error)
+    console.error('Error handling alert message:', error)
   }
 })
 

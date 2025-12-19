@@ -1,7 +1,7 @@
 import {
   ChannelType,
   Client,
-  CommandInteraction,
+  ChatInputCommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
@@ -10,16 +10,25 @@ import {
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { channelIds } from '../globals'
 
-export const threadAlerts = new Map<string, Set<string>>()
+// Structure: threadId -> Map<modUserId, Set<userIdToAlert>>
+export const threadAlerts = new Map<string, Map<string, Set<string>>>()
 
 export const command = new SlashCommandBuilder()
   .setName('alert')
-  .setDescription('Get notified when the ticket creator sends a new message')
+  .setDescription(
+    'Get notified when a specific user sends a message in this thread'
+  )
+  .addUserOption((option) =>
+    option
+      .setName('user')
+      .setDescription('The user to alert on when they send a message')
+      .setRequired(true)
+  )
   .setContexts(InteractionContextType.Guild)
 
 export const execute = async (
   _client: Client,
-  interaction: CommandInteraction
+  interaction: ChatInputCommandInteraction
 ): Promise<void> => {
   const ch = interaction.channel
   if (!ch || ch.type !== ChannelType.PrivateThread) {
@@ -44,18 +53,26 @@ export const execute = async (
   }
 
   try {
+    const targetUser = interaction.options.getUser('user', true)
+
     if (!threadAlerts.has(thread.id)) {
-      threadAlerts.set(thread.id, new Set())
+      threadAlerts.set(thread.id, new Map())
     }
 
-    const alerts = threadAlerts.get(thread.id)!
+    const threadAlertMap = threadAlerts.get(thread.id)!
 
-    alerts.add(interaction.user.id)
+    if (!threadAlertMap.has(interaction.user.id)) {
+      threadAlertMap.set(interaction.user.id, new Set())
+    }
+
+    const userAlerts = threadAlertMap.get(interaction.user.id)!
+    userAlerts.add(targetUser.id)
+
     await interaction.reply({
       embeds: [
         successEmbed(
           'Alert set',
-          'You will receive a DM when the ticket creator sends their next message in this thread. The alert will be removed after you are notified.'
+          `You will receive a DM when **${targetUser.username}** sends a message in this thread. The alert will be removed after you are notified.`
         ),
       ],
       flags: MessageFlags.Ephemeral,
