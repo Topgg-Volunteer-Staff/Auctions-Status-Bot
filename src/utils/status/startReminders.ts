@@ -7,11 +7,8 @@ import { initializeThreadActivity } from '../tickets/trackActivity'
 import { channelIds } from '../../globals'
 
 export default function startReminders(client: Client) {
-  // Initialize tracking for existing active threads on startup
-  // Use setTimeout to ensure channels are fully loaded
   setTimeout(async () => {
     try {
-      // Initialize mod tickets
       const modTicketsChannel = client.channels.cache.get(channelIds.modTickets)
       if (modTicketsChannel && 'threads' in modTicketsChannel) {
         const activeThreads = await modTicketsChannel.threads.fetchActive()
@@ -19,23 +16,11 @@ export default function startReminders(client: Client) {
           await initializeThreadActivity(thread).catch(console.error)
         }
       }
-
-      // Initialize auctions tickets
-      const auctionsTicketsChannel = client.channels.cache.get(
-        channelIds.auctionsTickets
-      )
-      if (auctionsTicketsChannel && 'threads' in auctionsTicketsChannel) {
-        const activeThreads = await auctionsTicketsChannel.threads.fetchActive()
-        for (const thread of activeThreads.threads.values()) {
-          await initializeThreadActivity(thread).catch(console.error)
-        }
-      }
     } catch (error) {
       console.error('Error initializing thread activity tracking:', error)
     }
-  }, 5000) // Wait 5 seconds for channels to be fully loaded
+  }, 5000)
 
-  // Check for inactive threads every hour
   cron.schedule('0 * * * *', () => {
     checkInactiveThreads(client).catch(console.error)
   })

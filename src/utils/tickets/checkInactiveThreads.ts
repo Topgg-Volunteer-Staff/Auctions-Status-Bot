@@ -1,4 +1,4 @@
-import { Client, TextChannel, ThreadChannel } from 'discord.js'
+import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
 import { channelIds } from '../../globals'
 import {
   getThreadLastMessage,
@@ -43,7 +43,12 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           .fetch(threadId)
           .catch(() => null)) as ThreadChannel | null
 
-        if (!thread || thread.archived) {
+        if (
+          !thread ||
+          thread.archived ||
+          thread.parent?.id !== channelIds.modTickets ||
+          thread.type !== ChannelType.PrivateThread
+        ) {
           continue
         }
 

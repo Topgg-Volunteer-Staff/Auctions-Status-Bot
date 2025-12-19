@@ -178,16 +178,14 @@ client.on('messageCreate', async (message) => {
 
   const thread = message.channel as ThreadChannel
 
-  // Track activity for mod tickets and auctions tickets
   if (
-    (thread.parent?.id === channelIds.modTickets ||
-      thread.parent?.id === channelIds.auctionsTickets) &&
+    thread.parent?.id === channelIds.modTickets &&
+    thread.type === ChannelType.PrivateThread &&
     !message.author.bot
   ) {
     updateThreadActivity(thread.id)
   }
 
-  // Only process mod ticket threads for alerts
   if (
     thread.parent?.id !== channelIds.modTickets ||
     thread.type !== ChannelType.PrivateThread
@@ -250,7 +248,6 @@ client.on('guildMemberRemove', async (member) => {
       (thread) => thread.name.endsWith(`- ${member.user.username}`)
     )
 
-    // Post a message in each of the user's active threads
     for (const thread of userThreads) {
       try {
         if (thread.isThread()) {
