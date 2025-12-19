@@ -1,5 +1,5 @@
 import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
-import { channelIds } from '../../globals'
+import { channelIds, resolvedFlag } from '../../globals'
 import {
   getThreadLastMessage,
   hasAlertBeenSent,
@@ -47,7 +47,8 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           !thread ||
           thread.archived ||
           thread.parent?.id !== channelIds.modTickets ||
-          thread.type !== ChannelType.PrivateThread
+          thread.type !== ChannelType.PrivateThread ||
+          thread.name.startsWith(resolvedFlag)
         ) {
           continue
         }
