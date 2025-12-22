@@ -199,7 +199,7 @@ client.on('messageCreate', async (message) => {
 
   try {
     const messageAuthorId = message.author.id
-    const modsToNotify: string[] = []
+    const modsToNotify: Array<string> = []
 
     // Check each mod's alert list to see if they're tracking this user
     for (const [modUserId, trackedUserIds] of threadAlertMap.entries()) {
