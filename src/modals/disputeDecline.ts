@@ -317,6 +317,35 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
+  // Extract bot ID from the embed
+  let botIdFromEmbed = disputeID
+  try {
+    const logEmbed = matchingMessage.embeds[0]
+    if (logEmbed) {
+      const botField = logEmbed.fields.find(
+        (f) => f.name.toLowerCase() === 'bot'
+      )
+      if (botField) {
+        const botMatch = botField.value.match(/\((\d+)\)/)
+        if (botMatch && botMatch[1]) {
+          botIdFromEmbed = botMatch[1]
+        }
+      }
+    }
+  } catch {
+    // If extraction fails, use disputeID as fallback
+  }
+
+  // Send bot ID in first message (not pinned)
+  if (botIdFromEmbed) {
+    await webhook.send({
+      content: `**Bot ID:** ${botIdFromEmbed}`,
+      threadId: thread.id,
+      allowedMentions: { users: [] },
+    })
+  }
+
+  // Send dispute reason and additional details in second message
   const disputeReasonText = selectedDisputeReason
     ? `**Dispute Reason:** ${
         disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
