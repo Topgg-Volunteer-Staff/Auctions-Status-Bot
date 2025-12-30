@@ -317,6 +317,14 @@ export const execute = async (
     avatar: interaction.user.displayAvatarURL(),
   })
 
+  // Send bot ID in first message (not pinned) - using the ID from the modal
+  await webhook.send({
+    content: `**Bot ID:** ${disputeID}`,
+    threadId: thread.id,
+    allowedMentions: { users: [] },
+  })
+
+  // Send dispute reason and additional details in second message
   const disputeReasonText = selectedDisputeReason
     ? `**Dispute Reason:** ${
         disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
