@@ -292,8 +292,8 @@ export const execute = async (
       selectedOwnershipType === 'bot'
         ? 'Bot'
         : selectedOwnershipType === 'server'
-          ? 'Server'
-          : ''
+        ? 'Server'
+        : ''
   }
 
   // Extract uploaded screenshot files (if any)
