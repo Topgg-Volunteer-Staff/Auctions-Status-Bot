@@ -16,6 +16,36 @@ import {
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 
+const discordEpochMs = 1420070400000
+
+const snowflakeToUnixSeconds = (id: string): number | null => {
+  try {
+    // Discord snowflake: timestamp is the top 42 bits, in ms offset from epoch.
+    const ms = Number((BigInt(id) >> 22n) + BigInt(discordEpochMs))
+    if (!Number.isFinite(ms) || ms <= 0) return null
+    return Math.floor(ms / 1000)
+  } catch {
+    return null
+  }
+}
+
+const threadOpenedUnixSeconds = (t: ThreadChannel): number | null => {
+  const createdMs = t.createdTimestamp
+  if (
+    typeof createdMs === 'number' &&
+    Number.isFinite(createdMs) &&
+    createdMs > 0
+  )
+    return Math.floor(createdMs / 1000)
+  return snowflakeToUnixSeconds(t.id)
+}
+
+const formatOpened = (t: ThreadChannel): string => {
+  const unix = threadOpenedUnixSeconds(t)
+  if (!unix) return 'opened unknown'
+  return `opened <t:${unix}:f> (<t:${unix}:R>)`
+}
+
 // Normalize thread names to avoid invisible characters and different dash types
 const normalizeName = (s: string): string =>
   s
@@ -197,7 +227,9 @@ export const getUnresolvedTickets = async (
         categoryName: string
       ) => {
         const listed = tickets.slice(0, maxPerCategory)
-        const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
+        const lines = listed
+          .map((t) => `- <#${t.id}> (${t.name}) — ${formatOpened(t)}`)
+          .join('\n')
         const more =
           tickets.length > maxPerCategory
             ? `\n...and ${tickets.length - maxPerCategory} more`
@@ -262,7 +294,9 @@ export const getUnresolvedTickets = async (
       const max = 25
       const listed = unresolved.slice(0, max)
 
-      const lines = listed.map((t) => `- <#${t.id}> (${t.name})`).join('\n')
+      const lines = listed
+        .map((t) => `- <#${t.id}> (${t.name}) — ${formatOpened(t)}`)
+        .join('\n')
 
       const more =
         unresolved.length > max
