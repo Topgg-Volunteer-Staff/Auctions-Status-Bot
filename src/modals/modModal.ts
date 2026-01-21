@@ -216,9 +216,13 @@ export const execute = async (
         } A mod will respond as soon as possible. Please don't ping individual staff.`
 
   const embed = new EmbedBuilder()
-    .setTitle(`${titleExtra}`)
     .setDescription(`${baseDescription}\n\n${closeLine}`)
     .setColor('#ff3366')
+
+  const trimmedTitle = titleExtra.trim()
+  if (trimmedTitle.length > 0) {
+    embed.setTitle(trimmedTitle)
+  }
 
   let threadName = interaction.user.username
   if (type) {
