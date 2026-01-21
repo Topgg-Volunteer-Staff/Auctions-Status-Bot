@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const SpecReporter = require('jasmine-spec-reporter').SpecReporter
 
 jasmine.getEnv().clearReporters() // remove default reporter logs
