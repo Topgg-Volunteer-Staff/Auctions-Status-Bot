@@ -39,6 +39,37 @@ client.on('ready', async () => {
 })
 
 commandHandler(client)
+
+client.on('messageCreate', async (message) => {
+  try {
+    if (!message.inGuild()) return
+    if (message.author?.bot) return
+    if (message.webhookId) return
+
+    // Only act when there are exactly 4 attachments and all are images.
+    if (message.attachments.size !== 4) return
+    const attachments = Array.from(message.attachments.values())
+    const allImages = attachments.every((a) => {
+      const contentType = (a.contentType || '').toLowerCase()
+      if (contentType.startsWith('image/')) return true
+
+      // Fallback: detect common image extensions if contentType is missing.
+      const name = (a.name || '').toLowerCase()
+      return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
+    })
+    if (!allImages) return
+
+    const hasNoContent = !message.content || message.content.trim().length === 0
+    const hasEveryonePing = message.mentions.everyone || /@everyone\b/i.test(message.content)
+
+    // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
+    if (hasNoContent || hasEveryonePing) {
+      await message.delete().catch(() => void 0)
+    }
+  } catch {
+    // ignore
+  }
+})
 /**
  * Creates a standardized error embed for reporting errors.
  */
