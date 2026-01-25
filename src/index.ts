@@ -43,7 +43,7 @@ commandHandler(client)
 client.on('messageCreate', async (message) => {
   try {
     if (!message.inGuild()) return
-    if (message.author?.bot) return
+    if (message.author.bot) return
     if (message.webhookId) return
 
     // Only act when there are exactly 4 attachments and all are images.
