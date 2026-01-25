@@ -60,7 +60,8 @@ client.on('messageCreate', async (message) => {
     if (!allImages) return
 
     const hasNoContent = !message.content || message.content.trim().length === 0
-    const hasEveryonePing = message.mentions.everyone || /@everyone\b/i.test(message.content)
+    const hasEveryonePing =
+      message.mentions.everyone || /@everyone\b/i.test(message.content)
 
     // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
     if (hasNoContent || hasEveryonePing) {
