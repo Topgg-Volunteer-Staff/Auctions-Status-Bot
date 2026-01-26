@@ -4,10 +4,14 @@ import {
   GatewayIntentBits,
   EmbedBuilder,
   TextChannel,
+  ThreadChannel,
+  ChannelType,
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds } from './globals'
+import { threadAlerts } from './commands/alert'
+import { updateThreadActivity } from './utils/tickets/trackActivity'
 
 const client = new Client({
   intents: [
@@ -200,7 +204,84 @@ client.on('error', async (err) => {
   }
 })
 
-// Handle user leaving the server
+client.on('messageCreate', async (message) => {
+  if (!message.channel.isThread()) return
+
+  const thread = message.channel as ThreadChannel
+
+  if (
+    thread.parent?.id === channelIds.modTickets &&
+    thread.type === ChannelType.PrivateThread &&
+    !message.author.bot
+  ) {
+    updateThreadActivity(thread.id)
+  }
+
+  if (
+    thread.parent?.id !== channelIds.modTickets ||
+    thread.type !== ChannelType.PrivateThread
+  ) {
+    return
+  }
+
+  if (message.author.bot) return
+
+  const threadAlertMap = threadAlerts.get(thread.id)
+  if (!threadAlertMap || threadAlertMap.size === 0) return
+
+  try {
+    const messageAuthorId = message.author.id
+    const modsToNotify: Array<string> = []
+
+    // Check each mod's alert list to see if they're tracking this user
+    for (const [modUserId, trackedUserIds] of threadAlertMap.entries()) {
+      if (trackedUserIds.has(messageAuthorId)) {
+        modsToNotify.push(modUserId)
+      }
+    }
+
+    if (modsToNotify.length === 0) return
+
+    // Send DMs to all mods who are tracking this user
+    for (const modUserId of modsToNotify) {
+      try {
+        const modUser = await client.users.fetch(modUserId)
+        await modUser.send({
+          content: `📬 New message from **${message.author.username}** in <#${thread.id}>`,
+          allowedMentions: { users: [] },
+        })
+
+        // Remove the alert after sending (one-time alert)
+        const userAlerts = threadAlertMap.get(modUserId)
+        if (userAlerts) {
+          userAlerts.delete(messageAuthorId)
+          // Clean up empty sets
+          if (userAlerts.size === 0) {
+            threadAlertMap.delete(modUserId)
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to DM mod ${modUserId}:`, error)
+        // Still remove the alert even if DM fails
+        const userAlerts = threadAlertMap.get(modUserId)
+        if (userAlerts) {
+          userAlerts.delete(messageAuthorId)
+          if (userAlerts.size === 0) {
+            threadAlertMap.delete(modUserId)
+          }
+        }
+      }
+    }
+
+    // Clean up empty thread alert maps
+    if (threadAlertMap.size === 0) {
+      threadAlerts.delete(thread.id)
+    }
+  } catch (error) {
+    console.error('Error handling alert message:', error)
+  }
+})
+
 client.on('guildMemberRemove', async (member) => {
   try {
     const guild = member.guild
@@ -210,15 +291,12 @@ client.on('guildMemberRemove', async (member) => {
 
     if (!modTicketsChannel) return
 
-    // Only fetch active threads
     const activeThreads = await modTicketsChannel.threads.fetchActive()
 
-    // Find active threads that belong to this user by checking the username in the thread name
     const userThreads = Array.from(activeThreads.threads.values()).filter(
       (thread) => thread.name.endsWith(`- ${member.user.username}`)
     )
 
-    // Post a message in each of the user's active threads
     for (const thread of userThreads) {
       try {
         if (thread.isThread()) {

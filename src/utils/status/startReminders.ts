@@ -2,8 +2,28 @@
 import { Client } from 'discord.js'
 import cron from 'node-cron'
 import { runAuctionsMessage } from '../auctions/auctionsMessages'
+import { checkInactiveThreads } from '../tickets/checkInactiveThreads'
+import { initializeThreadActivity } from '../tickets/trackActivity'
+import { channelIds } from '../../globals'
 
 export default function startReminders(client: Client) {
+  setTimeout(async () => {
+    try {
+      const modTicketsChannel = client.channels.cache.get(channelIds.modTickets)
+      if (modTicketsChannel && 'threads' in modTicketsChannel) {
+        const activeThreads = await modTicketsChannel.threads.fetchActive()
+        for (const thread of activeThreads.threads.values()) {
+          await initializeThreadActivity(thread).catch(console.error)
+        }
+      }
+    } catch (error) {
+      console.error('Error initializing thread activity tracking:', error)
+    }
+  }, 5000)
+
+  cron.schedule('0 * * * *', () => {
+    checkInactiveThreads(client).catch(console.error)
+  })
   // Every Monday at 18:30 UTC - Remind users to bid
   cron.schedule(
     '0 30 18 * * Mon',
