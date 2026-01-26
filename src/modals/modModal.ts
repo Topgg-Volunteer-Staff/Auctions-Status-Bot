@@ -109,7 +109,7 @@ export const execute = async (
   }
   if (type === 'transfer_ownership') {
     // For ownership transfers: entity is the provided project ID from the modal
-    modReasonField = ''
+    modReasonField = 'ownershipProof'
     entityIDField = 'projectID'
   }
 
@@ -134,8 +134,17 @@ export const execute = async (
   let selectedOwnershipType = ''
   if (type === 'transfer_ownership') {
     try {
-      const values = interaction.fields.getStringSelectValues('ownershipType')
-      selectedOwnershipType = values[0] || ''
+      const raw = interaction.fields.getTextInputValue('ownershipType')
+      const normalized = raw.trim().toLowerCase()
+      if (normalized === 'bot' || normalized === 'server') {
+        selectedOwnershipType = normalized
+      } else if (normalized.startsWith('b')) {
+        selectedOwnershipType = 'bot'
+      } else if (normalized.startsWith('s')) {
+        selectedOwnershipType = 'server'
+      } else {
+        selectedOwnershipType = ''
+      }
     } catch {
       selectedOwnershipType = ''
     }
@@ -207,9 +216,13 @@ export const execute = async (
         } A mod will respond as soon as possible. Please don't ping individual staff.`
 
   const embed = new EmbedBuilder()
-    .setTitle(`${titleExtra}`)
     .setDescription(`${baseDescription}\n\n${closeLine}`)
     .setColor('#ff3366')
+
+  const trimmedTitle = titleExtra.trim()
+  if (trimmedTitle.length > 0) {
+    embed.setTitle(trimmedTitle)
+  }
 
   let threadName = interaction.user.username
   if (type) {
@@ -225,10 +238,7 @@ export const execute = async (
       const displayType = reportTypeMap[reportType] || 'Other'
       threadName = `Report ${displayType} - ${interaction.user.username}`
     } else if (type === 'transfer_ownership') {
-      const ownershipType =
-        interaction.fields.getStringSelectValues('ownershipType')[0] ||
-        'Unknown'
-      const displayType = ownershipType === 'bot' ? 'Bot' : 'Server'
+      const displayType = selectedOwnershipType === 'bot' ? 'Bot' : 'Server'
       threadName = `Transfer ${displayType} - ${interaction.user.username}`
     } else if (type === 'other' && selectedCategoryType) {
       const categoryLabels: Record<string, string> = {
@@ -282,14 +292,12 @@ export const execute = async (
   // Ownership type (only for transfer ownership modal)
   let ownershipType = ''
   if (type === 'transfer_ownership') {
-    try {
-      const typeValues =
-        interaction.fields.getStringSelectValues('ownershipType')
-      const raw = typeValues[0] || ''
-      ownershipType = raw === 'bot' ? 'Bot' : raw === 'server' ? 'Server' : raw
-    } catch {
-      ownershipType = ''
-    }
+    ownershipType =
+      selectedOwnershipType === 'bot'
+        ? 'Bot'
+        : selectedOwnershipType === 'server'
+        ? 'Server'
+        : ''
   }
 
   // Extract uploaded screenshot files (if any)
@@ -307,12 +315,11 @@ export const execute = async (
   let ownershipTransfer = ''
   if (type === 'transfer_ownership') {
     try {
-      const selectedUsers = interaction.fields.getSelectedUsers(
-        'ownershipUserSelect',
-        true
-      )
-      const firstUser = selectedUsers.first()
-      ownershipTransfer = firstUser?.id ?? ''
+      const raw = interaction.fields.getTextInputValue('ownershipTransfer')
+      const trimmed = raw.trim()
+      // Accept <@123>, <@!123>, or raw numeric ID
+      const match = trimmed.match(/^(?:<@!?(\d+)>|(\d+))$/)
+      ownershipTransfer = (match?.[1] || match?.[2] || '').trim()
     } catch {
       ownershipTransfer = ''
     }
