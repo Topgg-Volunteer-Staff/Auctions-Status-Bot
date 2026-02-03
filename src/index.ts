@@ -150,10 +150,7 @@ async function createFourImageCollage(
   const tileSize = 512
   const tiles = await Promise.all(
     imageBuffers.map(async (buf) =>
-      sharp(buf)
-        .resize(tileSize, tileSize, { fit: 'cover' })
-        .png()
-        .toBuffer()
+      sharp(buf).resize(tileSize, tileSize, { fit: 'cover' }).png().toBuffer()
     )
   )
 
