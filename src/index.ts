@@ -6,12 +6,176 @@ import {
   TextChannel,
   ThreadChannel,
   ChannelType,
+  ActionRowBuilder,
+  AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds } from './globals'
 import { threadAlerts } from './commands/alert'
 import { updateThreadActivity } from './utils/tickets/trackActivity'
+
+const FOUR_IMAGE_LOG_CHANNEL_ID = '1409605702628016261'
+const fourImageFlagCounts = new Map<string, number>()
+
+function isImageAttachment(attachment: {
+  contentType: string | null
+  name: string | null
+}): boolean {
+  const contentType = (attachment.contentType || '').toLowerCase()
+  if (contentType.startsWith('image/')) return true
+
+  const name = (attachment.name || '').toLowerCase()
+  return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
+}
+
+async function sendFourImageFlagLog(options: {
+  userId: string
+  userTag: string
+  userMention: string
+  guildId: string
+  guildName: string
+  channelId: string
+  channelMention: string
+  messageId: string
+  messageUrl: string
+  messageContent: string
+  reason: string
+  flagCount: number
+  attachmentUrls: string[]
+  deleted: boolean
+}): Promise<void> {
+  const logChannel = await client.channels
+    .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
+    .catch(() => null)
+
+  if (!logChannel || !logChannel.isTextBased() || !('send' in logChannel)) {
+    return
+  }
+
+  let collageBuffer: Buffer | null = null
+  try {
+    collageBuffer = await createFourImageCollage(options.attachmentUrls)
+  } catch {
+    collageBuffer = null
+  }
+
+  const baseEmbed = new EmbedBuilder()
+    .setColor('#FFAA00')
+    .setTitle('4-image message flagged')
+    .setDescription(
+      [
+        `User: ${options.userMention} (\`${options.userTag}\` | \`${options.userId}\`)`,
+        `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
+      ].join('\n')
+    )
+    .addFields(
+      { name: 'Reason', value: options.reason, inline: true },
+      { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
+      { name: 'Flag Count', value: String(options.flagCount), inline: true },
+      {
+        name: 'Message',
+        value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
+        inline: false,
+      },
+      {
+        name: 'Content',
+        value: options.messageContent
+          ? options.messageContent.slice(0, 1000)
+          : '*No content*',
+        inline: false,
+      },
+      {
+        name: 'Attachments',
+        value:
+          options.attachmentUrls.length > 0
+            ? options.attachmentUrls
+                .slice(0, 10)
+                .map((url, idx) => `[${idx + 1}](${url})`)
+                .join(' ')
+            : '*None*',
+        inline: false,
+      }
+    )
+    .setTimestamp()
+
+  const components = [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`fourimgBanTemplate_${options.userId}`)
+        .setLabel('Get ban template')
+        .setStyle(ButtonStyle.Danger)
+    ),
+  ]
+
+  const files: AttachmentBuilder[] = []
+  if (collageBuffer) {
+    const collage = new AttachmentBuilder(collageBuffer, {
+      name: 'four-images.png',
+    })
+    files.push(collage)
+    baseEmbed.setImage('attachment://four-images.png')
+  }
+
+  await (logChannel as any)
+    .send({
+      embeds: [baseEmbed],
+      components,
+      files,
+      allowedMentions: { parse: [] },
+    })
+    .catch(() => void 0)
+}
+
+async function createFourImageCollage(
+  attachmentUrls: string[]
+): Promise<Buffer | null> {
+  const urls = attachmentUrls.filter(Boolean).slice(0, 4)
+  if (urls.length !== 4) return null
+
+  const sharpImport = await import('sharp')
+  const sharp = sharpImport.default
+
+  const imageBuffers = await Promise.all(
+    urls.map(async (url) => {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
+      const arrayBuffer = await res.arrayBuffer()
+      return Buffer.from(arrayBuffer)
+    })
+  )
+
+  const tileSize = 512
+  const tiles = await Promise.all(
+    imageBuffers.map(async (buf) =>
+      sharp(buf)
+        .resize(tileSize, tileSize, { fit: 'cover' })
+        .png()
+        .toBuffer()
+    )
+  )
+
+  const collage = await sharp({
+    create: {
+      width: tileSize * 2,
+      height: tileSize * 2,
+      channels: 4,
+      background: { r: 18, g: 18, b: 18, alpha: 1 },
+    },
+  })
+    .composite([
+      { input: tiles[0]!, top: 0, left: 0 },
+      { input: tiles[1]!, top: 0, left: tileSize },
+      { input: tiles[2]!, top: tileSize, left: 0 },
+      { input: tiles[3]!, top: tileSize, left: tileSize },
+    ])
+    .png()
+    .toBuffer()
+
+  return collage
+}
 
 const client = new Client({
   intents: [
@@ -53,14 +217,7 @@ client.on('messageCreate', async (message) => {
     // Only act when there are exactly 4 attachments and all are images.
     if (message.attachments.size !== 4) return
     const attachments = Array.from(message.attachments.values())
-    const allImages = attachments.every((a) => {
-      const contentType = (a.contentType || '').toLowerCase()
-      if (contentType.startsWith('image/')) return true
-
-      // Fallback: detect common image extensions if contentType is missing.
-      const name = (a.name || '').toLowerCase()
-      return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
-    })
+    const allImages = attachments.every((a) => isImageAttachment(a))
     if (!allImages) return
 
     const hasNoContent = !message.content || message.content.trim().length === 0
@@ -69,7 +226,43 @@ client.on('messageCreate', async (message) => {
 
     // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
     if (hasNoContent || hasEveryonePing) {
-      await message.delete().catch(() => void 0)
+      const reason = hasNoContent
+        ? 'Empty message with 4 images'
+        : '@everyone ping with 4 images'
+
+      const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
+      fourImageFlagCounts.set(message.author.id, newCount)
+
+      let deleted = false
+      try {
+        await message.delete()
+        deleted = true
+      } catch {
+        deleted = false
+      }
+
+      const attachmentUrls = attachments
+        .map((a) => a.url)
+        .filter((u): u is string => typeof u === 'string' && u.length > 0)
+
+      const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
+
+      await sendFourImageFlagLog({
+        userId: message.author.id,
+        userTag: message.author.tag,
+        userMention: `<@${message.author.id}>`,
+        guildId: message.guildId,
+        guildName: message.guild.name,
+        channelId: message.channelId,
+        channelMention: `<#${message.channelId}>`,
+        messageId: message.id,
+        messageUrl,
+        messageContent: message.content ?? '',
+        reason,
+        flagCount: newCount,
+        attachmentUrls,
+        deleted,
+      })
     }
   } catch {
     // ignore
