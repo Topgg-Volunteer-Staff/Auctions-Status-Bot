@@ -153,7 +153,9 @@ async function sendFourImageFlagLog(options: {
         options.attachmentUrls
       )
     }
-  } catch {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[four-image] collage generation failed: ${msg}`)
     collageBuffer = null
   }
 
@@ -206,6 +208,44 @@ async function sendFourImageFlagLog(options: {
       new AttachmentBuilder(collageBuffer, { name: 'four-images.png' })
     )
     baseEmbed.setImage('attachment://four-images.png')
+  } else {
+    // Fallback: if collage generation fails in prod (common causes: old Node w/o fetch,
+    // sharp import/install issues, transient CDN fetch errors), attach the raw images.
+    const fallbackBuffers: Array<Buffer> = []
+    if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
+      fallbackBuffers.push(
+        ...options.attachmentBuffers.filter((b): b is Buffer =>
+          Buffer.isBuffer(b)
+        )
+      )
+    } else {
+      const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
+      if (urls.length > 0) {
+        const fetched = await Promise.all(urls.map(fetchImageBuffer))
+        fallbackBuffers.push(
+          ...fetched.filter(
+            (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
+          )
+        )
+      }
+    }
+
+    if (fallbackBuffers.length > 0) {
+      fallbackBuffers.slice(0, 4).forEach((buf, idx) => {
+        files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
+      })
+      // Show the first image inline in the embed for quick scanning.
+      baseEmbed.setImage('attachment://image-1.png')
+    } else {
+      console.warn(
+        `[four-image] no collage + no fallback images (node=${
+          process.version
+        }, hasFetch=${
+          typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
+          'function'
+        })`
+      )
+    }
   }
 
   await sendableChannel
@@ -220,7 +260,22 @@ async function sendFourImageFlagLog(options: {
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
-    const res = await fetch(url)
+    const fetchFn =
+      typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'
+        ? (globalThis as unknown as { fetch: typeof fetch }).fetch
+        : (await import('node-fetch')).default
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 10_000)
+
+    const res = await fetchFn(url, {
+      signal: controller.signal,
+      headers: {
+        // Some environments/CDNs behave better with an explicit UA.
+        'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
+      },
+    })
+    clearTimeout(timeout)
     if (!res.ok) return null
     const arrayBuffer = await res.arrayBuffer()
     return Buffer.from(arrayBuffer)
@@ -248,8 +303,15 @@ async function createFourImageCollageFromBuffers(
 ): Promise<Buffer | null> {
   if (imageBuffers.length !== 4) return null
 
-  const sharpImport = await import('sharp')
-  const sharp = sharpImport.default
+  let sharp: any
+  try {
+    const sharpImport = await import('sharp')
+    sharp = (sharpImport as any).default ?? (sharpImport as any)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`[four-image] sharp import failed: ${msg}`)
+    return null
+  }
 
   const tileSize = 512
   const tiles = await Promise.all(
