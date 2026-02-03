@@ -204,7 +204,9 @@ async function sendFourImageFlagLog(options: {
 
   const files: Array<AttachmentBuilder> = []
   if (collageBuffer) {
-    files.push(new AttachmentBuilder(collageBuffer, { name: 'four-images.png' }))
+    files.push(
+      new AttachmentBuilder(collageBuffer, { name: 'four-images.png' })
+    )
     baseEmbed.setImage('attachment://four-images.png')
   } else {
     // Fallback: if collage generation fails in prod (common causes: old Node w/o fetch,
@@ -212,14 +214,18 @@ async function sendFourImageFlagLog(options: {
     const fallbackBuffers: Array<Buffer> = []
     if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
       fallbackBuffers.push(
-        ...options.attachmentBuffers.filter((b): b is Buffer => Buffer.isBuffer(b))
+        ...options.attachmentBuffers.filter((b): b is Buffer =>
+          Buffer.isBuffer(b)
+        )
       )
     } else {
       const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
       if (urls.length > 0) {
         const fetched = await Promise.all(urls.map(fetchImageBuffer))
         fallbackBuffers.push(
-          ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
+          ...fetched.filter(
+            (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
+          )
         )
       }
     }
@@ -232,7 +238,12 @@ async function sendFourImageFlagLog(options: {
       baseEmbed.setImage('attachment://image-1.png')
     } else {
       console.warn(
-        `[four-image] no collage + no fallback images (node=${process.version}, hasFetch=${typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'})`
+        `[four-image] no collage + no fallback images (node=${
+          process.version
+        }, hasFetch=${
+          typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
+          'function'
+        })`
       )
     }
   }
@@ -261,7 +272,7 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
       signal: controller.signal,
       headers: {
         // Some environments/CDNs behave better with an explicit UA.
-        'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)'
+        'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
       },
     })
     clearTimeout(timeout)
