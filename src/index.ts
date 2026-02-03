@@ -19,7 +19,7 @@ import { channelIds } from './globals'
 import { threadAlerts } from './commands/alert'
 import { updateThreadActivity } from './utils/tickets/trackActivity'
 
-const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
+const FOUR_IMAGE_LOG_CHANNEL_ID = '1409605702628016261'
 const fourImageFlagCounts = new Map<string, number>()
 
 const FOUR_IMAGE_FLAGS_DIR = path.join(process.cwd(), 'data')
@@ -142,23 +142,6 @@ async function sendFourImageFlagLog(options: {
 
   const sendableChannel = logChannel
 
-  let collageBuffer: Buffer | null = null
-  try {
-    if (options.attachmentBuffers && options.attachmentBuffers.length === 4) {
-      collageBuffer = await createFourImageCollageFromBuffers(
-        options.attachmentBuffers
-      )
-    } else {
-      collageBuffer = await createFourImageCollageFromUrls(
-        options.attachmentUrls
-      )
-    }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[four-image] collage generation failed: ${msg}`)
-    collageBuffer = null
-  }
-
   const fields = [
     { name: 'Reason', value: options.reason, inline: true },
     { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
@@ -203,59 +186,70 @@ async function sendFourImageFlagLog(options: {
   ]
 
   const files: Array<AttachmentBuilder> = []
-  if (collageBuffer) {
-    files.push(
-      new AttachmentBuilder(collageBuffer, { name: 'four-images.png' })
-    )
-    baseEmbed.setImage('attachment://four-images.png')
-  } else {
-    // Fallback: if collage generation fails in prod (common causes: old Node w/o fetch,
-    // sharp import/install issues, transient CDN fetch errors), attach the raw images.
-    const fallbackBuffers: Array<Buffer> = []
-    if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
-      fallbackBuffers.push(
-        ...options.attachmentBuffers.filter((b): b is Buffer =>
-          Buffer.isBuffer(b)
-        )
+  // Attach the 4 raw images as message attachments (not inside the embed).
+  const rawBuffers: Array<Buffer> = []
+  if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
+    rawBuffers.push(
+      ...options.attachmentBuffers.filter((b): b is Buffer =>
+        Buffer.isBuffer(b)
       )
-    } else {
-      const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
-      if (urls.length > 0) {
-        const fetched = await Promise.all(urls.map(fetchImageBuffer))
-        fallbackBuffers.push(
-          ...fetched.filter(
-            (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
-          )
-        )
-      }
-    }
-
-    if (fallbackBuffers.length > 0) {
-      fallbackBuffers.slice(0, 4).forEach((buf, idx) => {
-        files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
-      })
-      // Show the first image inline in the embed for quick scanning.
-      baseEmbed.setImage('attachment://image-1.png')
-    } else {
-      console.warn(
-        `[four-image] no collage + no fallback images (node=${
-          process.version
-        }, hasFetch=${
-          typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
-          'function'
-        })`
+    )
+  } else {
+    const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
+    if (urls.length > 0) {
+      const fetched = await Promise.all(urls.map(fetchImageBuffer))
+      rawBuffers.push(
+        ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
       )
     }
   }
 
-  await sendableChannel
-    .send({
+  if (rawBuffers.length > 0) {
+    rawBuffers.slice(0, 4).forEach((buf, idx) => {
+      files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
+    })
+  }
+
+  if (files.length === 0) {
+    console.warn(
+      `[four-image] no images could be attached (node=${
+        process.version
+      }, hasFetch=${
+        typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
+        'function'
+      })`
+    )
+  }
+
+  try {
+    await sendableChannel.send({
       embeds: [baseEmbed],
       components,
       files,
       allowedMentions: { parse: [] },
     })
-    .catch(() => void 0)
+  } catch {
+    // If attaching fails (most commonly due to size limits), fall back to logging links.
+    const urlList = options.attachmentUrls.filter(Boolean).slice(0, 4)
+    if (urlList.length > 0) {
+      baseEmbed.addFields({
+        name: 'Attachments',
+        value: urlList
+          .map((u, i) => `${i + 1}. ${u}`)
+          .join('\n')
+          .slice(0, 1024),
+        inline: false,
+      })
+    }
+
+    await sendableChannel
+      .send({
+        embeds: [baseEmbed],
+        components,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => void 0)
+  }
 }
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
@@ -282,65 +276,6 @@ async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   } catch {
     return null
   }
-}
-
-async function createFourImageCollageFromUrls(
-  attachmentUrls: Array<string>
-): Promise<Buffer | null> {
-  const urls = attachmentUrls.filter(Boolean).slice(0, 4)
-  if (urls.length !== 4) return null
-
-  const buffers = await Promise.all(urls.map(fetchImageBuffer))
-  if (!buffers.every((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))) {
-    return null
-  }
-
-  return createFourImageCollageFromBuffers(buffers)
-}
-
-async function createFourImageCollageFromBuffers(
-  imageBuffers: Array<Buffer>
-): Promise<Buffer | null> {
-  if (imageBuffers.length !== 4) return null
-
-  let sharp: any
-  try {
-    const sharpImport = await import('sharp')
-    sharp = (sharpImport as any).default ?? (sharpImport as any)
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[four-image] sharp import failed: ${msg}`)
-    return null
-  }
-
-  const tileSize = 512
-  const tiles = await Promise.all(
-    imageBuffers.map(async (buf) =>
-      sharp(buf).resize(tileSize, tileSize, { fit: 'cover' }).png().toBuffer()
-    )
-  )
-
-  const [tile0, tile1, tile2, tile3] = tiles
-  if (!tile0 || !tile1 || !tile2 || !tile3) return null
-
-  const collage = await sharp({
-    create: {
-      width: tileSize * 2,
-      height: tileSize * 2,
-      channels: 4,
-      background: { r: 18, g: 18, b: 18, alpha: 1 },
-    },
-  })
-    .composite([
-      { input: tile0, top: 0, left: 0 },
-      { input: tile1, top: 0, left: tileSize },
-      { input: tile2, top: tileSize, left: 0 },
-      { input: tile3, top: tileSize, left: tileSize },
-    ])
-    .png()
-    .toBuffer()
-
-  return collage
 }
 
 const client = new Client({
