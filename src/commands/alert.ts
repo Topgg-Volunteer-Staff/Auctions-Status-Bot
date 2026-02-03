@@ -55,18 +55,25 @@ export const execute = async (
   try {
     const targetUser = interaction.options.getUser('user', true)
 
-    if (!threadAlerts.has(thread.id)) {
-      threadAlerts.set(thread.id, new Map())
+    let threadAlertMap = threadAlerts.get(thread.id)
+    if (!threadAlertMap) {
+      threadAlertMap = new Map<string, Set<string>>()
+      threadAlerts.set(thread.id, threadAlertMap)
     }
-
-    const threadAlertMap = threadAlerts.get(thread.id)!
 
     if (!threadAlertMap.has(interaction.user.id)) {
       threadAlertMap.set(interaction.user.id, new Set())
     }
 
-    const userAlerts = threadAlertMap.get(interaction.user.id)!
-    userAlerts.add(targetUser.id)
+    const userAlerts = threadAlertMap.get(interaction.user.id)
+    if (!userAlerts) {
+      // Should be impossible due to set above, but keep it safe.
+      const created = new Set<string>()
+      threadAlertMap.set(interaction.user.id, created)
+      created.add(targetUser.id)
+    } else {
+      userAlerts.add(targetUser.id)
+    }
 
     await interaction.reply({
       embeds: [

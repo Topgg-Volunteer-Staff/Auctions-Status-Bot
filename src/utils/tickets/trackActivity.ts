@@ -25,7 +25,9 @@ export function markAlertSent(threadId: string, alertType: '48h' | '7d'): void {
   if (!threadAlertsSent.has(threadId)) {
     threadAlertsSent.set(threadId, new Set())
   }
-  threadAlertsSent.get(threadId)!.add(alertType)
+  const alerts = threadAlertsSent.get(threadId)
+  if (!alerts) return
+  alerts.add(alertType)
 }
 
 export function getAllTrackedThreads(): Array<string> {

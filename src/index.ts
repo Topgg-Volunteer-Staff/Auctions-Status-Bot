@@ -11,6 +11,8 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds } from './globals'
@@ -19,6 +21,76 @@ import { updateThreadActivity } from './utils/tickets/trackActivity'
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const fourImageFlagCounts = new Map<string, number>()
+
+const FOUR_IMAGE_FLAGS_DIR = path.join(process.cwd(), 'data')
+const FOUR_IMAGE_FLAGS_PATH = path.join(
+  FOUR_IMAGE_FLAGS_DIR,
+  'four-image-flags.json'
+)
+
+let fourImageFlagsInitPromise: Promise<void> | null = null
+let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
+
+function initFourImageFlagsStore(): Promise<void> {
+  if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
+
+  fourImageFlagsInitPromise = (async () => {
+    await mkdir(FOUR_IMAGE_FLAGS_DIR, { recursive: true })
+    try {
+      const raw = await readFile(FOUR_IMAGE_FLAGS_PATH, 'utf8')
+      const parsed: unknown = JSON.parse(raw)
+      if (!parsed || typeof parsed !== 'object') return
+
+      for (const [userId, count] of Object.entries(parsed)) {
+        if (typeof userId !== 'string') continue
+        if (typeof count !== 'number' || !Number.isFinite(count)) continue
+        if (count <= 0) continue
+        fourImageFlagCounts.set(userId, Math.floor(count))
+      }
+    } catch (err) {
+      const maybe = err as { code?: unknown }
+      if (maybe.code !== 'ENOENT') {
+        console.error('Failed to load four-image flag counts:', err)
+      }
+    }
+  })()
+
+  return fourImageFlagsInitPromise
+}
+
+async function persistFourImageFlagsStore(): Promise<void> {
+  await initFourImageFlagsStore()
+
+  const obj: Record<string, number> = {}
+  for (const [userId, count] of fourImageFlagCounts.entries()) {
+    obj[userId] = count
+  }
+
+  const tmpPath = path.join(
+    FOUR_IMAGE_FLAGS_DIR,
+    `four-image-flags.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
+  )
+
+  await writeFile(
+    FOUR_IMAGE_FLAGS_PATH,
+    JSON.stringify(obj, null, 2),
+    'utf8'
+  ).catch(async () => {
+    // If a direct write fails (e.g., AV lock), try atomic temp+rename.
+    await writeFile(tmpPath, JSON.stringify(obj, null, 2), 'utf8')
+    await rename(tmpPath, FOUR_IMAGE_FLAGS_PATH)
+  })
+}
+
+function queuePersistFourImageFlagsStore(): Promise<void> {
+  fourImageFlagsWriteChain = fourImageFlagsWriteChain
+    .then(() => persistFourImageFlagsStore())
+    .catch(() => persistFourImageFlagsStore())
+  return fourImageFlagsWriteChain
+}
+
+// Kick off an early load so counts exist before the first message triggers.
+void initFourImageFlagsStore()
 
 function isImageAttachment(attachment: {
   contentType: string | null
@@ -30,6 +102,18 @@ function isImageAttachment(attachment: {
   const name = (attachment.name || '').toLowerCase()
   return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
 }
+
+type SendableChannel = {
+  send: (options: unknown) => Promise<unknown>
+}
+
+function isSendableChannel(channel: unknown): channel is SendableChannel {
+  if (!channel || typeof channel !== 'object') return false
+  const maybe = channel as { send?: unknown }
+  return typeof maybe.send === 'function'
+}
+
+// (Attachment link editing removed; we only show the collage now.)
 
 async function sendFourImageFlagLog(options: {
   userId: string
@@ -44,23 +128,56 @@ async function sendFourImageFlagLog(options: {
   messageContent: string
   reason: string
   flagCount: number
-  attachmentUrls: string[]
+  attachmentUrls: Array<string>
+  attachmentBuffers?: Array<Buffer>
   deleted: boolean
 }): Promise<void> {
   const logChannel = await client.channels
     .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
     .catch(() => null)
 
-  if (!logChannel || !logChannel.isTextBased() || !('send' in logChannel)) {
+  if (!logChannel || !isSendableChannel(logChannel)) {
     return
   }
 
+  const sendableChannel = logChannel
+
   let collageBuffer: Buffer | null = null
   try {
-    collageBuffer = await createFourImageCollage(options.attachmentUrls)
+    if (options.attachmentBuffers && options.attachmentBuffers.length === 4) {
+      collageBuffer = await createFourImageCollageFromBuffers(
+        options.attachmentBuffers
+      )
+    } else {
+      collageBuffer = await createFourImageCollageFromUrls(
+        options.attachmentUrls
+      )
+    }
   } catch {
     collageBuffer = null
   }
+
+  const fields = [
+    { name: 'Reason', value: options.reason, inline: true },
+    { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
+    { name: 'Flag Count', value: String(options.flagCount), inline: true },
+    {
+      name: 'Message',
+      value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
+      inline: false,
+    },
+    {
+      name: 'Content',
+      value: options.messageContent
+        ? options.messageContent.slice(0, 1000)
+        : '*No content*',
+      inline: false,
+    },
+  ] satisfies Array<{
+    name: string
+    value: string
+    inline?: boolean
+  }>
 
   const baseEmbed = new EmbedBuilder()
     .setColor('#FFAA00')
@@ -71,34 +188,7 @@ async function sendFourImageFlagLog(options: {
         `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
       ].join('\n')
     )
-    .addFields(
-      { name: 'Reason', value: options.reason, inline: true },
-      { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
-      { name: 'Flag Count', value: String(options.flagCount), inline: true },
-      {
-        name: 'Message',
-        value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
-        inline: false,
-      },
-      {
-        name: 'Content',
-        value: options.messageContent
-          ? options.messageContent.slice(0, 1000)
-          : '*No content*',
-        inline: false,
-      },
-      {
-        name: 'Attachments',
-        value:
-          options.attachmentUrls.length > 0
-            ? options.attachmentUrls
-                .slice(0, 10)
-                .map((url, idx) => `[${idx + 1}](${url})`)
-                .join(' ')
-            : '*None*',
-        inline: false,
-      }
-    )
+    .setFields(fields)
     .setTimestamp()
 
   const components = [
@@ -110,16 +200,15 @@ async function sendFourImageFlagLog(options: {
     ),
   ]
 
-  const files: AttachmentBuilder[] = []
+  const files: Array<AttachmentBuilder> = []
   if (collageBuffer) {
-    const collage = new AttachmentBuilder(collageBuffer, {
-      name: 'four-images.png',
-    })
-    files.push(collage)
+    files.push(
+      new AttachmentBuilder(collageBuffer, { name: 'four-images.png' })
+    )
     baseEmbed.setImage('attachment://four-images.png')
   }
 
-  await (logChannel as any)
+  await sendableChannel
     .send({
       embeds: [baseEmbed],
       components,
@@ -129,23 +218,38 @@ async function sendFourImageFlagLog(options: {
     .catch(() => void 0)
 }
 
-async function createFourImageCollage(
-  attachmentUrls: string[]
+async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const arrayBuffer = await res.arrayBuffer()
+    return Buffer.from(arrayBuffer)
+  } catch {
+    return null
+  }
+}
+
+async function createFourImageCollageFromUrls(
+  attachmentUrls: Array<string>
 ): Promise<Buffer | null> {
   const urls = attachmentUrls.filter(Boolean).slice(0, 4)
   if (urls.length !== 4) return null
 
+  const buffers = await Promise.all(urls.map(fetchImageBuffer))
+  if (!buffers.every((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))) {
+    return null
+  }
+
+  return createFourImageCollageFromBuffers(buffers)
+}
+
+async function createFourImageCollageFromBuffers(
+  imageBuffers: Array<Buffer>
+): Promise<Buffer | null> {
+  if (imageBuffers.length !== 4) return null
+
   const sharpImport = await import('sharp')
   const sharp = sharpImport.default
-
-  const imageBuffers = await Promise.all(
-    urls.map(async (url) => {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`)
-      const arrayBuffer = await res.arrayBuffer()
-      return Buffer.from(arrayBuffer)
-    })
-  )
 
   const tileSize = 512
   const tiles = await Promise.all(
@@ -153,6 +257,9 @@ async function createFourImageCollage(
       sharp(buf).resize(tileSize, tileSize, { fit: 'cover' }).png().toBuffer()
     )
   )
+
+  const [tile0, tile1, tile2, tile3] = tiles
+  if (!tile0 || !tile1 || !tile2 || !tile3) return null
 
   const collage = await sharp({
     create: {
@@ -163,10 +270,10 @@ async function createFourImageCollage(
     },
   })
     .composite([
-      { input: tiles[0]!, top: 0, left: 0 },
-      { input: tiles[1]!, top: 0, left: tileSize },
-      { input: tiles[2]!, top: tileSize, left: 0 },
-      { input: tiles[3]!, top: tileSize, left: tileSize },
+      { input: tile0, top: 0, left: 0 },
+      { input: tile1, top: 0, left: tileSize },
+      { input: tile2, top: tileSize, left: 0 },
+      { input: tile3, top: tileSize, left: tileSize },
     ])
     .png()
     .toBuffer()
@@ -211,6 +318,8 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return
     if (message.webhookId) return
 
+    await initFourImageFlagsStore()
+
     // Only act when there are exactly 4 attachments and all are images.
     if (message.attachments.size !== 4) return
     const attachments = Array.from(message.attachments.values())
@@ -229,6 +338,21 @@ client.on('messageCreate', async (message) => {
 
       const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
       fourImageFlagCounts.set(message.author.id, newCount)
+      await queuePersistFourImageFlagsStore().catch(() => void 0)
+
+      const attachmentUrls = attachments
+        .map((a) => a.url)
+        .filter((u): u is string => typeof u === 'string' && u.length > 0)
+
+      // Fetch attachment bytes BEFORE deleting the message so we can always build/upload the collage.
+      const preDeleteBuffers = await Promise.all(
+        attachmentUrls.slice(0, 4).map(fetchImageBuffer)
+      )
+      const attachmentBuffers = preDeleteBuffers.every(
+        (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
+      )
+        ? preDeleteBuffers
+        : undefined
 
       let deleted = false
       try {
@@ -237,10 +361,6 @@ client.on('messageCreate', async (message) => {
       } catch {
         deleted = false
       }
-
-      const attachmentUrls = attachments
-        .map((a) => a.url)
-        .filter((u): u is string => typeof u === 'string' && u.length > 0)
 
       const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
 
@@ -254,10 +374,11 @@ client.on('messageCreate', async (message) => {
         channelMention: `<#${message.channelId}>`,
         messageId: message.id,
         messageUrl,
-        messageContent: message.content ?? '',
+        messageContent: message.content,
         reason,
         flagCount: newCount,
         attachmentUrls,
+        ...(attachmentBuffers ? { attachmentBuffers } : {}),
         deleted,
       })
     }
@@ -313,7 +434,7 @@ export async function sendError(embed: EmbedBuilder): Promise<void> {
       try {
         channel = await client.channels
           .fetch(channelId)
-          .then((c) => c ?? undefined)
+          .then((c) => (c === null ? undefined : c))
           .catch(() => undefined)
       } catch {
         channel = undefined
