@@ -19,7 +19,7 @@ import { channelIds } from './globals'
 import { threadAlerts } from './commands/alert'
 import { updateThreadActivity } from './utils/tickets/trackActivity'
 
-const FOUR_IMAGE_LOG_CHANNEL_ID = '1409605702628016261'
+const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const fourImageFlagCounts = new Map<string, number>()
 
 const FOUR_IMAGE_FLAGS_DIR = path.join(process.cwd(), 'data')
