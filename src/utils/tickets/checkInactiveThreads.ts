@@ -10,6 +10,8 @@ import {
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 
+const HANDLER_ROLE_IDS = new Set(['304313580025544704', '364144633451773953'])
+
 export async function checkInactiveThreads(client: Client): Promise<void> {
   const alertChannelId = channelIds.inactiveThreadAlerts
   if (!alertChannelId) {
@@ -53,19 +55,24 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           continue
         }
 
-        if (
+        const shouldSend48h =
           timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
           !hasAlertBeenSent(threadId, '48h')
-        ) {
-          await sendInactiveAlert(alertChannel, thread, '2d')
+        const shouldSend7d =
+          timeSinceLastMessage >= SEVEN_DAYS && !hasAlertBeenSent(threadId, '7d')
+
+        let lastHandlingModeratorId: string | null = null
+        if (shouldSend48h || shouldSend7d) {
+          lastHandlingModeratorId = await getLastHandlingModeratorId(thread)
+        }
+
+        if (shouldSend48h) {
+          await sendInactiveAlert(alertChannel, thread, '2d', lastHandlingModeratorId)
           markAlertSent(threadId, '48h')
         }
 
-        if (
-          timeSinceLastMessage >= SEVEN_DAYS &&
-          !hasAlertBeenSent(threadId, '7d')
-        ) {
-          await sendInactiveAlert(alertChannel, thread, '7d')
+        if (shouldSend7d) {
+          await sendInactiveAlert(alertChannel, thread, '7d', lastHandlingModeratorId)
           markAlertSent(threadId, '7d')
         }
       } catch (error) {
@@ -80,13 +87,49 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
 async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
-  timeSince: string
+  timeSince: string,
+  lastHandlingModeratorId: string | null
 ): Promise<void> {
   try {
+    const handlerPing = lastHandlingModeratorId
+      ? `<@${lastHandlingModeratorId}> `
+      : ''
     await alertChannel.send(
-      `:warning: Please check <#${thread.id}> - inactive since ${timeSince}`
+      `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
     )
   } catch (error) {
     console.error('Failed to send inactive thread alert:', error)
+  }
+}
+
+async function getLastHandlingModeratorId(
+  thread: ThreadChannel
+): Promise<string | null> {
+  try {
+    const messages = await thread.messages.fetch({ limit: 100 }).catch(() => null)
+    if (!messages) return null
+
+    for (const message of messages.values()) {
+      if (!message.author) continue
+      if (message.author.bot) continue
+      if (message.webhookId) continue
+      if (message.system) continue
+
+      const member =
+        message.member ??
+        (await thread.guild.members.fetch(message.author.id).catch(() => null))
+
+      if (!member) continue
+      const hasHandlerRole = Array.from(HANDLER_ROLE_IDS).some((roleId) =>
+        member.roles.cache.has(roleId)
+      )
+      if (!hasHandlerRole) continue
+
+      return member.id
+    }
+
+    return null
+  } catch {
+    return null
   }
 }
