@@ -25,8 +25,7 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
     return
   }
 
-  const reviewerAlertChannelId =
-    channelIds.inactiveThreadAlertsReviewers ?? defaultAlertChannelId
+  const reviewerAlertChannelId = channelIds.inactiveThreadAlertsReviewers
 
   try {
     const defaultAlertChannel = (await client.channels.fetch(
@@ -45,7 +44,7 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
         ? defaultAlertChannel
         : ((await client.channels.fetch(
             reviewerAlertChannelId
-          )) as TextChannel | null) ?? null
+          )) as TextChannel | null)
 
     if (!reviewerAlertChannel) {
       console.warn(
@@ -84,8 +83,14 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           timeSinceLastMessage >= SEVEN_DAYS &&
           !hasAlertBeenSent(threadId, '7d')
 
+        const alertToSend: '2d' | '7d' | null = shouldSend7d
+          ? '7d'
+          : shouldSend48h
+            ? '2d'
+            : null
+
         let lastHandlingModeratorId: string | null = null
-        if (shouldSend48h || shouldSend7d) {
+        if (alertToSend) {
           lastHandlingModeratorId = await getLastHandlingModeratorId(thread)
         }
 
@@ -97,24 +102,21 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           ? reviewerAlertChannel ?? defaultAlertChannel
           : defaultAlertChannel
 
-        if (shouldSend48h) {
+        if (alertToSend) {
           await sendInactiveAlert(
             targetAlertChannel,
             thread,
-            '2d',
+            alertToSend,
             lastHandlingModeratorId
           )
-          markAlertSent(threadId, '48h')
-        }
 
-        if (shouldSend7d) {
-          await sendInactiveAlert(
-            targetAlertChannel,
-            thread,
-            '7d',
-            lastHandlingModeratorId
-          )
-          markAlertSent(threadId, '7d')
+          if (alertToSend === '7d') {
+            markAlertSent(threadId, '7d')
+            // If it's been inactive for 7 days, also suppress any pending 48h alert.
+            markAlertSent(threadId, '48h')
+          } else {
+            markAlertSent(threadId, '48h')
+          }
         }
       } catch (error) {
         console.error(`Error checking thread ${threadId}:`, error)
@@ -174,7 +176,6 @@ async function getLastHandlingModeratorId(
     if (!messages) return null
 
     for (const message of messages.values()) {
-      if (!message.author) continue
       if (message.author.bot) continue
       if (message.webhookId) continue
       if (message.system) continue
