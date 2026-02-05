@@ -5,9 +5,11 @@ import path from 'node:path'
 
 const threadLastMessage = new Map<string, number>()
 
-const threadAlertsSent = new Map<string, Set<'48h' | '7d'>>()
+type AlertType = '48h' | '7d'
 
-type PersistedThreadAlerts = Record<string, Array<'48h' | '7d'>>
+const threadAlertsSent = new Map<string, Set<AlertType>>()
+
+type PersistedThreadAlerts = Record<string, Array<AlertType>>
 
 const INACTIVE_ALERTS_DIR = path.join(process.cwd(), 'data')
 const INACTIVE_ALERTS_PATH = path.join(
@@ -17,21 +19,26 @@ const INACTIVE_ALERTS_PATH = path.join(
 
 let inactiveAlertsWriteChain: Promise<void> = Promise.resolve()
 
+function isAlertType(value: unknown): value is AlertType {
+  return value === '48h' || value === '7d'
+}
+
 function loadPersistedInactiveAlertsSync(): void {
   try {
     const raw = readFileSync(INACTIVE_ALERTS_PATH, 'utf8')
     const parsed: unknown = JSON.parse(raw)
     if (!parsed || typeof parsed !== 'object') return
 
-    for (const [threadId, alertTypes] of Object.entries(
-      parsed as PersistedThreadAlerts
+    for (const [threadId, alertTypesUnknown] of Object.entries(
+      parsed as Record<string, unknown>
     )) {
       if (typeof threadId !== 'string' || threadId.length === 0) continue
-      if (!Array.isArray(alertTypes) || alertTypes.length === 0) continue
+      if (!Array.isArray(alertTypesUnknown) || alertTypesUnknown.length === 0)
+        continue
 
-      const set = new Set<'48h' | '7d'>()
-      for (const t of alertTypes) {
-        if (t === '48h' || t === '7d') set.add(t)
+      const set = new Set<AlertType>()
+      for (const t of alertTypesUnknown) {
+        if (isAlertType(t)) set.add(t)
       }
       if (set.size > 0) threadAlertsSent.set(threadId, set)
     }
