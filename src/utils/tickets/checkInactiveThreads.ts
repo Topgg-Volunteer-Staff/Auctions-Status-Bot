@@ -10,13 +10,26 @@ import {
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 
-const HANDLER_ROLE_IDS = new Set(['304313580025544704', '364144633451773953'])
-const REVIEWER_ROUTE_ROLE_IDS = new Set([
+// Role -> alert channel routing.
+// If a member has multiple roles across routes and it's ambiguous, default to the main alerts channel.
+const DEFAULT_ALERT_ROLE_IDS = new Set([
+  '364144633451773953',
+  '304313580025544704',
+  '742408262648987748',
+  '695153281105920070',
+])
+
+const REVIEWER_ALERT_ROLE_IDS = new Set([
   '767389896133443625',
   '767392998157451265',
 ])
 
-const moderatorReviewerRouteCache = new Map<string, boolean>()
+const ALL_ALERT_ROLE_IDS = new Set([
+  ...DEFAULT_ALERT_ROLE_IDS,
+  ...REVIEWER_ALERT_ROLE_IDS,
+])
+
+type AlertRoute = 'default' | 'reviewers'
 
 export async function checkInactiveThreads(client: Client): Promise<void> {
   const defaultAlertChannelId = channelIds.inactiveThreadAlerts
@@ -86,28 +99,24 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
         const alertToSend: '2d' | '7d' | null = shouldSend7d
           ? '7d'
           : shouldSend48h
-            ? '2d'
-            : null
+          ? '2d'
+          : null
 
-        let lastHandlingModeratorId: string | null = null
-        if (alertToSend) {
-          lastHandlingModeratorId = await getLastHandlingModeratorId(thread)
-        }
+        const lastRoutedStaff = alertToSend
+          ? await getLastRoutedStaffSpeaker(thread)
+          : null
 
-        const routeToReviewerAlerts = await shouldRouteToReviewerAlerts(
-          thread,
-          lastHandlingModeratorId
-        )
-        const targetAlertChannel = routeToReviewerAlerts
-          ? reviewerAlertChannel ?? defaultAlertChannel
-          : defaultAlertChannel
+        const targetAlertChannel =
+          lastRoutedStaff?.route === 'reviewers'
+            ? reviewerAlertChannel ?? defaultAlertChannel
+            : defaultAlertChannel
 
         if (alertToSend) {
           await sendInactiveAlert(
             targetAlertChannel,
             thread,
             alertToSend,
-            lastHandlingModeratorId
+            lastRoutedStaff?.memberId ?? null
           )
 
           if (alertToSend === '7d') {
@@ -127,36 +136,15 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
   }
 }
 
-async function shouldRouteToReviewerAlerts(
-  thread: ThreadChannel,
-  moderatorId: string | null
-): Promise<boolean> {
-  if (!moderatorId) return false
-  const cached = moderatorReviewerRouteCache.get(moderatorId)
-  if (typeof cached === 'boolean') return cached
-
-  const member = await thread.guild.members.fetch(moderatorId).catch(() => null)
-  if (!member) {
-    moderatorReviewerRouteCache.set(moderatorId, false)
-    return false
-  }
-
-  const hasReviewerRole = Array.from(REVIEWER_ROUTE_ROLE_IDS).some((roleId) =>
-    member.roles.cache.has(roleId)
-  )
-  moderatorReviewerRouteCache.set(moderatorId, hasReviewerRole)
-  return hasReviewerRole
-}
-
 async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
   timeSince: string,
-  lastHandlingModeratorId: string | null
+  lastStaffMemberId: string | null
 ): Promise<void> {
   try {
-    const handlerPing = lastHandlingModeratorId
-      ? `<@${lastHandlingModeratorId}> `
+    const handlerPing = lastStaffMemberId
+      ? `<@${lastStaffMemberId}> `
       : 'Unknown Staff Member '
     await alertChannel.send(
       `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
@@ -166,31 +154,65 @@ async function sendInactiveAlert(
   }
 }
 
-async function getLastHandlingModeratorId(
-  thread: ThreadChannel
-): Promise<string | null> {
+function getMemberAlertRoute(member: {
+  roles: { cache: { has: (roleId: string) => boolean } }
+}): AlertRoute {
+  const hasDefaultRole = Array.from(DEFAULT_ALERT_ROLE_IDS).some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
+  const hasReviewerRole = Array.from(REVIEWER_ALERT_ROLE_IDS).some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
+
+  // Ambiguous (has roles for both routes) => default channel.
+  if (hasReviewerRole && !hasDefaultRole) return 'reviewers'
+  return 'default'
+}
+
+async function getLastRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
+  memberId: string
+  route: AlertRoute
+} | null> {
   try {
-    const messages = await thread.messages
-      .fetch({ limit: 100 })
-      .catch(() => null)
-    if (!messages) return null
+    let before: string | undefined
+    const maxPages = 5
 
-    for (const message of messages.values()) {
-      if (message.author.bot) continue
-      if (message.webhookId) continue
-      if (message.system) continue
+    for (let page = 0; page < maxPages; page++) {
+      const fetchOptions: { limit: number; before?: string } = { limit: 100 }
+      if (before) fetchOptions.before = before
 
-      const member =
-        message.member ??
-        (await thread.guild.members.fetch(message.author.id).catch(() => null))
+      const messages = await thread.messages
+        .fetch(fetchOptions)
+        .catch(() => null)
+      if (!messages || messages.size === 0) return null
 
-      if (!member) continue
-      const hasHandlerRole = Array.from(HANDLER_ROLE_IDS).some((roleId) =>
-        member.roles.cache.has(roleId)
-      )
-      if (!hasHandlerRole) continue
+      for (const message of messages.values()) {
+        if (message.author.bot) continue
+        if (message.webhookId) continue
+        if (message.system) continue
 
-      return member.id
+        const member =
+          message.member ??
+          (await thread.guild.members
+            .fetch(message.author.id)
+            .catch(() => null))
+
+        if (!member) continue
+        const hasAnyAlertRole = Array.from(ALL_ALERT_ROLE_IDS).some((roleId) =>
+          member.roles.cache.has(roleId)
+        )
+        if (!hasAnyAlertRole) continue
+
+        return {
+          memberId: member.id,
+          route: getMemberAlertRoute(member),
+        }
+      }
+
+      // Next page: fetch older messages
+      before = messages.last()?.id
+      if (!before) return null
+      if (messages.size < 100) return null
     }
 
     return null
