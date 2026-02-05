@@ -104,7 +104,7 @@ async function sendInactiveAlert(
   try {
     const handlerPing = lastHandlingModeratorId
       ? `<@${lastHandlingModeratorId}> `
-      : ''
+      : 'Unknown Moderator'
     await alertChannel.send(
       `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
     )
