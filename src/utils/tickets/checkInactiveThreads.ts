@@ -59,7 +59,8 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
           !hasAlertBeenSent(threadId, '48h')
         const shouldSend7d =
-          timeSinceLastMessage >= SEVEN_DAYS && !hasAlertBeenSent(threadId, '7d')
+          timeSinceLastMessage >= SEVEN_DAYS &&
+          !hasAlertBeenSent(threadId, '7d')
 
         let lastHandlingModeratorId: string | null = null
         if (shouldSend48h || shouldSend7d) {
@@ -67,12 +68,22 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
         }
 
         if (shouldSend48h) {
-          await sendInactiveAlert(alertChannel, thread, '2d', lastHandlingModeratorId)
+          await sendInactiveAlert(
+            alertChannel,
+            thread,
+            '2d',
+            lastHandlingModeratorId
+          )
           markAlertSent(threadId, '48h')
         }
 
         if (shouldSend7d) {
-          await sendInactiveAlert(alertChannel, thread, '7d', lastHandlingModeratorId)
+          await sendInactiveAlert(
+            alertChannel,
+            thread,
+            '7d',
+            lastHandlingModeratorId
+          )
           markAlertSent(threadId, '7d')
         }
       } catch (error) {
@@ -106,7 +117,9 @@ async function getLastHandlingModeratorId(
   thread: ThreadChannel
 ): Promise<string | null> {
   try {
-    const messages = await thread.messages.fetch({ limit: 100 }).catch(() => null)
+    const messages = await thread.messages
+      .fetch({ limit: 100 })
+      .catch(() => null)
     if (!messages) return null
 
     for (const message of messages.values()) {
