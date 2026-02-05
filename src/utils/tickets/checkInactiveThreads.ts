@@ -11,24 +11,46 @@ const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 
 const HANDLER_ROLE_IDS = new Set(['304313580025544704', '364144633451773953'])
+const REVIEWER_ROUTE_ROLE_IDS = new Set([
+  '767389896133443625',
+  '767392998157451265',
+])
+
+const moderatorReviewerRouteCache = new Map<string, boolean>()
 
 export async function checkInactiveThreads(client: Client): Promise<void> {
-  const alertChannelId = channelIds.inactiveThreadAlerts
-  if (!alertChannelId) {
+  const defaultAlertChannelId = channelIds.inactiveThreadAlerts
+  if (!defaultAlertChannelId) {
     console.warn('No inactive thread alerts channel configured')
     return
   }
 
+  const reviewerAlertChannelId =
+    channelIds.inactiveThreadAlertsReviewers ?? defaultAlertChannelId
+
   try {
-    const alertChannel = (await client.channels.fetch(
-      alertChannelId
+    const defaultAlertChannel = (await client.channels.fetch(
+      defaultAlertChannelId
     )) as TextChannel | null
 
-    if (!alertChannel) {
+    if (!defaultAlertChannel) {
       console.error(
-        `Inactive thread alerts channel ${alertChannelId} not found`
+        `Inactive thread alerts channel ${defaultAlertChannelId} not found`
       )
       return
+    }
+
+    const reviewerAlertChannel =
+      reviewerAlertChannelId === defaultAlertChannelId
+        ? defaultAlertChannel
+        : ((await client.channels.fetch(
+            reviewerAlertChannelId
+          )) as TextChannel | null) ?? null
+
+    if (!reviewerAlertChannel) {
+      console.warn(
+        `Reviewer inactive thread alerts channel ${reviewerAlertChannelId} not found; falling back to default alerts channel`
+      )
     }
 
     const trackedThreadIds = getAllTrackedThreads()
@@ -67,9 +89,17 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           lastHandlingModeratorId = await getLastHandlingModeratorId(thread)
         }
 
+        const routeToReviewerAlerts = await shouldRouteToReviewerAlerts(
+          thread,
+          lastHandlingModeratorId
+        )
+        const targetAlertChannel = routeToReviewerAlerts
+          ? reviewerAlertChannel ?? defaultAlertChannel
+          : defaultAlertChannel
+
         if (shouldSend48h) {
           await sendInactiveAlert(
-            alertChannel,
+            targetAlertChannel,
             thread,
             '2d',
             lastHandlingModeratorId
@@ -79,7 +109,7 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
 
         if (shouldSend7d) {
           await sendInactiveAlert(
-            alertChannel,
+            targetAlertChannel,
             thread,
             '7d',
             lastHandlingModeratorId
@@ -95,6 +125,27 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
   }
 }
 
+async function shouldRouteToReviewerAlerts(
+  thread: ThreadChannel,
+  moderatorId: string | null
+): Promise<boolean> {
+  if (!moderatorId) return false
+  const cached = moderatorReviewerRouteCache.get(moderatorId)
+  if (typeof cached === 'boolean') return cached
+
+  const member = await thread.guild.members.fetch(moderatorId).catch(() => null)
+  if (!member) {
+    moderatorReviewerRouteCache.set(moderatorId, false)
+    return false
+  }
+
+  const hasReviewerRole = Array.from(REVIEWER_ROUTE_ROLE_IDS).some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
+  moderatorReviewerRouteCache.set(moderatorId, hasReviewerRole)
+  return hasReviewerRole
+}
+
 async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
@@ -104,7 +155,7 @@ async function sendInactiveAlert(
   try {
     const handlerPing = lastHandlingModeratorId
       ? `<@${lastHandlingModeratorId}> `
-      : 'Unknown Moderator'
+      : 'Unknown Staff Member '
     await alertChannel.send(
       `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
     )

@@ -9,6 +9,7 @@ const channelIds =
         modlogs: '325648177178869760',
         amaChannel: '1411797299356504277',
         inactiveThreadAlerts: '264890171575631873',
+        inactiveThreadAlertsReviewers: '767390925051133984',
       }
     : {
         auctionsTickets: '1401293838059831377',
@@ -18,6 +19,7 @@ const channelIds =
         errors: '1403884779408986243',
         amaChannel: '1405679285620183070',
         inactiveThreadAlerts: '1402817633564491836',
+        inactiveThreadAlertsReviewers: '1402817633564491836',
       }
 
 const roleIds =
