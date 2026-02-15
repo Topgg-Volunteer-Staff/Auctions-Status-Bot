@@ -6,12 +6,31 @@ import {
   TextChannel,
   MessageFlags,
   MessageType,
+  type GuildMember,
   type Collection,
   type Attachment,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
+
+function extractReviewerSearchQuery(value: string): string | null {
+  // Typical formats seen in modlogs vary; aim for a short, searchable name.
+  // Examples:
+  // - "<@123> (top.gg profile)"
+  // - "@SomeName (top.gg profile)"
+  // - "SomeName (top.gg profile)"
+  const cleaned = value
+    .replace(/<@!?\d+>/g, '')
+    .replace(/\(.*?\)/g, '')
+    .replace(/top\.gg profile/gi, '')
+    .replace(/^@/g, '')
+    .trim()
+
+  if (cleaned.length < 2) return null
+  // Keep query reasonably small for Discord member search.
+  return cleaned.slice(0, 32)
+}
 
 export const modal = {
   name: 'disputeDecline',
@@ -252,19 +271,51 @@ export const execute = async (
         (f) => f.name.toLowerCase() === 'reviewer'
       )
       if (reviewerField) {
-        const reviewerMatch = reviewerField.value.match(/<@!?(\d+)>/)
-        if (reviewerMatch && reviewerMatch[1]) {
-          const potentialReviewerId = reviewerMatch[1]
-          const reviewerMember = await interaction.guild.members.fetch(
-            potentialReviewerId
+        const mentionMatch = reviewerField.value.match(/<@!?(\d+)>/)
+        const idMatch = reviewerField.value.match(/\b(\d{15,22})\b/)
+
+        let reviewerMember: GuildMember | null = null
+
+        const potentialReviewerId = mentionMatch?.[1] ?? idMatch?.[1] ?? null
+        if (potentialReviewerId) {
+          reviewerMember = await interaction.guild.members
+            .fetch(potentialReviewerId)
+            .catch(() => null)
+        }
+
+        // Fallback: if modlogs doesn't include a mention/id, search by the value text.
+        if (!reviewerMember) {
+          const query = extractReviewerSearchQuery(reviewerField.value)
+          if (query) {
+            const matches = (await interaction.guild.members
+              // discord.js v14: guild.members.search
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .search({ query, limit: 10 } as any)
+              .catch(() => null)) as Collection<string, GuildMember> | null
+
+            if (matches?.size) {
+              const candidates = Array.from(matches.values()).filter(
+                (m) =>
+                  m.roles.cache.has(roleIds.reviewer) ||
+                  m.roles.cache.has(roleIds.trialReviewer)
+              )
+              reviewerMember = candidates[0] ?? null
+            }
+          }
+        }
+
+        if (reviewerMember) {
+          const isReviewer = reviewerMember.roles.cache.has(roleIds.reviewer)
+          const isTrialReviewer = reviewerMember.roles.cache.has(
+            roleIds.trialReviewer
           )
 
-          // If user has the reviewer role, use them as the reviewer
-          if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
-            reviewerId = potentialReviewerId
+          // Treat either role as a valid "reviewer" for dispute routing.
+          if (isReviewer || isTrialReviewer) {
+            reviewerId = reviewerMember.id
             reviewerName = reviewerMember.user.username
 
-            if (reviewerMember.roles.cache.has(roleIds.trialReviewer)) {
+            if (isTrialReviewer) {
               mentorId = getMentorIdForTrialReviewer(reviewerId)
             }
           }
