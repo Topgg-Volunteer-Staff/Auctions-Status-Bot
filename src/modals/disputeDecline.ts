@@ -14,6 +14,14 @@ import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
 
+function isSnowflake(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{10,30}$/.test(value)
+}
+
+function uniqueSnowflakes(values: Array<string>): Array<string> {
+  return Array.from(new Set(values))
+}
+
 function extractReviewerSearchQuery(value: string): string | null {
   // Typical formats seen in modlogs vary; aim for a short, searchable name.
   // Examples:
@@ -206,12 +214,23 @@ export const execute = async (
       autoArchiveDuration: 10080,
     })
 
+    const reviewerNotificationsRoleId =
+      isSnowflake(roleIds.reviewerNotifications) &&
+      interaction.guild.roles.cache.has(roleIds.reviewerNotifications)
+        ? roleIds.reviewerNotifications
+        : null
+
+    const reviewerNotificationsMention = reviewerNotificationsRoleId
+      ? `<@&${reviewerNotificationsRoleId}>`
+      : 'reviewers'
+
     await thread.send({
-      content: `<@${interaction.user.id}> has opened a dispute. <@&${roleIds.reviewerNotifications}> no decline log found for this bot - please investigate.`,
+      content: `<@${interaction.user.id}> has opened a dispute. ${reviewerNotificationsMention} no decline log found for this bot - please investigate.`,
       embeds: [embed],
       allowedMentions: {
-        users: [interaction.user.id],
-        roles: [roleIds.reviewerNotifications],
+        parse: [],
+        users: isSnowflake(interaction.user.id) ? [interaction.user.id] : [],
+        roles: reviewerNotificationsRoleId ? [reviewerNotificationsRoleId] : [],
       },
     })
 
@@ -346,22 +365,36 @@ export const execute = async (
     autoArchiveDuration: 10080,
   })
 
+  const reviewerNotificationsRoleId =
+    isSnowflake(roleIds.reviewerNotifications) &&
+    interaction.guild.roles.cache.has(roleIds.reviewerNotifications)
+      ? roleIds.reviewerNotifications
+      : null
+
+  const reviewerNotificationsMention = reviewerNotificationsRoleId
+    ? `<@&${reviewerNotificationsRoleId}>`
+    : 'reviewers'
+
+  const mentionUserIds = uniqueSnowflakes(
+    [interaction.user.id, reviewerId, mentorId ?? ''].filter(isSnowflake)
+  )
+
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
         ? ` <@${reviewerId}> please take a look.${
             mentorId ? ` (Mentor: <@${mentorId}>)` : ''
           }`
-        : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
+        : ` ${reviewerNotificationsMention} no valid reviewer - please investigate.`
     }`,
     embeds: [embed],
     allowedMentions: {
-      users: [
-        interaction.user.id,
-        ...(reviewerId ? [reviewerId] : []),
-        ...(mentorId ? [mentorId] : []),
-      ],
-      roles: [roleIds.reviewerNotifications],
+      parse: [],
+      users: mentionUserIds,
+      roles:
+        reviewerId || !reviewerNotificationsRoleId
+          ? []
+          : [reviewerNotificationsRoleId],
     },
   })
 
