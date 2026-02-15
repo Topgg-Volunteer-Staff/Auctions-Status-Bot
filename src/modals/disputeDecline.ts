@@ -11,6 +11,7 @@ import {
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
+import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
 
 export const modal = {
   name: 'disputeDecline',
@@ -242,6 +243,7 @@ export const execute = async (
   // Extract reviewer information
   let reviewerId = ''
   let reviewerName = 'Unknown'
+  let mentorId: string | null = null
 
   try {
     const logEmbed = matchingMessage.embeds[0]
@@ -261,6 +263,10 @@ export const execute = async (
           if (reviewerMember.roles.cache.has(roleIds.reviewer)) {
             reviewerId = potentialReviewerId
             reviewerName = reviewerMember.user.username
+
+            if (reviewerMember.roles.cache.has(roleIds.trialReviewer)) {
+              mentorId = getMentorIdForTrialReviewer(reviewerId)
+            }
           }
         }
       }
@@ -292,12 +298,18 @@ export const execute = async (
   await thread.send({
     content: `<@${interaction.user.id}> has opened a dispute.${
       reviewerId
-        ? ` <@${reviewerId}> please take a look.`
+        ? ` <@${reviewerId}> please take a look.${
+            mentorId ? ` (Mentor: <@${mentorId}>)` : ''
+          }`
         : ` <@&${roleIds.reviewerNotifications}> no valid reviewer - please investigate.`
     }`,
     embeds: [embed],
     allowedMentions: {
-      users: [interaction.user.id, ...(reviewerId ? [reviewerId] : [])],
+      users: [
+        interaction.user.id,
+        ...(reviewerId ? [reviewerId] : []),
+        ...(mentorId ? [mentorId] : []),
+      ],
       roles: [roleIds.reviewerNotifications],
     },
   })
