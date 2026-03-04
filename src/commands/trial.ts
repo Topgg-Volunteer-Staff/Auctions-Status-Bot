@@ -12,6 +12,8 @@ import {
   setMentorForTrialReviewer,
 } from '../utils/trialReviewerMentors'
 
+import { errorEmbed, infoEmbed, successEmbed } from '../utils/embeds'
+
 export const command = new SlashCommandBuilder()
   .setName('trial')
   .setDescription('Trial reviewer mentor links')
@@ -51,7 +53,9 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      content: 'This command can only be used in a server.',
+      embeds: [
+        errorEmbed('Server only', 'This command can only be used in a server.'),
+      ],
       flags: MessageFlags.Ephemeral,
     })
     return
@@ -65,7 +69,12 @@ export const execute = async (
 
   if (!hasAllowedRole) {
     await interaction.reply({
-      content: '❌ You do not have permission to use this command.',
+      embeds: [
+        errorEmbed(
+          'No permission',
+          'You do not have permission to use this command.'
+        ),
+      ],
       flags: MessageFlags.Ephemeral,
     })
     return
@@ -79,7 +88,12 @@ export const execute = async (
 
     if (trialUser.id === mentorUser.id) {
       await interaction.reply({
-        content: '❌ Trial reviewer and mentor cannot be the same user.',
+        embeds: [
+          errorEmbed(
+            'Invalid users',
+            'Trial reviewer and mentor cannot be the same user.'
+          ),
+        ],
         flags: MessageFlags.Ephemeral,
       })
       return
@@ -95,14 +109,19 @@ export const execute = async (
           : ''
 
       await interaction.reply({
-        content: `✅ Linked <@${trialUser.id}> → <@${mentorUser.id}>${suffix}.`,
+        embeds: [
+          successEmbed(
+            'Mentor linked',
+            `<@${trialUser.id}> → <@${mentorUser.id}>${suffix}`
+          ),
+        ],
         flags: MessageFlags.Ephemeral,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to set trial reviewer mentor:', err)
       await interaction.reply({
-        content: '❌ Failed to save. Please try again.',
+        embeds: [errorEmbed('Save failed', 'Please try again.')],
         flags: MessageFlags.Ephemeral,
       })
     }
@@ -118,7 +137,9 @@ export const execute = async (
 
       if (!res.removed) {
         await interaction.reply({
-          content: `ℹ️ No mentor link found for <@${trialUser.id}>.`,
+          embeds: [
+            infoEmbed(`No mentor link found for <@${trialUser.id}>.`),
+          ],
           flags: MessageFlags.Ephemeral,
           allowedMentions: { users: [] },
         })
@@ -126,16 +147,21 @@ export const execute = async (
       }
 
       await interaction.reply({
-        content: `✅ Removed mentor link for <@${trialUser.id}>${
-          res.previousMentorId ? ` (was <@${res.previousMentorId}>)` : ''
-        }.`,
+        embeds: [
+          successEmbed(
+            'Mentor link removed',
+            `Removed for <@${trialUser.id}>${
+              res.previousMentorId ? ` (was <@${res.previousMentorId}>)` : ''
+            }.`
+          ),
+        ],
         flags: MessageFlags.Ephemeral,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to remove trial reviewer mentor:', err)
       await interaction.reply({
-        content: '❌ Failed to save. Please try again.',
+        embeds: [errorEmbed('Save failed', 'Please try again.')],
         flags: MessageFlags.Ephemeral,
       })
     }
@@ -149,7 +175,7 @@ export const execute = async (
 
       if (pairs.length === 0) {
         await interaction.reply({
-          content: 'No trial reviewer mentor links configured.',
+          embeds: [infoEmbed('No trial reviewer mentor links configured.')],
           flags: MessageFlags.Ephemeral,
         })
         return
@@ -166,15 +192,19 @@ export const execute = async (
         lines.push(`...and ${pairs.length - shown.length} more`)
       }
 
+      const embed = infoEmbed('')
+        .setTitle('Trial reviewer mentor links')
+        .setDescription(lines.join('\n'))
+
       await interaction.reply({
-        content: lines.join('\n'),
+        embeds: [embed],
         flags: MessageFlags.Ephemeral,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to list trial reviewer mentors:', err)
       await interaction.reply({
-        content: '❌ Failed to load list. Please try again.',
+        embeds: [errorEmbed('Load failed', 'Please try again.')],
         flags: MessageFlags.Ephemeral,
       })
     }
@@ -183,7 +213,12 @@ export const execute = async (
   }
 
   await interaction.reply({
-    content: 'Unknown subcommand.',
+    embeds: [
+      errorEmbed(
+        'Unknown subcommand',
+        'Please choose one of: add, list, remove.'
+      ),
+    ],
     flags: MessageFlags.Ephemeral,
   })
 }
