@@ -149,10 +149,16 @@ export const commandHandler = async (client: Client) => {
 
   // ---- Decide whether to deploy ----
   const clientId = process.env.DISCORD_CLIENT_ID || ''
-  const guildId = process.env.DISCORD_GUILD_ID || '333949691962195969' // fast guild deploy
+  const guildId = (process.env.DISCORD_GUILD_ID || '').trim()
 
   const commandsData: Array<RESTPostAPIChatInputApplicationCommandsJSONBody> =
     commands.map((c) => c.data.toJSON())
+
+  if (!guildId) {
+    console.warn(
+      'DISCORD_GUILD_ID is not set; deploying commands globally (may take time to appear).'
+    )
+  }
 
   // Compare local vs remote (scoped to where we plan to deploy)
   const hasNonSyncedChanges = async (): Promise<boolean> => {

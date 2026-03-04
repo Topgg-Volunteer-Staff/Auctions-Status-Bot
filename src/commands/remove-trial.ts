@@ -4,7 +4,6 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   MessageFlags,
-  PermissionsBitField,
 } from 'discord.js'
 
 import { removeTrialReviewerMentor } from '../utils/trialReviewerMentors'
@@ -13,7 +12,6 @@ export const command = new SlashCommandBuilder()
   .setName('remove-trial')
   .setDescription('Remove a trial reviewer → mentor link')
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageGuild)
   .addUserOption((option) =>
     option
       .setName('trial')
@@ -33,9 +31,13 @@ export const execute = async (
     return
   }
 
-  if (
-    !interaction.memberPermissions?.has(PermissionsBitField.Flags.ManageGuild)
-  ) {
+  const allowedRoleIds = ['774710870185869342', '742408262648987748'] as const
+  const member = interaction.member
+  const hasAllowedRole = allowedRoleIds.some((id) =>
+    member.roles.cache.has(id)
+  )
+
+  if (!hasAllowedRole) {
     await interaction.reply({
       content: '❌ You do not have permission to use this command.',
       flags: MessageFlags.Ephemeral,
