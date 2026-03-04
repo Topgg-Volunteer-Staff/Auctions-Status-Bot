@@ -334,9 +334,13 @@ export const execute = async (
             reviewerId = reviewerMember.id
             reviewerName = reviewerMember.user.username
 
-            if (isTrialReviewer) {
-              mentorId = getMentorIdForTrialReviewer(reviewerId)
-            }
+            // If a mentor mapping exists, ping mentor as well.
+            // (Some reviewers may have changed roles; the mapping is authoritative.)
+            const mappedMentorId = getMentorIdForTrialReviewer(reviewerId)
+            mentorId =
+              mappedMentorId && mappedMentorId !== reviewerId
+                ? mappedMentorId
+                : null
           }
         }
       }

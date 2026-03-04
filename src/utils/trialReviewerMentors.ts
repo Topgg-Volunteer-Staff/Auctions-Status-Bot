@@ -70,11 +70,9 @@ async function persistStore(comment: string, map: MentorMap): Promise<void> {
     `trial-reviewer-mentors.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
   )
 
-  await writeFile(STORE_PATH, payload, 'utf8').catch(async () => {
-    // If a direct write fails (e.g., AV lock), try atomic temp+rename.
-    await writeFile(tmpPath, payload, 'utf8')
-    await rename(tmpPath, STORE_PATH)
-  })
+  // Always write atomically to avoid partial reads of truncated files.
+  await writeFile(tmpPath, payload, 'utf8')
+  await rename(tmpPath, STORE_PATH)
 }
 
 let storeWriteChain: Promise<void> = Promise.resolve()
