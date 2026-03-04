@@ -184,17 +184,21 @@ export const execute = async (
       const maxLines = 50
       const shown = pairs.slice(0, maxLines)
 
-      const lines = shown.map(
-        ({ reviewerId, mentorId }) => `<@${reviewerId}> → <@${mentorId}>`
+      const entries = shown.map(
+        ({ reviewerId, mentorId }) =>
+          `**Trial:** <@${reviewerId}>\n**Mentor:** <@${mentorId}>`
       )
 
-      if (pairs.length > shown.length) {
-        lines.push(`...and ${pairs.length - shown.length} more`)
-      }
+      const description =
+        entries.join('\n\n') +
+        (pairs.length > shown.length
+          ? `\n\n...and ${pairs.length - shown.length} more`
+          : '')
 
       const embed = infoEmbed('')
         .setTitle('Trial reviewer mentor links')
-        .setDescription(lines.join('\n'))
+        .setDescription(description)
+        .setFooter({ text: `${pairs.length} link(s)` })
 
       await interaction.reply({
         embeds: [embed],

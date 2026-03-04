@@ -24,7 +24,7 @@ export const emoji = {
   offline: '<:topgg_opt_no:1026871575418503299>',
   warning: '<:warning:1011673314114150523>',
   error: '<:topgg_opt_no:1026871575418503299>',
-  blueinfo: '<:info:1012714338303344660>',
+  blueinfo: '<:info:1215752577912672359>',
   bradd: '<:br_add:1011674270885236786>',
   hammer: '<:topgg_ico_bonk:1026873993011138660>',
   topggthumbsup: '<:topggThumbsUp:849316718102970409>',
