@@ -15,11 +15,12 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
-import { channelIds } from './globals'
+import { channelIds, resolvedFlag } from './globals'
 import { threadAlerts } from './commands/alert'
 import { updateThreadActivity } from './utils/tickets/trackActivity'
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
+const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const fourImageFlagCounts = new Map<string, number>()
 
 const FOUR_IMAGE_FLAGS_DIR = path.join(process.cwd(), 'data')
@@ -622,6 +623,28 @@ client.on('guildMemberRemove', async (member) => {
     }
   } catch (error) {
     console.error('Error in guildMemberRemove handler:', error)
+  }
+})
+
+client.on('messageCreate', async (message) => {
+  if (!message.inGuild()) return
+  if (message.author.bot) return
+  if (message.content.trim().toLowerCase() !== '-resolve') return
+  if (!message.channel.isThread()) return
+
+  const thread = message.channel as ThreadChannel
+  if (thread.parentId !== EXTERNAL_BOT_THREAD_PARENT_ID) return
+
+  try {
+    if (!thread.name.startsWith(resolvedFlag)) {
+      await thread.setName(`${resolvedFlag} ${thread.name}`)
+    }
+
+    await thread.setLocked(true, 'Resolved via prefix command')
+    await thread.setArchived(true, 'Resolved via prefix command')
+  } catch (error) {
+    console.error('Failed to resolve external bot thread:', error)
+    await message.reply('I could not resolve this thread. Please try again.')
   }
 })
 
