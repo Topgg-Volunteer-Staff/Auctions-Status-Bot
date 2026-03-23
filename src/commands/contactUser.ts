@@ -45,18 +45,6 @@ export const execute = async (
     roleIdsOnMember.has(roleIds.trialReviewer)
 
   if (!hasReviewerAccess) {
-    console.warn('[contactuser] Permission denied', {
-      userId: interaction.user.id,
-      guildId: interaction.guildId,
-      expectedRoleIds: {
-        reviewer: roleIds.reviewer,
-        trialReviewer: roleIds.trialReviewer,
-      },
-      cachedRoleIds: [...invokingMember.roles.cache.keys()].sort(),
-      freshRoleIds: freshMember ? [...freshMember.roles.cache.keys()].sort() : [],
-      mergedRoleIds: [...roleIdsOnMember].sort(),
-    })
-
     await interaction.reply({
       content: 'You do not have permission for this!',
       flags: MessageFlags.Ephemeral,
