@@ -17,7 +17,10 @@ import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds, resolvedFlag } from './globals'
 import { threadAlerts } from './commands/alert'
-import { updateThreadActivity } from './utils/tickets/trackActivity'
+import {
+  initializeThreadActivity,
+  updateThreadActivity,
+} from './utils/tickets/trackActivity'
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
@@ -384,6 +387,24 @@ client.on('messageCreate', async (message) => {
     // ignore
   }
 })
+
+client.on('threadCreate', async (thread) => {
+  if (
+    thread.parent?.id !== channelIds.modTickets ||
+    thread.type !== ChannelType.PrivateThread ||
+    thread.name.startsWith(resolvedFlag)
+  ) {
+    return
+  }
+
+  await initializeThreadActivity(thread).catch((error) => {
+    console.error(
+      `Failed to initialize new thread activity for ${thread.id}:`,
+      error
+    )
+  })
+})
+
 /**
  * Creates a standardized error embed for reporting errors.
  */
