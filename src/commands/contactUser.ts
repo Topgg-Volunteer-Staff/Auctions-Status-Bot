@@ -29,10 +29,16 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  // check for reviewer or trial reviewer role
-  const hasReviewerAccess =
-    interaction.member.roles.cache.has(roleIds.reviewer) ||
-    interaction.member.roles.cache.has(roleIds.trialReviewer)
+  // check for reviewer or trial reviewer role by ID, with role-name fallback
+  const hasReviewerAccess = interaction.member.roles.cache.some((role) => {
+    if (role.id === roleIds.reviewer || role.id === roleIds.trialReviewer) {
+      return true
+    }
+
+    const normalized = role.name.toLowerCase().replace(/\s+/g, '')
+    return normalized === 'reviewer' || normalized === 'trialreviewer'
+  })
+
   if (!hasReviewerAccess) {
     await interaction.reply({
       content: 'You do not have permission for this!',
