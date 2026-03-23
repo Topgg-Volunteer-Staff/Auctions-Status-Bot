@@ -30,9 +30,11 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  // check for reviewer role
-  const hasReviewerRole = interaction.member.roles.cache.has(roleIds.reviewer)
-  if (!hasReviewerRole) {
+  // check for reviewer or trial reviewer role
+  const hasReviewerAccess =
+    interaction.member.roles.cache.has(roleIds.reviewer) ||
+    interaction.member.roles.cache.has(roleIds.trialReviewer)
+  if (!hasReviewerAccess) {
     await interaction.reply({
       content: 'You do not have permission for this!',
       flags: MessageFlags.Ephemeral,
