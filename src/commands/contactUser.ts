@@ -29,15 +29,15 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  // check for reviewer or trial reviewer role by ID, with role-name fallback
-  const hasReviewerAccess = interaction.member.roles.cache.some((role) => {
-    if (role.id === roleIds.reviewer || role.id === roleIds.trialReviewer) {
-      return true
-    }
+  const invokingMember =
+    (await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null)) ?? interaction.member
 
-    const normalized = role.name.toLowerCase().replace(/\s+/g, '')
-    return normalized === 'reviewer' || normalized === 'trialreviewer'
-  })
+  // check for reviewer or trial reviewer role by ID
+  const hasReviewerAccess =
+    invokingMember.roles.cache.has(roleIds.reviewer) ||
+    invokingMember.roles.cache.has(roleIds.trialReviewer)
 
   if (!hasReviewerAccess) {
     await interaction.reply({

@@ -178,24 +178,48 @@ export const commandHandler = async (client: Client) => {
     if (remote.some((r) => !localNames.has(r.name))) return true
     if (commands.some((c) => !remoteNames.has(c.name))) return true
 
-    // shallow compare some important fields
+    // Compare command payload fields that impact visibility/access and invocation shape.
     for (const c of commands) {
+      const localJson = c.data.toJSON()
       const r = remote.find((x) => x.name === c.name)
       if (!r) return true
 
-      // Note: APIApplicationCommand for chat input has description; compare those
+      const localType = localJson.type ?? 1
+      const remoteType = r.type ?? 1
+      if (localType !== remoteType) return true
+
       if ('description' in r) {
-        const localDesc = c.data.description // SlashCommandBuilder always has a string description
+        const localDesc = localJson.description ?? ''
         if (r.description !== localDesc) return true
       }
 
       // dm_permission can be undefined; default to true if unset on either side
-      const localDm = (c.data as unknown as { dm_permission?: boolean })
-        .dm_permission
+      const localDm = localJson.dm_permission
       const localDmNorm = typeof localDm === 'boolean' ? localDm : true
       const remoteDm = (r as Partial<APIApplicationCommand>).dm_permission
       const remoteDmNorm = typeof remoteDm === 'boolean' ? remoteDm : true
       if (localDmNorm !== remoteDmNorm) return true
+
+      const localDefaultPerms = localJson.default_member_permissions ?? null
+      const remoteDefaultPerms =
+        (r as Partial<APIApplicationCommand>).default_member_permissions ?? null
+      if (String(localDefaultPerms) !== String(remoteDefaultPerms)) return true
+
+      const localContexts = Array.isArray(localJson.contexts)
+        ? [...localJson.contexts].sort().join(',')
+        : ''
+      const remoteContexts = Array.isArray((r as { contexts?: Array<number> }).contexts)
+        ? [...((r as { contexts?: Array<number> }).contexts ?? [])]
+            .sort()
+            .join(',')
+        : ''
+      if (localContexts !== remoteContexts) return true
+
+      const localOptions = JSON.stringify(localJson.options ?? [])
+      const remoteOptions = JSON.stringify(
+        (r as { options?: unknown }).options ?? []
+      )
+      if (localOptions !== remoteOptions) return true
     }
     return false
   }
