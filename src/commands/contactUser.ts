@@ -29,17 +29,34 @@ export const execute = async (
 ) => {
   if (!interaction.inCachedGuild()) return
 
-  const invokingMember =
-    (await interaction.guild.members
-      .fetch(interaction.user.id)
-      .catch(() => null)) ?? interaction.member
+  const invokingMember = interaction.member
+  const freshMember = await interaction.guild.members
+    .fetch({ user: interaction.user.id, force: true })
+    .catch(() => null)
 
-  // check for reviewer or trial reviewer role by ID
+  const roleIdsOnMember = new Set<string>([
+    ...invokingMember.roles.cache.keys(),
+    ...(freshMember ? freshMember.roles.cache.keys() : []),
+  ])
+
+  // check for reviewer or trial reviewer role by ID from both cached and fresh member data
   const hasReviewerAccess =
-    invokingMember.roles.cache.has(roleIds.reviewer) ||
-    invokingMember.roles.cache.has(roleIds.trialReviewer)
+    roleIdsOnMember.has(roleIds.reviewer) ||
+    roleIdsOnMember.has(roleIds.trialReviewer)
 
   if (!hasReviewerAccess) {
+    console.warn('[contactuser] Permission denied', {
+      userId: interaction.user.id,
+      guildId: interaction.guildId,
+      expectedRoleIds: {
+        reviewer: roleIds.reviewer,
+        trialReviewer: roleIds.trialReviewer,
+      },
+      cachedRoleIds: [...invokingMember.roles.cache.keys()].sort(),
+      freshRoleIds: freshMember ? [...freshMember.roles.cache.keys()].sort() : [],
+      mergedRoleIds: [...roleIdsOnMember].sort(),
+    })
+
     await interaction.reply({
       content: 'You do not have permission for this!',
       flags: MessageFlags.Ephemeral,
