@@ -16,7 +16,6 @@ export const command = new SlashCommandBuilder()
   .setName('contactuser')
   .setDescription('Contact a specific user')
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions('0')
   .addUserOption((option) =>
     option
       .setName('user')
