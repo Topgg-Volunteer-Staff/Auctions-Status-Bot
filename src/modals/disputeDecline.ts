@@ -13,6 +13,7 @@ import {
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
+import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 function isSnowflake(value: unknown): value is string {
   return typeof value === 'string' && /^\d{10,30}$/.test(value)
@@ -234,6 +235,8 @@ export const execute = async (
       },
     })
 
+    await sendDmOnResponsesPrompt(thread, interaction.user.id)
+
     const webhook = await modTickets.createWebhook({
       name: interaction.user.username,
       avatar: interaction.user.displayAvatarURL(),
@@ -401,6 +404,8 @@ export const execute = async (
           : [reviewerNotificationsRoleId],
     },
   })
+
+  await sendDmOnResponsesPrompt(thread, interaction.user.id)
 
   let forwardContent = matchingMessage.content || ''
   forwardContent = forwardContent.replace(/<@&?\d+>/g, '').trim()

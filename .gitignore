@@ -89,6 +89,9 @@ dist
 # Local persistent counters
 data/four-image-flags.json
 data/inactive-thread-alerts.json
+data/
+data/inactive-thread-alerts.json
+data/trial-reviewer-mentors.json
 
 # Gatsby files
 .cache/

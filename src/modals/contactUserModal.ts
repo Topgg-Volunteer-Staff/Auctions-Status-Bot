@@ -12,6 +12,7 @@ import {
 import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
 import { successEmbed } from '../utils/embeds/successEmbed'
+import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 export const modal = {
   name: 'contactUserModal',
@@ -79,6 +80,8 @@ export const execute = async (
       autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
       type: 12,
     })
+
+    await sendDmOnResponsesPrompt(thread, userId)
 
     const embed = new EmbedBuilder()
       .setTitle(`Contact ${username}`)

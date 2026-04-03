@@ -11,6 +11,8 @@ import {
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { emoji } from '../utils/emojis'
+import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
+import { removeThread } from '../utils/tickets/trackActivity'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
@@ -69,6 +71,15 @@ export const execute = async (
     await interaction.reply({
       embeds: [successEmbed(`Ticket resolved!`, `${resolveString}`)],
     })
+
+    await removeTicketDmPreference(thread.id).catch((error) => {
+      console.error(
+        `Failed to remove DM preference for resolved ticket ${thread.id}:`,
+        error
+      )
+    })
+
+    removeThread(thread.id)
 
     if (!interaction.guild) {
       throw new Error('Guild is not available on this interaction')

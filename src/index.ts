@@ -433,70 +433,35 @@ export function createErrorEmbed(
 }
 
 /**
- * Sends an error embed either to a dev channel or via webhook depending on ENVIRONMENT.
+ * Sends an error embed to the dedicated error log channel.
  */
 export async function sendError(embed: EmbedBuilder): Promise<void> {
-  const environment = process.env.ENVIRONMENT || 'DEVELOPMENT'
-  console.log(`Current environment: ${environment}`)
+  const channelId = FOUR_IMAGE_LOG_CHANNEL_ID
+  console.log(`Attempting to send error to channel ${channelId}`)
 
-  if (environment === 'DEVELOPMENT') {
-    const channelId = channelIds.errors
-    if (!channelId) {
-      console.error('No errors channel configured; aborting sendError')
-      return
-    }
-    console.log(`Attempting to send error to channel ${channelId}`)
-
-    // Try cache first, then fetch as fallback
-    let channel = client.channels.cache.get(channelId)
-    if (!channel) {
-      try {
-        channel = await client.channels
-          .fetch(channelId)
-          .then((c) => (c === null ? undefined : c))
-          .catch(() => undefined)
-      } catch {
-        channel = undefined
-      }
-    }
-
-    if (channel && 'isTextBased' in channel && channel.isTextBased()) {
-      try {
-        console.log('Channel found, sending error message...')
-        await (channel as TextChannel).send({ embeds: [embed] })
-        console.log('Error message sent successfully to channel')
-      } catch (sendErr) {
-        console.error('Error sending message:', sendErr)
-        console.error(
-          'Channel permissions or other issues may be preventing message sending'
-        )
-      }
-    } else {
-      console.error(
-        `Channel with ID ${channelId} not found or is not text-based`
-      )
-      console.error(
-        'Available channels:',
-        client.channels.cache.map((c) => ({
-          id: c.id,
-          type: c.type,
-          name: 'name' in c ? c.name : 'unknown',
-        }))
-      )
-    }
-  } else if (environment === 'PRODUCTION') {
-    const webhookUrl = process.env.ERROR_WEBHOOK_URL || ''
-    if (!webhookUrl) return
+  let channel = client.channels.cache.get(channelId)
+  if (!channel) {
     try {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed.toJSON()] }),
-      })
-      console.log('Error message sent successfully via webhook')
-    } catch (err) {
-      console.error('Error sending webhook message:', err)
+      channel = await client.channels
+        .fetch(channelId)
+        .then((c) => (c === null ? undefined : c))
+        .catch(() => undefined)
+    } catch {
+      channel = undefined
     }
+  }
+
+  if (channel && 'isTextBased' in channel && channel.isTextBased()) {
+    try {
+      await (channel as TextChannel).send({ embeds: [embed] })
+      console.log('Error message sent successfully to error log channel')
+    } catch (sendErr) {
+      console.error('Error sending error message:', sendErr)
+    }
+  } else {
+    console.error(
+      `Error log channel with ID ${channelId} not found or is not text-based`
+    )
   }
 }
 

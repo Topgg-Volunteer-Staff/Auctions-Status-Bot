@@ -9,6 +9,7 @@ import {
 import { channelIds, roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
 import { errorEmbed, successEmbed } from '../utils/embeds'
+import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 export const modal = {
   name: 'auctionsModal',
@@ -71,6 +72,8 @@ export const execute = async (
     content: `<@&${roleIds.supportTeam}>, <@${interaction.user.id}> has created an Auctions ticket.`,
     embeds: [embed],
   })
+
+  await sendDmOnResponsesPrompt(thread, interaction.user.id)
 
   // Then send the user input as a webhook message to mimic the user
   const webhook = await auctionsTickets.createWebhook({

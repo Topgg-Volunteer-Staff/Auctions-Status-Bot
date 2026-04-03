@@ -15,6 +15,7 @@ import {
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
+import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 export const modal = {
   name: 'modModal',
@@ -273,6 +274,8 @@ export const execute = async (
     embeds: [embed],
     components: [closeButton],
   })
+
+  await sendDmOnResponsesPrompt(thread, interaction.user.id)
 
   // Create webhook to mimic user message
   const webhook = await modTickets.createWebhook({
