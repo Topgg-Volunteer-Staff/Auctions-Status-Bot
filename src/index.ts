@@ -21,6 +21,7 @@ import {
   initializeThreadActivity,
   updateThreadActivity,
 } from './utils/tickets/trackActivity'
+import { maybeNotifyTicketResponse } from './utils/tickets/dmOnResponses'
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
@@ -497,6 +498,12 @@ client.on('error', async (err) => {
   } catch (sendErr) {
     console.error('Failed to send client error:', sendErr)
   }
+})
+
+client.on('messageCreate', async (message) => {
+  await maybeNotifyTicketResponse(message).catch((error) => {
+    console.error('Failed to process ticket DM response notification:', error)
+  })
 })
 
 client.on('messageCreate', async (message) => {
