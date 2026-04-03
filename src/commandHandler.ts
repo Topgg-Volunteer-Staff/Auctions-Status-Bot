@@ -14,6 +14,7 @@ import type {
   APIApplicationCommand,
   RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord-api-types/v10'
+import { sendErrorLog } from './utils/errorLogging'
 
 // --- Paths / REST ---
 const commandsPath = path.join(__dirname, 'commands')
@@ -144,6 +145,7 @@ export const commandHandler = async (client: Client) => {
       console.log('Registered command:', name)
     } catch (err) {
       console.error(`[commands] Failed to load "${file}"`, err)
+      await sendErrorLog(client, 'commands.load.failed', err, { file })
     }
   }
 
@@ -250,6 +252,9 @@ export const commandHandler = async (client: Client) => {
       )
     } catch (error) {
       console.error('Failed to register commands:', error)
+      await sendErrorLog(client, 'commands.deploy.failed', error, {
+        guildId: guildId || 'global',
+      })
     }
   } else {
     console.log('No commands to register with Discord.')
@@ -268,20 +273,28 @@ export const commandHandler = async (client: Client) => {
     console.log('Remote commands:', names)
   } catch (e) {
     console.warn('Could not fetch remote commands:', e)
+    await sendErrorLog(client, 'commands.fetchRemote.failed', e, {
+      guildId: guildId || 'global',
+    })
   }
 
   // ---- Load buttons ----
   if (fs.existsSync(buttonsPath)) {
     for (const file of fs.readdirSync(buttonsPath)) {
       if (!isCodeFile(file)) continue
-      const mod = (await import(path.join(buttonsPath, file))) as unknown
-      if (isButtonModule(mod)) {
-        buttons.push({ name: mod.button.name, execute: mod.execute })
-        console.log('Registered button:', mod.button.name)
-      } else {
-        console.warn(
-          `[buttons] Skipped "${file}" (missing {button.name, execute})`
-        )
+      try {
+        const mod = (await import(path.join(buttonsPath, file))) as unknown
+        if (isButtonModule(mod)) {
+          buttons.push({ name: mod.button.name, execute: mod.execute })
+          console.log('Registered button:', mod.button.name)
+        } else {
+          console.warn(
+            `[buttons] Skipped "${file}" (missing {button.name, execute})`
+          )
+        }
+      } catch (err) {
+        console.error(`[buttons] Failed to load "${file}"`, err)
+        await sendErrorLog(client, 'buttons.load.failed', err, { file })
       }
     }
   }
@@ -290,14 +303,19 @@ export const commandHandler = async (client: Client) => {
   if (fs.existsSync(modalsPath)) {
     for (const file of fs.readdirSync(modalsPath)) {
       if (!isCodeFile(file)) continue
-      const mod = (await import(path.join(modalsPath, file))) as unknown
-      if (isModalModule(mod)) {
-        modals.push({ name: mod.modal.name, execute: mod.execute })
-        console.log('Registered modal:', mod.modal.name)
-      } else {
-        console.warn(
-          `[modals] Skipped "${file}" (missing {modal.name, execute})`
-        )
+      try {
+        const mod = (await import(path.join(modalsPath, file))) as unknown
+        if (isModalModule(mod)) {
+          modals.push({ name: mod.modal.name, execute: mod.execute })
+          console.log('Registered modal:', mod.modal.name)
+        } else {
+          console.warn(
+            `[modals] Skipped "${file}" (missing {modal.name, execute})`
+          )
+        }
+      } catch (err) {
+        console.error(`[modals] Failed to load "${file}"`, err)
+        await sendErrorLog(client, 'modals.load.failed', err, { file })
       }
     }
   }
@@ -306,12 +324,19 @@ export const commandHandler = async (client: Client) => {
   if (fs.existsSync(menusPath)) {
     for (const file of fs.readdirSync(menusPath)) {
       if (!isCodeFile(file)) continue
-      const mod = (await import(path.join(menusPath, file))) as unknown
-      if (isMenuModule(mod)) {
-        menus.push({ name: mod.menu.name, execute: mod.execute })
-        console.log('Registered menu:', mod.menu.name)
-      } else {
-        console.warn(`[menus] Skipped "${file}" (missing {menu.name, execute})`)
+      try {
+        const mod = (await import(path.join(menusPath, file))) as unknown
+        if (isMenuModule(mod)) {
+          menus.push({ name: mod.menu.name, execute: mod.execute })
+          console.log('Registered menu:', mod.menu.name)
+        } else {
+          console.warn(
+            `[menus] Skipped "${file}" (missing {menu.name, execute})`
+          )
+        }
+      } catch (err) {
+        console.error(`[menus] Failed to load "${file}"`, err)
+        await sendErrorLog(client, 'menus.load.failed', err, { file })
       }
     }
   }
@@ -341,6 +366,18 @@ export const commandHandler = async (client: Client) => {
       }
     } catch (err) {
       console.error('Interaction handler error:', err)
+      await sendErrorLog(client, 'interaction.handler.failed', err, {
+        type: interaction.type,
+        customId:
+          'customId' in interaction && typeof interaction.customId === 'string'
+            ? interaction.customId
+            : undefined,
+        commandName:
+          'commandName' in interaction &&
+          typeof interaction.commandName === 'string'
+            ? interaction.commandName
+            : undefined,
+      })
       // Best-effort: avoid throwing
       if (interaction.isRepliable()) {
         try {

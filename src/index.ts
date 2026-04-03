@@ -22,6 +22,11 @@ import {
   updateThreadActivity,
 } from './utils/tickets/trackActivity'
 import { maybeNotifyTicketResponse } from './utils/tickets/dmOnResponses'
+import {
+  installConsoleErrorForwarding,
+  installGlobalErrorHandlers,
+  sendErrorLog,
+} from './utils/errorLogging'
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
@@ -253,7 +258,12 @@ async function sendFourImageFlagLog(options: {
         components,
         allowedMentions: { parse: [] },
       })
-      .catch(() => void 0)
+      .catch((error) => {
+        void sendErrorLog(client, 'fourImage.logSend.fallback.failed', error, {
+          messageId: options.messageId,
+          channelId: options.channelId,
+        })
+      })
   }
 }
 
@@ -303,6 +313,9 @@ const client = new Client({
   ],
 })
 
+installConsoleErrorForwarding(client)
+installGlobalErrorHandlers(client)
+
 client.on('ready', async () => {
   console.log(`Logged in as ${client.user?.tag}!`)
   client.user?.setPresence({
@@ -340,7 +353,11 @@ client.on('messageCreate', async (message) => {
 
       const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
       fourImageFlagCounts.set(message.author.id, newCount)
-      await queuePersistFourImageFlagsStore().catch(() => void 0)
+      await queuePersistFourImageFlagsStore().catch((error) => {
+        void sendErrorLog(client, 'fourImage.persist.failed', error, {
+          userId: message.author.id,
+        })
+      })
 
       const attachmentUrls = attachments
         .map((a) => a.url)
@@ -360,8 +377,12 @@ client.on('messageCreate', async (message) => {
       try {
         await message.delete()
         deleted = true
-      } catch {
+      } catch (error) {
         deleted = false
+        void sendErrorLog(client, 'fourImage.delete.failed', error, {
+          messageId: message.id,
+          channelId: message.channelId,
+        })
       }
 
       const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
@@ -384,8 +405,8 @@ client.on('messageCreate', async (message) => {
         deleted,
       })
     }
-  } catch {
-    // ignore
+  } catch (error) {
+    void sendErrorLog(client, 'fourImage.handler.failed', error)
   }
 })
 
@@ -403,101 +424,11 @@ client.on('threadCreate', async (thread) => {
       `Failed to initialize new thread activity for ${thread.id}:`,
       error
     )
-  })
-})
-
-/**
- * Creates a standardized error embed for reporting errors.
- */
-export function createErrorEmbed(
-  title: string,
-  errorData: unknown
-): EmbedBuilder {
-  const errorText =
-    errorData instanceof Error
-      ? errorData.stack || errorData.message
-      : typeof errorData === 'string'
-      ? errorData
-      : JSON.stringify(errorData, null, 2)
-
-  return new EmbedBuilder()
-    .setAuthor({
-      name: 'Top.gg Testing',
-      iconURL: 'https://i.imgur.com/W2d2UY7.jpeg',
+    void sendErrorLog(client, 'thread.initialize.failed', error, {
+      threadId: thread.id,
+      parentId: thread.parentId ?? 'unknown',
     })
-    .setTitle(title)
-    .setDescription(
-      `An error occurred within the Top.gg Bot\n\`\`\`\n${errorText}\n\`\`\``
-    )
-    .setTimestamp()
-    .setColor('#FF0000')
-}
-
-/**
- * Sends an error embed to the dedicated error log channel.
- */
-export async function sendError(embed: EmbedBuilder): Promise<void> {
-  const channelId = FOUR_IMAGE_LOG_CHANNEL_ID
-  console.log(`Attempting to send error to channel ${channelId}`)
-
-  let channel = client.channels.cache.get(channelId)
-  if (!channel) {
-    try {
-      channel = await client.channels
-        .fetch(channelId)
-        .then((c) => (c === null ? undefined : c))
-        .catch(() => undefined)
-    } catch {
-      channel = undefined
-    }
-  }
-
-  if (channel && 'isTextBased' in channel && channel.isTextBased()) {
-    try {
-      await (channel as TextChannel).send({ embeds: [embed] })
-      console.log('Error message sent successfully to error log channel')
-    } catch (sendErr) {
-      console.error('Error sending error message:', sendErr)
-    }
-  } else {
-    console.error(
-      `Error log channel with ID ${channelId} not found or is not text-based`
-    )
-  }
-}
-
-// Global error handlers
-process.on('uncaughtException', async (err) => {
-  console.error('Caught exception:', err)
-  console.log('Attempting to send uncaughtException error...')
-  try {
-    await sendError(createErrorEmbed('uncaughtException', err))
-    console.log('uncaughtException error sent successfully')
-  } catch (sendErr) {
-    console.error('Failed to send uncaughtException error:', sendErr)
-  }
-})
-
-process.on('unhandledRejection', async (reason) => {
-  console.error('Unhandled rejection:', reason)
-  console.log('Attempting to send unhandledRejection error...')
-  try {
-    await sendError(createErrorEmbed('unhandledRejection', reason))
-    console.log('unhandledRejection error sent successfully')
-  } catch (sendErr) {
-    console.error('Failed to send unhandledRejection error:', sendErr)
-  }
-})
-
-client.on('error', async (err) => {
-  console.error('Client error:', err)
-  console.log('Attempting to send client error...')
-  try {
-    await sendError(createErrorEmbed('ClientError', err))
-    console.log('Client error sent successfully')
-  } catch (sendErr) {
-    console.error('Failed to send client error:', sendErr)
-  }
+  })
 })
 
 client.on('messageCreate', async (message) => {
