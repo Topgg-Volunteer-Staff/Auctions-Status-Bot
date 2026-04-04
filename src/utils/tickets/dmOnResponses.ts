@@ -33,6 +33,11 @@ const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
 const STAFF_RESPONSE_REMINDER_DELAY_MS = 5 * 60_000
 const DM_QUEUE_SPACING_MS = 1_000
+const EXPECTED_DM_DELIVERY_ERROR_CODES = new Set([50007, 50278])
+const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
+  /cannot send messages to this user/i,
+  /no mutual guilds/i,
+]
 
 const ticketDmPreferences = new Map<string, TicketDmPreference>()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
@@ -221,12 +226,70 @@ function setRuntimeClient(client: Client): void {
   restorePendingReminderTimers()
 }
 
+function getNumericErrorCode(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+
+  if (typeof value === 'string' && /^\d+$/.test(value)) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+
+  return null
+}
+
+function getDiscordErrorCode(error: unknown): number | null {
+  if (!isObject(error)) return null
+
+  const directCode = getNumericErrorCode(error.code)
+  if (directCode !== null) return directCode
+
+  if (isObject(error.rawError)) {
+    const rawErrorCode = getNumericErrorCode(error.rawError.code)
+    if (rawErrorCode !== null) return rawErrorCode
+  }
+
+  return null
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message
+
+  if (isObject(error)) {
+    if (typeof error.message === 'string') return error.message
+    if (isObject(error.rawError) && typeof error.rawError.message === 'string') {
+      return error.rawError.message
+    }
+  }
+
+  return ''
+}
+
+function shouldSuppressDmReminderError(error: unknown): boolean {
+  const code = getDiscordErrorCode(error)
+  if (code !== null && EXPECTED_DM_DELIVERY_ERROR_CODES.has(code)) {
+    return true
+  }
+
+  const message = getErrorMessage(error)
+  return EXPECTED_DM_DELIVERY_ERROR_PATTERNS.some((pattern) =>
+    pattern.test(message)
+  )
+}
+
 async function reportDmReminderIssue(options: {
   reason: string
   threadId?: string
   openerId?: string
   error?: unknown
 }): Promise<void> {
+  if (
+    options.reason === 'Failed to send DM reminder' &&
+    shouldSuppressDmReminderError(options.error)
+  ) {
+    return
+  }
+
   const details: Array<string> = [`[ticket-dm] ${options.reason}`]
   if (options.threadId) details.push(`thread=${options.threadId}`)
   if (options.openerId) details.push(`opener=${options.openerId}`)
