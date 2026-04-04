@@ -316,13 +316,13 @@ const client = new Client({
 installConsoleErrorForwarding(client)
 installGlobalErrorHandlers(client)
 
-client.on('ready', async () => {
-  console.log(`Logged in as ${client.user?.tag}!`)
-  client.user?.setPresence({
+client.on('clientReady', async (readyClient) => {
+  console.log(`Logged in as ${readyClient.user.tag}!`)
+  readyClient.user.setPresence({
     status: 'online',
     activities: [{ name: 'the clock!', type: 3 }],
   })
-  startReminders(client)
+  startReminders(readyClient)
 })
 
 commandHandler(client)
