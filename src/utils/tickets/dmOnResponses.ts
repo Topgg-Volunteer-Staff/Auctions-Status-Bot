@@ -33,6 +33,7 @@ const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
 const STAFF_RESPONSE_REMINDER_DELAY_MS = 5 * 60_000
 const DM_QUEUE_SPACING_MS = 1_000
+const DM_ISSUE_DEDUPE_WINDOW_MS = 6 * 60 * 60_000
 const EXPECTED_DM_DELIVERY_ERROR_CODES = new Set([50007, 50278])
 const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
   /cannot send messages to this user/i,
@@ -41,6 +42,7 @@ const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
 
 const ticketDmPreferences = new Map<string, TicketDmPreference>()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
+const recentlyReportedDmIssues = new Map<string, number>()
 
 let initPromise: Promise<void> | null = null
 let writeChain: Promise<void> = Promise.resolve()
@@ -277,6 +279,46 @@ function shouldSuppressDmReminderError(error: unknown): boolean {
   )
 }
 
+function buildIssueDedupeKey(options: {
+  reason: string
+  threadId?: string
+  openerId?: string
+  error?: unknown
+}): string {
+  const code = getDiscordErrorCode(options.error)
+  const message = getErrorMessage(options.error)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .slice(0, 160)
+
+  return [
+    options.reason,
+    options.threadId ?? '',
+    options.openerId ?? '',
+    code ?? '',
+    message,
+  ].join('|')
+}
+
+function hasRecentlyReportedIssue(key: string): boolean {
+  const now = Date.now()
+
+  for (const [existingKey, reportedAt] of recentlyReportedDmIssues) {
+    if (now - reportedAt > DM_ISSUE_DEDUPE_WINDOW_MS) {
+      recentlyReportedDmIssues.delete(existingKey)
+    }
+  }
+
+  const lastReportedAt = recentlyReportedDmIssues.get(key)
+  if (lastReportedAt && now - lastReportedAt <= DM_ISSUE_DEDUPE_WINDOW_MS) {
+    return true
+  }
+
+  recentlyReportedDmIssues.set(key, now)
+  return false
+}
+
 async function reportDmReminderIssue(options: {
   reason: string
   threadId?: string
@@ -287,6 +329,11 @@ async function reportDmReminderIssue(options: {
     options.reason === 'Failed to send DM reminder' &&
     shouldSuppressDmReminderError(options.error)
   ) {
+    return
+  }
+
+  const dedupeKey = buildIssueDedupeKey(options)
+  if (hasRecentlyReportedIssue(dedupeKey)) {
     return
   }
 
