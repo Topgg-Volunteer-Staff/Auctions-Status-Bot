@@ -623,8 +623,11 @@ async function sendPendingReminder(threadId: string): Promise<void> {
   }
 
   if (!sent) {
+    const { pendingReminder: _failedReminder, ...nextPref } = latestPref
     ticketDmPreferences.set(threadId, {
-      ...latestPref,
+      ...nextPref,
+      enabled: false,
+      awaitingOpenerResponse: false,
       lastDmDeliveryStatus: deliveryStatus,
     })
     await queuePersist().catch(() => void 0)
