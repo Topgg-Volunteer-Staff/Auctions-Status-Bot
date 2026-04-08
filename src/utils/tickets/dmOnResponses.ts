@@ -17,12 +17,21 @@ type TicketPendingReminder = {
   responderName: string
 }
 
+type DmDeliveryState = 'active' | 'failed'
+
+type TicketDmDeliveryStatus = {
+  state: DmDeliveryState
+  attemptedAt: number
+  reason?: string
+}
+
 type TicketDmPreference = {
   openerId: string
   enabled: boolean
   toggleMessageUrl?: string
   awaitingOpenerResponse?: boolean
   pendingReminder?: TicketPendingReminder
+  lastDmDeliveryStatus?: TicketDmDeliveryStatus
 }
 
 type PersistedTicketDmPreferences = Record<string, TicketDmPreference>
@@ -109,6 +118,33 @@ function normalizePendingReminder(value: unknown): TicketPendingReminder | null 
   }
 }
 
+function isValidDeliveryStatus(value: unknown): value is TicketDmDeliveryStatus {
+  if (!isObject(value)) return false
+
+  const state = value.state
+  if (state !== 'active' && state !== 'failed') return false
+
+  return (
+    typeof value.attemptedAt === 'number' &&
+    Number.isFinite(value.attemptedAt) &&
+    (value.reason === undefined || typeof value.reason === 'string')
+  )
+}
+
+function normalizeDeliveryStatus(
+  value: unknown
+): TicketDmDeliveryStatus | null {
+  if (!isValidDeliveryStatus(value)) return null
+
+  return {
+    state: value.state,
+    attemptedAt: normalizeDueAt(value.attemptedAt),
+    ...(typeof value.reason === 'string' && value.reason.length > 0
+      ? { reason: value.reason }
+      : {}),
+  }
+}
+
 async function writeCurrentStoreToDisk(): Promise<void> {
   const data: PersistedTicketDmPreferences = {}
   for (const [threadId, pref] of ticketDmPreferences.entries()) {
@@ -154,6 +190,9 @@ async function initStore(): Promise<void> {
         const normalizedPendingReminder = normalizePendingReminder(
           pref.pendingReminder
         )
+        const normalizedDeliveryStatus = normalizeDeliveryStatus(
+          pref.lastDmDeliveryStatus
+        )
         const awaitingFromFile =
           typeof pref.awaitingOpenerResponse === 'boolean'
             ? pref.awaitingOpenerResponse
@@ -177,6 +216,9 @@ async function initStore(): Promise<void> {
           awaitingOpenerResponse,
           ...(normalizedPendingReminder
             ? { pendingReminder: normalizedPendingReminder }
+            : {}),
+          ...(normalizedDeliveryStatus
+            ? { lastDmDeliveryStatus: normalizedDeliveryStatus }
             : {}),
           ...(typeof toggleMessageUrl === 'string' &&
           toggleMessageUrl.length > 0
@@ -265,6 +307,71 @@ function getErrorMessage(error: unknown): string {
   }
 
   return ''
+}
+
+function summarizeDmFailureReason(error: unknown): string {
+  const code = getDiscordErrorCode(error)
+  const message = getErrorMessage(error).replace(/\s+/g, ' ').trim()
+
+  if (code !== null && message) {
+    return `${message} (code ${code})`.slice(0, 220)
+  }
+  if (message) return message.slice(0, 220)
+  if (code !== null) return `Discord API error code ${code}`
+  return 'Unknown error while sending the DM reminder'
+}
+
+function getMessageIdFromUrl(url: string | undefined): string | null {
+  if (!url) return null
+
+  const parts = url.split('/').filter(Boolean)
+  const last = parts.at(-1)
+  if (!last || !/^\d{15,22}$/.test(last)) return null
+  return last
+}
+
+function buildDmDeliveryStatusLine(
+  status: TicketDmDeliveryStatus | undefined
+): string | null {
+  if (!status) return null
+
+  if (status.state === 'active') {
+    return `DM Delivery Status: Actively Sending DMs (last attempt: <t:${Math.floor(
+      status.attemptedAt / 1000
+    )}:R>)`
+  }
+
+  const reason = status.reason?.trim() || 'Unknown reason'
+  return `DM Delivery Status: Unable to Send DMs due to ${reason} (last attempt: <t:${Math.floor(
+    status.attemptedAt / 1000
+  )}:R>)`
+}
+
+async function updateTogglePromptEmbed(threadId: string): Promise<void> {
+  const client = runtimeClient
+  if (!client) return
+
+  const pref = ticketDmPreferences.get(threadId)
+  if (!pref) return
+
+  const messageId = getMessageIdFromUrl(pref.toggleMessageUrl)
+  if (!messageId) return
+
+  const channel = await client.channels.fetch(threadId).catch(() => null)
+  if (!channel || !channel.isThread()) return
+
+  const targetMessage = await channel.messages.fetch(messageId).catch(() => null)
+  if (!targetMessage) return
+
+  await targetMessage
+    .edit({
+      embeds: [
+        updateDmResponseEmbed(pref.openerId, pref.enabled, pref.lastDmDeliveryStatus),
+      ],
+      components: [createDmOnResponsesRow(pref.openerId, pref.enabled)],
+      allowedMentions: { parse: [] },
+    })
+    .catch(() => void 0)
 }
 
 function shouldSuppressDmReminderError(error: unknown): boolean {
@@ -442,6 +549,7 @@ async function sendPendingReminder(threadId: string): Promise<void> {
     .setTimestamp()
 
   let sent = false
+  let sendError: unknown = null
   await queueDm(async () => {
     const user = await client.users.fetch(pref.openerId).catch(() => null)
     if (!user) {
@@ -451,6 +559,7 @@ async function sendPendingReminder(threadId: string): Promise<void> {
     await user.send({ embeds: [embed] })
     sent = true
   }).catch(async (error) => {
+    sendError = error
     await reportDmReminderIssue({
       reason: 'Failed to send DM reminder',
       threadId,
@@ -459,14 +568,38 @@ async function sendPendingReminder(threadId: string): Promise<void> {
     })
   })
 
-  if (!sent) return
+  const latestPref = ticketDmPreferences.get(threadId)
+  if (!latestPref) return
 
-  const { pendingReminder: _removedReminder, ...nextPref } = pref
+  const deliveryStatus: TicketDmDeliveryStatus = sent
+    ? {
+        state: 'active',
+        attemptedAt: Date.now(),
+      }
+    : {
+        state: 'failed',
+        attemptedAt: Date.now(),
+        reason: summarizeDmFailureReason(sendError),
+      }
+
+  if (!sent) {
+    ticketDmPreferences.set(threadId, {
+      ...latestPref,
+      lastDmDeliveryStatus: deliveryStatus,
+    })
+    await queuePersist().catch(() => void 0)
+    await updateTogglePromptEmbed(threadId)
+    return
+  }
+
+  const { pendingReminder: _removedReminder, ...nextPref } = latestPref
   ticketDmPreferences.set(threadId, {
     ...nextPref,
     awaitingOpenerResponse: true,
+    lastDmDeliveryStatus: deliveryStatus,
   })
   await queuePersist().catch(() => void 0)
+  await updateTogglePromptEmbed(threadId)
 }
 
 function buildToggleButton(openerId: string, enabled: boolean): ButtonBuilder {
@@ -500,6 +633,9 @@ export async function registerTicketThread(
     ...(existing?.pendingReminder
       ? { pendingReminder: existing.pendingReminder }
       : {}),
+    ...(existing?.lastDmDeliveryStatus
+      ? { lastDmDeliveryStatus: existing.lastDmDeliveryStatus }
+      : {}),
     ...(existing?.toggleMessageUrl
       ? { toggleMessageUrl: existing.toggleMessageUrl }
       : {}),
@@ -526,6 +662,9 @@ export async function toggleTicketDmResponses(
     ...(current?.pendingReminder
       ? { pendingReminder: current.pendingReminder }
       : {}),
+    ...(current?.lastDmDeliveryStatus
+      ? { lastDmDeliveryStatus: current.lastDmDeliveryStatus }
+      : {}),
     ...(current?.toggleMessageUrl
       ? { toggleMessageUrl: current.toggleMessageUrl }
       : {}),
@@ -548,18 +687,29 @@ export async function removeTicketDmPreference(threadId: string): Promise<void> 
 
 export function updateDmResponseEmbed(
   openerId: string,
-  enabled: boolean
+  enabled: boolean,
+  status?: TicketDmDeliveryStatus
 ): EmbedBuilder {
   const statusLine = enabled
     ? `<@${openerId}> has opted in for DM responses.`
     : `<@${openerId}> has opted out of DM responses.`
+  const deliveryStatusLine = buildDmDeliveryStatusLine(status)
+  const deliveryStatusText = deliveryStatusLine
+    ? `\n\n${deliveryStatusLine}`
+    : ''
 
   return new EmbedBuilder()
     .setTitle('Ticket Response Notifications')
     .setDescription(
-      `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nTo disable these DMs, toggle the button below.`
+      `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nTo disable these DMs, toggle the button below.${deliveryStatusText}`
     )
     .setColor(enabled ? '#2ecc71' : '#95a5a6')
+}
+
+export function getTicketDmDeliveryStatus(
+  threadId: string
+): TicketDmDeliveryStatus | undefined {
+  return ticketDmPreferences.get(threadId)?.lastDmDeliveryStatus
 }
 
 export async function sendDmOnResponsesPrompt(
@@ -582,6 +732,9 @@ export async function sendDmOnResponsesPrompt(
     awaitingOpenerResponse: current?.awaitingOpenerResponse ?? false,
     ...(current?.pendingReminder
       ? { pendingReminder: current.pendingReminder }
+      : {}),
+    ...(current?.lastDmDeliveryStatus
+      ? { lastDmDeliveryStatus: current.lastDmDeliveryStatus }
       : {}),
     toggleMessageUrl: sent.url,
   })

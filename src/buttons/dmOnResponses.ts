@@ -1,6 +1,7 @@
 import { ButtonInteraction, Client, MessageFlags } from 'discord.js'
 import {
   createDmOnResponsesRow,
+  getTicketDmDeliveryStatus,
   toggleTicketDmResponses,
   updateDmResponseEmbed,
 } from '../utils/tickets/dmOnResponses'
@@ -34,9 +35,10 @@ export const execute = async (
   }
 
   const enabled = await toggleTicketDmResponses(interaction.channel.id, openerId)
+  const deliveryStatus = getTicketDmDeliveryStatus(interaction.channel.id)
 
   await interaction.update({
-    embeds: [updateDmResponseEmbed(openerId, enabled)],
+    embeds: [updateDmResponseEmbed(openerId, enabled, deliveryStatus)],
     components: [createDmOnResponsesRow(openerId, enabled)],
   })
 }
