@@ -321,6 +321,37 @@ function summarizeDmFailureReason(error: unknown): string {
   return 'Unknown error while sending the DM reminder'
 }
 
+async function summarizeDmFailureReasonForThread(
+  client: Client,
+  threadId: string,
+  openerId: string,
+  error: unknown
+): Promise<string> {
+  const fallback = summarizeDmFailureReason(error)
+  const code = getDiscordErrorCode(error)
+  const message = getErrorMessage(error)
+
+  const looksLikeNoMutualGuildIssue =
+    code === 50278 || /no mutual guilds/i.test(message)
+  if (!looksLikeNoMutualGuildIssue) {
+    return fallback
+  }
+
+  const channel = await client.channels.fetch(threadId).catch(() => null)
+  if (!channel || !channel.isThread()) {
+    return fallback
+  }
+
+  const openerMember = await channel.guild.members
+    .fetch(openerId)
+    .catch(() => null)
+  if (!openerMember) {
+    return fallback
+  }
+
+  return 'Cannot send messages to this user (likely DMs disabled for this server or bot blocked)'
+}
+
 function getMessageIdFromUrl(url: string | undefined): string | null {
   if (!url) return null
 
@@ -571,16 +602,25 @@ async function sendPendingReminder(threadId: string): Promise<void> {
   const latestPref = ticketDmPreferences.get(threadId)
   if (!latestPref) return
 
-  const deliveryStatus: TicketDmDeliveryStatus = sent
-    ? {
-        state: 'active',
-        attemptedAt: Date.now(),
-      }
-    : {
-        state: 'failed',
-        attemptedAt: Date.now(),
-        reason: summarizeDmFailureReason(sendError),
-      }
+  let deliveryStatus: TicketDmDeliveryStatus
+  if (sent) {
+    deliveryStatus = {
+      state: 'active',
+      attemptedAt: Date.now(),
+    }
+  } else {
+    const failureReason = await summarizeDmFailureReasonForThread(
+      client,
+      threadId,
+      pref.openerId,
+      sendError
+    )
+    deliveryStatus = {
+      state: 'failed',
+      attemptedAt: Date.now(),
+      reason: failureReason,
+    }
+  }
 
   if (!sent) {
     ticketDmPreferences.set(threadId, {
