@@ -8,7 +8,7 @@ import {
   User,
 } from 'discord.js'
 
-import { errorEmbed, infoEmbed } from '../utils/embeds'
+import { errorEmbed } from '../utils/embeds'
 import { roleIds } from '../globals'
 import {
   AuditDateRange,
@@ -16,8 +16,7 @@ import {
   getResolvedTicketsByUser,
 } from '../utils/db/resolvedTickets'
 
-const leaderboardColor = 0x14532d
-const detailColor = 0x1d4ed8
+const auditColor = 0xff3366
 
 const datePattern = /^(\d{2})-(\d{2})-(\d{4})$/
 
@@ -29,7 +28,6 @@ type ParsedDate = {
 
 type DateRangeWithLabel = AuditDateRange & {
   label: string
-  formatLabel: 'dd-mm-yyyy' | 'mm-dd-yyyy'
 }
 
 const parseDateInput = (input: string): ParsedDate => {
@@ -87,7 +85,6 @@ const createDateRange = (
     start,
     end,
     label: `${startInput} -> ${endInput}`,
-    formatLabel: 'dd-mm-yyyy',
   }
 }
 
@@ -109,7 +106,6 @@ const createSwappedDateRange = (
   return {
     ...range,
     label: `${startInput} -> ${endInput}`,
-    formatLabel: 'mm-dd-yyyy',
   }
 }
 
@@ -125,10 +121,7 @@ const isAmbiguousDateInput = (input: string): boolean => {
 const isAmbiguousDateRange = (startInput: string, endInput: string): boolean =>
   isAmbiguousDateInput(startInput) || isAmbiguousDateInput(endInput)
 
-const formatRangeLabel = (range: DateRangeWithLabel): string =>
-  range.formatLabel === 'dd-mm-yyyy'
-    ? `${range.label} (dd-mm-yyyy)`
-    : `${range.label}`
+const formatRangeLabel = (range: DateRangeWithLabel): string => range.label
 
 const isNoResultsEmbedSet = (embeds: Array<EmbedBuilder>): boolean => {
   if (embeds.length !== 1) return false
@@ -139,6 +132,12 @@ const isNoResultsEmbedSet = (embeds: Array<EmbedBuilder>): boolean => {
 }
 
 const toUnixSeconds = (date: Date): number => Math.floor(date.getTime() / 1000)
+
+const buildAuditEmbed = (): EmbedBuilder =>
+  new EmbedBuilder().setColor(auditColor).setTitle('Resolved Tickets Audit').setTimestamp()
+
+const formatThreadCountLabel = (count: number): string =>
+  `${count} resolved thread${count === 1 ? '' : 's'}`
 
 const resolveDisplayName = async (
   interaction: ChatInputCommandInteraction,
@@ -183,11 +182,23 @@ const buildUserEmbeds = async (
 
   if (records.length === 0) {
     return [
-      infoEmbed(
-        `No resolved tickets were recorded for **${displayName}** between **${formatRangeLabel(range)}**.`
-      )
-        .setTitle('Resolved Tickets Audit')
-        .setColor(detailColor),
+      buildAuditEmbed()
+        .setDescription(`No resolved tickets were recorded for **${displayName}** in this range.`)
+        .addFields(
+          {
+            name: 'Staff Member',
+            value: displayName,
+            inline: true,
+          },
+          {
+            name: 'Date Range',
+            value: formatRangeLabel(range),
+            inline: true,
+          }
+        )
+        .setFooter({
+          text: 'No resolved threads found',
+        }),
     ]
   }
 
@@ -199,26 +210,26 @@ const buildUserEmbeds = async (
   const chunks = chunkThreadLines(threadLines)
 
   return chunks.map((chunk, index) => {
-    const embed = new EmbedBuilder()
-      .setColor(detailColor)
-      .setTitle('Resolved Tickets Audit')
+    const embed = buildAuditEmbed()
       .setDescription(
         [
-          `**${displayName}: ${records.length}**`,
           `**Date Range**`,
           formatRangeLabel(range),
           '',
+          `**Staff Member**`,
+          displayName,
+          '',
+          `**Resolved Threads**`,
           chunk,
         ].join('\n')
       )
       .setFooter({
-        text: `Showing ${records.length} resolved thread(s)`,
+        text: `Showing ${formatThreadCountLabel(records.length)}`,
       })
-      .setTimestamp()
 
     if (chunks.length > 1) {
       embed.setFooter({
-        text: `Showing ${records.length} resolved thread(s) • Page ${index + 1}/${chunks.length}`,
+        text: `Showing ${formatThreadCountLabel(records.length)} • Page ${index + 1}/${chunks.length}`,
       })
     }
 
@@ -307,11 +318,15 @@ export const execute = async (
       if (leaderboard.length === 0) {
         await interaction.editReply({
           embeds: [
-            infoEmbed(
-              `No resolved tickets were recorded between **${formatRangeLabel(range)}**.`
-            )
-              .setTitle('Resolved Tickets Audit')
-              .setColor(leaderboardColor),
+            buildAuditEmbed()
+              .setDescription('No resolved tickets were recorded in this range.')
+              .addFields({
+                name: 'Date Range',
+                value: formatRangeLabel(range),
+              })
+              .setFooter({
+                text: 'No resolved threads found',
+              }),
           ],
         })
         return
@@ -324,7 +339,7 @@ export const execute = async (
       )
 
       const lines = leaderboard.map(
-        (entry, index) => `${index + 1}. ${names[index]}: ${entry.count}`
+        (entry, index) => `${index + 1}. **${names[index]}** - ${entry.count}`
       )
 
       const totalResolved = leaderboard.reduce(
@@ -334,21 +349,19 @@ export const execute = async (
 
       await interaction.editReply({
         embeds: [
-          new EmbedBuilder()
-            .setColor(leaderboardColor)
-            .setTitle('Resolved Tickets Audit')
+          buildAuditEmbed()
             .setDescription(
               [
-                `**Date Range**`,
+                '**Date Range**',
                 formatRangeLabel(resolvedRange),
                 '',
+                '**Leaderboard**',
                 lines.join('\n'),
               ].join('\n')
             )
             .setFooter({
               text: `${totalResolved} resolved thread(s) across ${leaderboard.length} staff member(s)`,
-            })
-            .setTimestamp(),
+            }),
         ],
       })
       return

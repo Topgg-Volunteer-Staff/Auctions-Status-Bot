@@ -37,7 +37,7 @@ const roleIds =
         supportTeam: '1401718580328005682',
         auctionsStatus: '1401718663496863846',
         modNotifications: '1401718772854685736',
-        moderator: '1401718772854685736',
+        moderator: '333950040001216515',
         reviewer: '767320282427686932',
         trialReviewer: '767392998157451265',
         reviewerNotifications: '1405176115760463913',
