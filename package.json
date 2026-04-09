@@ -26,6 +26,7 @@
     "start": "node -r dotenv/config dist/index.js",
     "dev": "nodemon --watch src --exec \"npm run build && npm start\" --ext ts,json",
     "cmd": "tsx scripts/commands-cli.ts",
+    "migrate:resolved-audits": "tsx src/scripts/migrate-resolved-audits.ts",
     "register:global": "tsx src/scripts/commands-cli.ts register:global",
     "unregister:global": "tsx src/scripts/commands-cli.ts unregister:global",
     "list:global": "tsx src/scripts/commands-cli.ts list:global",

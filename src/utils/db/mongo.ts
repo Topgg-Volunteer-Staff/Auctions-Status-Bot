@@ -51,3 +51,11 @@ export const getMongoDatabase = async (): Promise<Db> => {
   const client = await getMongoClient()
   return client.db(inferDatabaseName(uri))
 }
+
+export const closeMongoClient = async (): Promise<void> => {
+  if (!mongoClientPromise) return
+
+  const client = await mongoClientPromise
+  mongoClientPromise = null
+  await client.close()
+}
