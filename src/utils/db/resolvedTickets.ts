@@ -65,6 +65,7 @@ const getResolvedTicketsCollection = async (): Promise<
         collection.createIndex(
           { 'tickets.threadId': 1 },
           {
+            name: 'groupedTickets_threadId_unique',
             unique: true,
             partialFilterExpression: {
               'tickets.threadId': { $exists: true },
@@ -74,6 +75,7 @@ const getResolvedTicketsCollection = async (): Promise<
         collection.createIndex(
           { 'tickets.resolvedAt': 1 },
           {
+            name: 'groupedTickets_resolvedAt_1',
             partialFilterExpression: {
               'tickets.resolvedAt': { $exists: true },
             },
@@ -82,6 +84,7 @@ const getResolvedTicketsCollection = async (): Promise<
         collection.createIndex(
           { resolvedByUserId: 1, resolvedAt: 1 },
           {
+            name: 'legacyResolvedByUserId_1_resolvedAt_1_partial',
             partialFilterExpression: {
               resolvedByUserId: { $exists: true },
               resolvedAt: { $exists: true },
