@@ -1,6 +1,6 @@
 import { Client } from 'discord.js'
 
-import { sendErrorLog } from '../errorLogging'
+import { sendMongoErrorLog } from '../errorLogging'
 import { getMongoDatabase } from './mongo'
 
 type MongoBackedStoreDocument = {
@@ -35,7 +35,7 @@ const reportWriteFailure = async (
 
   if (!mongoStoreErrorClient) return
 
-  await sendErrorLog(
+  await sendMongoErrorLog(
     mongoStoreErrorClient,
     'mongoStore.write.failed',
     error,

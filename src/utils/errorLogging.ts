@@ -6,6 +6,7 @@ import {
 } from 'discord.js'
 
 const ERROR_LOG_CHANNEL_ID = '396848636081733632'
+const MONGO_ERROR_MENTION = '<@884516044151083079>'
 const MAX_FIELD_VALUE = 1024
 const MAX_DESCRIPTION = 4000
 
@@ -91,6 +92,52 @@ export const sendErrorLog = async (
   }
 
   await channel.send({ embeds: [embed] })
+}
+
+export const sendMongoErrorLog = async (
+  client: Client,
+  title: string,
+  error: unknown,
+  meta?: ErrorMeta
+): Promise<void> => {
+  const channel = await getLogChannel(client)
+  if (!channel) {
+    process.stderr.write(
+      `[errorLogging] Could not find text channel ${ERROR_LOG_CHANNEL_ID}\n`
+    )
+    return
+  }
+
+  const description = truncate(formatError(error), MAX_DESCRIPTION)
+
+  const embed = new EmbedBuilder()
+    .setColor('#FF0000')
+    .setTitle(title)
+    .setDescription(`\`\`\`\n${description}\n\`\`\``)
+    .setTimestamp()
+
+  if (meta) {
+    const fields = Object.entries(meta)
+      .filter(([, value]) => value !== undefined)
+      .slice(0, 10)
+      .map(([key, value]) => ({
+        name: key,
+        value: truncate(String(value), MAX_FIELD_VALUE),
+        inline: true,
+      }))
+
+    if (fields.length > 0) {
+      embed.addFields(fields)
+    }
+  }
+
+  await channel.send({
+    content: MONGO_ERROR_MENTION,
+    embeds: [embed],
+    allowedMentions: {
+      users: ['884516044151083079'],
+    },
+  })
 }
 
 export const installConsoleErrorForwarding = (client: Client): void => {

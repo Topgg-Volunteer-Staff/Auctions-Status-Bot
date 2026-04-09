@@ -12,7 +12,7 @@ import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { recordResolvedTicket } from '../utils/db/resolvedTickets'
 import { emoji } from '../utils/emojis'
-import { sendErrorLog } from '../utils/errorLogging'
+import { sendMongoErrorLog } from '../utils/errorLogging'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { removeThread } from '../utils/tickets/trackActivity'
 
@@ -94,7 +94,7 @@ export const execute = async (
           error
         )
 
-        return sendErrorLog(
+        return sendMongoErrorLog(
           client,
           'resolve.recordResolvedTicket.failed',
           error,

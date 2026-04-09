@@ -32,6 +32,7 @@ import {
 import {
   installConsoleErrorForwarding,
   installGlobalErrorHandlers,
+  sendMongoErrorLog,
   sendErrorLog,
 } from './utils/errorLogging'
 
@@ -321,11 +322,15 @@ client.on('clientReady', async (readyClient) => {
   })
 
   await initializeTicketDmStore(readyClient).catch((error) => {
-    void sendErrorLog(readyClient, 'ticketDm.store.init.failed', error)
+    void sendMongoErrorLog(readyClient, 'ticketDm.store.init.failed', error)
   })
 
   await initializeInactiveAlertStore().catch((error) => {
-    void sendErrorLog(readyClient, 'inactiveAlerts.store.init.failed', error)
+    void sendMongoErrorLog(
+      readyClient,
+      'inactiveAlerts.store.init.failed',
+      error
+    )
   })
 
   startReminders(readyClient)
