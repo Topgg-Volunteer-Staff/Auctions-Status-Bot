@@ -10,7 +10,9 @@ import {
 
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
+import { recordResolvedTicket } from '../utils/db/resolvedTickets'
 import { emoji } from '../utils/emojis'
+import { sendErrorLog } from '../utils/errorLogging'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { removeThread } from '../utils/tickets/trackActivity'
 
@@ -20,7 +22,7 @@ export const command = new SlashCommandBuilder()
   .setContexts(InteractionContextType.Guild)
 
 export const execute = async (
-  _client: Client,
+  client: Client,
   interaction: CommandInteraction
 ): Promise<void> => {
   const ch = interaction.channel
@@ -33,6 +35,7 @@ export const execute = async (
   }
 
   const thread = ch as ThreadChannel
+  const originalThreadName = thread.name
 
   if (thread.name.startsWith(resolvedFlag)) {
     await interaction.reply({
@@ -78,6 +81,39 @@ export const execute = async (
         error
       )
     })
+
+    if (interaction.guild) {
+      await recordResolvedTicket({
+        threadId: thread.id,
+        threadName: originalThreadName,
+        resolvedAt: interaction.createdAt,
+        resolvedByUserId: interaction.user.id,
+      }).catch((error) => {
+        console.error(
+          `Failed to record resolved ticket ${thread.id} in MongoDB:`,
+          error
+        )
+
+        return sendErrorLog(
+          client,
+          'resolve.recordResolvedTicket.failed',
+          error,
+          {
+            threadId: thread.id,
+            threadName: originalThreadName,
+            parentId: parent.id,
+            guildId: interaction.guildId,
+            resolvedByUserId: interaction.user.id,
+            command: 'resolve',
+          }
+        ).catch((logError) => {
+          console.error(
+            `Failed to send resolve DB error log for thread ${thread.id}:`,
+            logError
+          )
+        })
+      })
+    }
 
     removeThread(thread.id)
 

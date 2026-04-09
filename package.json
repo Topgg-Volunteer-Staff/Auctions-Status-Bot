@@ -38,6 +38,7 @@
     "@discordjs/rest": "1.6.0",
     "discord.js": "14.24.0",
     "dotenv": "16.0.3",
+    "mongodb": "6.21.0",
     "node-cron": "3.0.2",
     "node-fetch": "3.3.2",
     "sharp": "0.33.5",
