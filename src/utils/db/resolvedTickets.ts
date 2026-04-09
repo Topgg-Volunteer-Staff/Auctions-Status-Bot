@@ -1,4 +1,4 @@
-import { Collection, ObjectId } from 'mongodb'
+import { Collection, CreateIndexesOptions, ObjectId } from 'mongodb'
 import { getMongoDatabase } from './mongo'
 
 export interface ResolvedTicketRecord {
@@ -53,6 +53,64 @@ let resolvedTicketsCollectionPromise: Promise<
 > | null =
   null
 
+const normalizeIndexValue = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => normalizeIndexValue(item)).join(',')}]`
+  }
+
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(
+      ([a], [b]) => a.localeCompare(b)
+    )
+    return `{${entries
+      .map(([key, nestedValue]) => `${key}:${normalizeIndexValue(nestedValue)}`)
+      .join(',')}}`
+  }
+
+  return JSON.stringify(value)
+}
+
+const hasEquivalentIndex = async (
+  collection: Collection<ResolvedTicketsDocument>,
+  keys: Record<string, 1 | -1>,
+  options: CreateIndexesOptions
+): Promise<boolean> => {
+  const existingIndexes = await collection.indexes()
+  const normalizedKeys = normalizeIndexValue(keys)
+  const normalizedPartialFilter = normalizeIndexValue(
+    options.partialFilterExpression ?? null
+  )
+  const unique = options.unique === true
+
+  return existingIndexes.some((index) => {
+    const indexKeys = normalizeIndexValue(index.key as Record<string, unknown>)
+    const indexPartialFilter = normalizeIndexValue(
+      ('partialFilterExpression' in index
+        ? index.partialFilterExpression
+        : null) ?? null
+    )
+    const indexUnique = index.unique === true
+
+    return (
+      indexKeys === normalizedKeys &&
+      indexPartialFilter === normalizedPartialFilter &&
+      indexUnique === unique
+    )
+  })
+}
+
+const ensureIndex = async (
+  collection: Collection<ResolvedTicketsDocument>,
+  keys: Record<string, 1 | -1>,
+  options: CreateIndexesOptions
+): Promise<void> => {
+  if (await hasEquivalentIndex(collection, keys, options)) {
+    return
+  }
+
+  await collection.createIndex(keys, options)
+}
+
 const getResolvedTicketsCollection = async (): Promise<
   Collection<ResolvedTicketsDocument>
 > => {
@@ -61,37 +119,28 @@ const getResolvedTicketsCollection = async (): Promise<
       const db = await getMongoDatabase()
       const collection = db.collection<ResolvedTicketsDocument>(collectionName)
 
-      await Promise.all([
-        collection.createIndex(
-          { 'tickets.threadId': 1 },
-          {
-            name: 'groupedTickets_threadId_unique',
-            unique: true,
-            partialFilterExpression: {
-              'tickets.threadId': { $exists: true },
-            },
-          }
-        ),
-        collection.createIndex(
-          { 'tickets.resolvedAt': 1 },
-          {
-            name: 'groupedTickets_resolvedAt_1',
-            partialFilterExpression: {
-              'tickets.resolvedAt': { $exists: true },
-            },
-          }
-        ),
-        collection.createIndex(
-          { resolvedByUserId: 1, resolvedAt: 1 },
-          {
-            name: 'legacyResolvedByUserId_1_resolvedAt_1_partial',
-            partialFilterExpression: {
-              resolvedByUserId: { $exists: true },
-              resolvedAt: { $exists: true },
-            },
-          }
-        ),
-      ])
+      await ensureIndex(collection, { 'tickets.threadId': 1 }, {
+        name: 'groupedTickets_threadId_unique',
+        unique: true,
+        partialFilterExpression: {
+          'tickets.threadId': { $exists: true },
+        },
+      })
+
+      await ensureIndex(collection, { 'tickets.resolvedAt': 1 }, {
+        name: 'groupedTickets_resolvedAt_1',
+        partialFilterExpression: {
+          'tickets.resolvedAt': { $exists: true },
+        },
+      })
+
+      await ensureIndex(collection, { resolvedByUserId: 1, resolvedAt: 1 }, {
+        name: 'legacyResolvedByUserId_1_resolvedAt_1_partial',
+        partialFilterExpression: {
+          resolvedByUserId: { $exists: true },
+          resolvedAt: { $exists: true },
+        },
+      })
 
       return collection
     })()
