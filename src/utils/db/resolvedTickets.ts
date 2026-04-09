@@ -111,6 +111,24 @@ const ensureIndex = async (
   await collection.createIndex(keys, options)
 }
 
+const dropLegacyThreadIdIndex = async (
+  collection: Collection<ResolvedTicketsDocument>
+): Promise<void> => {
+  const existingIndexes = await collection.indexes()
+
+  const legacyThreadIdIndex = existingIndexes.find((index) => {
+    const key = index.key as Record<string, unknown>
+    const entries = Object.entries(key)
+    return entries.length === 1 && entries[0]?.[0] === 'threadId'
+  })
+
+  if (!legacyThreadIdIndex?.name) {
+    return
+  }
+
+  await collection.dropIndex(legacyThreadIdIndex.name)
+}
+
 const getResolvedTicketsCollection = async (): Promise<
   Collection<ResolvedTicketsDocument>
 > => {
@@ -118,6 +136,8 @@ const getResolvedTicketsCollection = async (): Promise<
     resolvedTicketsCollectionPromise = (async () => {
       const db = await getMongoDatabase()
       const collection = db.collection<ResolvedTicketsDocument>(collectionName)
+
+      await dropLegacyThreadIdIndex(collection)
 
       await ensureIndex(collection, { 'tickets.threadId': 1 }, {
         name: 'groupedTickets_threadId_unique',
