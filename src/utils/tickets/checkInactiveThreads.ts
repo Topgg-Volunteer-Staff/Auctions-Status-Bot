@@ -3,6 +3,7 @@ import { channelIds, resolvedFlag } from '../../globals'
 import {
   getThreadLastMessage,
   hasAlertBeenSent,
+  initializeInactiveAlertStore,
   markAlertSent,
   getAllTrackedThreads,
 } from './trackActivity'
@@ -32,6 +33,8 @@ const ALL_ALERT_ROLE_IDS = new Set([
 type AlertRoute = 'default' | 'reviewers'
 
 export async function checkInactiveThreads(client: Client): Promise<void> {
+  await initializeInactiveAlertStore()
+
   const defaultAlertChannelId = channelIds.inactiveThreadAlerts
   if (!defaultAlertChannelId) {
     console.warn('No inactive thread alerts channel configured')
@@ -120,11 +123,11 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           )
 
           if (alertToSend === '7d') {
-            markAlertSent(threadId, '7d')
+            await markAlertSent(threadId, '7d')
             // If it's been inactive for 7 days, also suppress any pending 48h alert.
-            markAlertSent(threadId, '48h')
+            await markAlertSent(threadId, '48h')
           } else {
-            markAlertSent(threadId, '48h')
+            await markAlertSent(threadId, '48h')
           }
         }
       } catch (error) {

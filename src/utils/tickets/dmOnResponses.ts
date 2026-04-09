@@ -7,9 +7,12 @@
   Message,
   ThreadChannel,
 } from 'discord.js'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { channelIds, roleIds } from '../../globals'
+import {
+  loadMongoBackedJson,
+  saveMongoBackedJson,
+} from '../db/mongoBackedJsonStore'
 
 type TicketPendingReminder = {
   dueAt: number
@@ -36,8 +39,12 @@ type TicketDmPreference = {
 
 type PersistedTicketDmPreferences = Record<string, TicketDmPreference>
 
-const DATA_DIR = path.join(process.cwd(), 'data')
-const TICKET_DM_PREFS_PATH = path.join(DATA_DIR, 'ticket-dm-responses.json')
+const TICKET_DM_PREFS_PATH = path.join(
+  process.cwd(),
+  'data',
+  'ticket-dm-responses.json'
+)
+const TICKET_DM_PREFS_STORE_KEY = 'ticket-dm-responses'
 const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
 const STAFF_RESPONSE_REMINDER_DELAY_MS = 5 * 60_000
@@ -150,18 +157,9 @@ async function writeCurrentStoreToDisk(): Promise<void> {
   for (const [threadId, pref] of ticketDmPreferences.entries()) {
     data[threadId] = pref
   }
-
-  const payload = JSON.stringify(data, null, 2)
-  const tmpPath = path.join(
-    DATA_DIR,
-    `ticket-dm-responses.${Date.now()}.${Math.random()
-      .toString(16)
-      .slice(2)}.tmp`
-  )
-
-  await writeFile(TICKET_DM_PREFS_PATH, payload, 'utf8').catch(async () => {
-    await writeFile(tmpPath, payload, 'utf8')
-    await rename(tmpPath, TICKET_DM_PREFS_PATH)
+  await saveMongoBackedJson(TICKET_DM_PREFS_STORE_KEY, data, {
+    legacyFilePath: TICKET_DM_PREFS_PATH,
+    operation: 'persist',
   })
 }
 
@@ -169,10 +167,12 @@ async function initStore(): Promise<void> {
   if (initPromise) return initPromise
 
   initPromise = (async () => {
-    await mkdir(DATA_DIR, { recursive: true })
     try {
-      const raw = await readFile(TICKET_DM_PREFS_PATH, 'utf8')
-      const parsed: unknown = JSON.parse(raw)
+      const parsed = await loadMongoBackedJson<unknown>(
+        TICKET_DM_PREFS_STORE_KEY,
+        TICKET_DM_PREFS_PATH,
+        {}
+      )
       if (!isObject(parsed)) return
 
       let migrated = false
@@ -843,4 +843,7 @@ export async function maybeNotifyTicketResponse(message: Message): Promise<void>
   }
 }
 
-void initStore()
+export async function initializeTicketDmStore(client: Client): Promise<void> {
+  setRuntimeClient(client)
+  await initStore()
+}

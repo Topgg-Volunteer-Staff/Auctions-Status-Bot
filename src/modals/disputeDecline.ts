@@ -339,7 +339,7 @@ export const execute = async (
 
             // If a mentor mapping exists, ping mentor as well.
             // (Some reviewers may have changed roles; the mapping is authoritative.)
-            const mappedMentorId = getMentorIdForTrialReviewer(reviewerId)
+            const mappedMentorId = await getMentorIdForTrialReviewer(reviewerId)
             mentorId =
               mappedMentorId && mappedMentorId !== reviewerId
                 ? mappedMentorId

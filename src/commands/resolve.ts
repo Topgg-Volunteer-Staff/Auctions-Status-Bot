@@ -115,7 +115,7 @@ export const execute = async (
       })
     }
 
-    removeThread(thread.id)
+    await removeThread(thread.id)
 
     if (!interaction.guild) {
       throw new Error('Guild is not available on this interaction')

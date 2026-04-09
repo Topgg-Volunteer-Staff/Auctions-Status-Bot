@@ -1,12 +1,16 @@
-import { readFileSync } from 'node:fs'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+
+import {
+  loadMongoBackedJson,
+  saveMongoBackedJson,
+} from './db/mongoBackedJsonStore'
 
 type MentorMap = Record<string, string>
 type StoreShape = MentorMap & { _comment?: string }
 
 const STORE_DIR = path.join(process.cwd(), 'data')
 const STORE_PATH = path.join(STORE_DIR, 'trial-reviewer-mentors.json')
+const STORE_KEY = 'trial-reviewer-mentors'
 
 const DEFAULT_COMMENT =
   'This file links trial reviewers to their mentors. { "TRIAL_REVIEWER_USER_ID": "MENTOR_USER_ID" }'
@@ -49,30 +53,19 @@ function buildStoreFile(comment: string, map: MentorMap): StoreShape {
 }
 
 async function loadStore(): Promise<{ comment: string; map: MentorMap }> {
-  try {
-    const raw = await readFile(STORE_PATH, 'utf8')
-    return normalizeStore(JSON.parse(raw) as unknown)
-  } catch (err) {
-    const maybe = err as { code?: unknown }
-    if (maybe.code !== 'ENOENT') {
-      console.error('Failed to load trial reviewer mentors store:', err)
-    }
-    return { comment: DEFAULT_COMMENT, map: {} }
-  }
+  const raw = await loadMongoBackedJson<unknown>(
+    STORE_KEY,
+    STORE_PATH,
+    buildStoreFile(DEFAULT_COMMENT, {})
+  )
+  return normalizeStore(raw)
 }
 
 async function persistStore(comment: string, map: MentorMap): Promise<void> {
-  await mkdir(STORE_DIR, { recursive: true })
-
-  const payload = JSON.stringify(buildStoreFile(comment, map), null, 2)
-  const tmpPath = path.join(
-    STORE_DIR,
-    `trial-reviewer-mentors.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
-  )
-
-  // Always write atomically to avoid partial reads of truncated files.
-  await writeFile(tmpPath, payload, 'utf8')
-  await rename(tmpPath, STORE_PATH)
+  await saveMongoBackedJson(STORE_KEY, buildStoreFile(comment, map), {
+    legacyFilePath: STORE_PATH,
+    operation: 'persist',
+  })
 }
 
 let storeWriteChain: Promise<void> = Promise.resolve()
@@ -84,22 +77,14 @@ function queuePersistStore(comment: string, map: MentorMap): Promise<void> {
   return storeWriteChain
 }
 
-export function getMentorIdForTrialReviewer(reviewerId: string): string | null {
+export async function getMentorIdForTrialReviewer(
+  reviewerId: string
+): Promise<string | null> {
   if (!isSnowflake(reviewerId)) return null
 
-  try {
-    const raw = readFileSync(STORE_PATH, 'utf8')
-    const { map } = normalizeStore(JSON.parse(raw) as unknown)
-    const mentorId = map[reviewerId]
-    return isSnowflake(mentorId) ? mentorId : null
-  } catch (err) {
-    const maybe = err as { code?: unknown }
-    // ENOENT is fine (file may not exist yet). Anything else: treat as non-fatal.
-    if (maybe.code !== 'ENOENT') {
-      console.error('Failed to load trial reviewer mentors store:', err)
-    }
-    return null
-  }
+  const { map } = await loadStore()
+  const mentorId = map[reviewerId]
+  return isSnowflake(mentorId) ? mentorId : null
 }
 
 export async function setMentorForTrialReviewer(

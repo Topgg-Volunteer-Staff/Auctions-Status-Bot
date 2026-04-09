@@ -11,17 +11,25 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js'
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds, resolvedFlag } from './globals'
 import { threadAlerts } from './commands/alert'
 import {
+  initializeInactiveAlertStore,
   initializeThreadActivity,
   updateThreadActivity,
 } from './utils/tickets/trackActivity'
-import { maybeNotifyTicketResponse } from './utils/tickets/dmOnResponses'
+import {
+  initializeTicketDmStore,
+  maybeNotifyTicketResponse,
+} from './utils/tickets/dmOnResponses'
+import {
+  loadMongoBackedJson,
+  saveMongoBackedJson,
+  setMongoStoreErrorClient,
+} from './utils/db/mongoBackedJsonStore'
 import {
   installConsoleErrorForwarding,
   installGlobalErrorHandlers,
@@ -32,11 +40,12 @@ const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const fourImageFlagCounts = new Map<string, number>()
 
-const FOUR_IMAGE_FLAGS_DIR = path.join(process.cwd(), 'data')
 const FOUR_IMAGE_FLAGS_PATH = path.join(
-  FOUR_IMAGE_FLAGS_DIR,
+  process.cwd(),
+  'data',
   'four-image-flags.json'
 )
+const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
 
 let fourImageFlagsInitPromise: Promise<void> | null = null
 let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
@@ -45,11 +54,15 @@ function initFourImageFlagsStore(): Promise<void> {
   if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
 
   fourImageFlagsInitPromise = (async () => {
-    await mkdir(FOUR_IMAGE_FLAGS_DIR, { recursive: true })
     try {
-      const raw = await readFile(FOUR_IMAGE_FLAGS_PATH, 'utf8')
-      const parsed: unknown = JSON.parse(raw)
+      const parsed = await loadMongoBackedJson<unknown>(
+        FOUR_IMAGE_FLAGS_STORE_KEY,
+        FOUR_IMAGE_FLAGS_PATH,
+        {}
+      )
       if (!parsed || typeof parsed !== 'object') return
+
+      fourImageFlagCounts.clear()
 
       for (const [userId, count] of Object.entries(parsed)) {
         if (typeof userId !== 'string') continue
@@ -75,20 +88,9 @@ async function persistFourImageFlagsStore(): Promise<void> {
   for (const [userId, count] of fourImageFlagCounts.entries()) {
     obj[userId] = count
   }
-
-  const tmpPath = path.join(
-    FOUR_IMAGE_FLAGS_DIR,
-    `four-image-flags.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`
-  )
-
-  await writeFile(
-    FOUR_IMAGE_FLAGS_PATH,
-    JSON.stringify(obj, null, 2),
-    'utf8'
-  ).catch(async () => {
-    // If a direct write fails (e.g., AV lock), try atomic temp+rename.
-    await writeFile(tmpPath, JSON.stringify(obj, null, 2), 'utf8')
-    await rename(tmpPath, FOUR_IMAGE_FLAGS_PATH)
+  await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
+    legacyFilePath: FOUR_IMAGE_FLAGS_PATH,
+    operation: 'persist',
   })
 }
 
@@ -98,9 +100,6 @@ function queuePersistFourImageFlagsStore(): Promise<void> {
     .catch(() => persistFourImageFlagsStore())
   return fourImageFlagsWriteChain
 }
-
-// Kick off an early load so counts exist before the first message triggers.
-void initFourImageFlagsStore()
 
 function isImageAttachment(attachment: {
   contentType: string | null
@@ -313,8 +312,14 @@ const client = new Client({
   ],
 })
 
+setMongoStoreErrorClient(client)
+
 installConsoleErrorForwarding(client)
 installGlobalErrorHandlers(client)
+
+void initFourImageFlagsStore().catch((error) => {
+  void sendErrorLog(client, 'fourImage.init.failed', error)
+})
 
 client.on('clientReady', async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}!`)
@@ -322,6 +327,15 @@ client.on('clientReady', async (readyClient) => {
     status: 'online',
     activities: [{ name: 'the clock!', type: 3 }],
   })
+
+  await initializeTicketDmStore(readyClient).catch((error) => {
+    void sendErrorLog(readyClient, 'ticketDm.store.init.failed', error)
+  })
+
+  await initializeInactiveAlertStore().catch((error) => {
+    void sendErrorLog(readyClient, 'inactiveAlerts.store.init.failed', error)
+  })
+
   startReminders(readyClient)
 })
 
@@ -447,7 +461,7 @@ client.on('messageCreate', async (message) => {
     thread.type === ChannelType.PrivateThread &&
     !message.author.bot
   ) {
-    updateThreadActivity(thread.id)
+    await updateThreadActivity(thread.id)
   }
 
   if (

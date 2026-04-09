@@ -1,7 +1,10 @@
 import { ThreadChannel } from 'discord.js'
-import { mkdir, rename, writeFile } from 'node:fs/promises'
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
+
+import {
+  loadMongoBackedJson,
+  saveMongoBackedJson,
+} from '../db/mongoBackedJsonStore'
 
 const threadLastMessage = new Map<string, number>()
 
@@ -11,81 +14,83 @@ const threadAlertsSent = new Map<string, Set<AlertType>>()
 
 type PersistedThreadAlerts = Record<string, Array<AlertType>>
 
-const INACTIVE_ALERTS_DIR = path.join(process.cwd(), 'data')
 const INACTIVE_ALERTS_PATH = path.join(
-  INACTIVE_ALERTS_DIR,
+  process.cwd(),
+  'data',
   'inactive-thread-alerts.json'
 )
+const INACTIVE_ALERTS_STORE_KEY = 'inactive-thread-alerts'
 
 let inactiveAlertsWriteChain: Promise<void> = Promise.resolve()
+let inactiveAlertsInitPromise: Promise<void> | null = null
 
 function isAlertType(value: unknown): value is AlertType {
   return value === '48h' || value === '7d'
 }
 
-function loadPersistedInactiveAlertsSync(): void {
-  try {
-    const raw = readFileSync(INACTIVE_ALERTS_PATH, 'utf8')
-    const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object') return
+async function initInactiveAlertsStore(): Promise<void> {
+  if (inactiveAlertsInitPromise) return inactiveAlertsInitPromise
 
-    for (const [threadId, alertTypesUnknown] of Object.entries(
-      parsed as Record<string, unknown>
-    )) {
-      if (typeof threadId !== 'string' || threadId.length === 0) continue
-      if (!Array.isArray(alertTypesUnknown) || alertTypesUnknown.length === 0)
-        continue
+  inactiveAlertsInitPromise = (async () => {
+    try {
+      const parsed = await loadMongoBackedJson<unknown>(
+        INACTIVE_ALERTS_STORE_KEY,
+        INACTIVE_ALERTS_PATH,
+        {}
+      )
+      if (!parsed || typeof parsed !== 'object') return
 
-      const set = new Set<AlertType>()
-      for (const t of alertTypesUnknown) {
-        if (isAlertType(t)) set.add(t)
+      threadAlertsSent.clear()
+
+      for (const [threadId, alertTypesUnknown] of Object.entries(
+        parsed as Record<string, unknown>
+      )) {
+        if (typeof threadId !== 'string' || threadId.length === 0) continue
+        if (!Array.isArray(alertTypesUnknown) || alertTypesUnknown.length === 0)
+          continue
+
+        const set = new Set<AlertType>()
+        for (const t of alertTypesUnknown) {
+          if (isAlertType(t)) set.add(t)
+        }
+        if (set.size > 0) threadAlertsSent.set(threadId, set)
       }
-      if (set.size > 0) threadAlertsSent.set(threadId, set)
+    } catch (error) {
+      console.error('Failed to load inactive thread alerts store:', error)
     }
-  } catch (err) {
-    const maybe = err as { code?: unknown }
-    // ENOENT is fine (first run). Anything else: treat as non-fatal.
-    if (maybe.code !== 'ENOENT') {
-      console.error('Failed to load inactive thread alerts store:', err)
-    }
-  }
+  })()
+
+  return inactiveAlertsInitPromise
 }
 
 async function persistInactiveAlerts(): Promise<void> {
-  await mkdir(INACTIVE_ALERTS_DIR, { recursive: true })
-
   const obj: PersistedThreadAlerts = {}
   for (const [threadId, set] of threadAlertsSent.entries()) {
     obj[threadId] = Array.from(set)
   }
-
-  const json = JSON.stringify(obj, null, 2)
-  const tmpPath = path.join(
-    INACTIVE_ALERTS_DIR,
-    `inactive-thread-alerts.${Date.now()}.${Math.random()
-      .toString(16)
-      .slice(2)}.tmp`
-  )
-
-  await writeFile(INACTIVE_ALERTS_PATH, json, 'utf8').catch(async () => {
-    await writeFile(tmpPath, json, 'utf8')
-    await rename(tmpPath, INACTIVE_ALERTS_PATH)
+  await saveMongoBackedJson(INACTIVE_ALERTS_STORE_KEY, obj, {
+    legacyFilePath: INACTIVE_ALERTS_PATH,
+    operation: 'persist',
   })
 }
 
-function queuePersistInactiveAlerts(): void {
+function queuePersistInactiveAlerts(): Promise<void> {
   inactiveAlertsWriteChain = inactiveAlertsWriteChain
     .then(() => persistInactiveAlerts())
     .catch(() => persistInactiveAlerts())
+
+  return inactiveAlertsWriteChain
 }
 
-// Load persisted alert state on startup so restarts don't re-alert.
-loadPersistedInactiveAlertsSync()
+export async function initializeInactiveAlertStore(): Promise<void> {
+  await initInactiveAlertsStore()
+}
 
-export function updateThreadActivity(threadId: string): void {
+export async function updateThreadActivity(threadId: string): Promise<void> {
+  await initInactiveAlertsStore()
   threadLastMessage.set(threadId, Date.now())
   threadAlertsSent.delete(threadId)
-  queuePersistInactiveAlerts()
+  await queuePersistInactiveAlerts().catch(() => void 0)
 }
 
 export function getThreadLastMessage(threadId: string): number | null {
@@ -100,29 +105,36 @@ export function hasAlertBeenSent(
   return alerts?.has(alertType) ?? false
 }
 
-export function markAlertSent(threadId: string, alertType: '48h' | '7d'): void {
+export async function markAlertSent(
+  threadId: string,
+  alertType: '48h' | '7d'
+): Promise<void> {
+  await initInactiveAlertsStore()
   if (!threadAlertsSent.has(threadId)) {
     threadAlertsSent.set(threadId, new Set())
   }
   const alerts = threadAlertsSent.get(threadId)
   if (!alerts) return
   alerts.add(alertType)
-  queuePersistInactiveAlerts()
+  await queuePersistInactiveAlerts().catch(() => void 0)
 }
 
 export function getAllTrackedThreads(): Array<string> {
   return Array.from(threadLastMessage.keys())
 }
 
-export function removeThread(threadId: string): void {
+export async function removeThread(threadId: string): Promise<void> {
+  await initInactiveAlertsStore()
   threadLastMessage.delete(threadId)
   threadAlertsSent.delete(threadId)
-  queuePersistInactiveAlerts()
+  await queuePersistInactiveAlerts().catch(() => void 0)
 }
 
 export async function initializeThreadActivity(
   thread: ThreadChannel
 ): Promise<void> {
+  await initInactiveAlertsStore()
+
   try {
     const messages = await thread.messages.fetch({ limit: 1 })
     const lastMessage = messages.first()
