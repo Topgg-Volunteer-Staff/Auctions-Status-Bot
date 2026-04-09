@@ -1,5 +1,4 @@
 import { ThreadChannel } from 'discord.js'
-import path from 'node:path'
 
 import {
   loadMongoBackedJson,
@@ -14,11 +13,6 @@ const threadAlertsSent = new Map<string, Set<AlertType>>()
 
 type PersistedThreadAlerts = Record<string, Array<AlertType>>
 
-const INACTIVE_ALERTS_PATH = path.join(
-  process.cwd(),
-  'data',
-  'inactive-thread-alerts.json'
-)
 const INACTIVE_ALERTS_STORE_KEY = 'inactive-thread-alerts'
 
 let inactiveAlertsWriteChain: Promise<void> = Promise.resolve()
@@ -35,7 +29,6 @@ async function initInactiveAlertsStore(): Promise<void> {
     try {
       const parsed = await loadMongoBackedJson<unknown>(
         INACTIVE_ALERTS_STORE_KEY,
-        INACTIVE_ALERTS_PATH,
         {}
       )
       if (!parsed || typeof parsed !== 'object') return
@@ -69,7 +62,6 @@ async function persistInactiveAlerts(): Promise<void> {
     obj[threadId] = Array.from(set)
   }
   await saveMongoBackedJson(INACTIVE_ALERTS_STORE_KEY, obj, {
-    legacyFilePath: INACTIVE_ALERTS_PATH,
     operation: 'persist',
   })
 }

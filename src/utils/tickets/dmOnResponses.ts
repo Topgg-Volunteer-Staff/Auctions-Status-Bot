@@ -7,7 +7,6 @@
   Message,
   ThreadChannel,
 } from 'discord.js'
-import path from 'node:path'
 import { channelIds, roleIds } from '../../globals'
 import {
   loadMongoBackedJson,
@@ -39,11 +38,6 @@ type TicketDmPreference = {
 
 type PersistedTicketDmPreferences = Record<string, TicketDmPreference>
 
-const TICKET_DM_PREFS_PATH = path.join(
-  process.cwd(),
-  'data',
-  'ticket-dm-responses.json'
-)
 const TICKET_DM_PREFS_STORE_KEY = 'ticket-dm-responses'
 const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
@@ -158,7 +152,6 @@ async function writeCurrentStoreToDisk(): Promise<void> {
     data[threadId] = pref
   }
   await saveMongoBackedJson(TICKET_DM_PREFS_STORE_KEY, data, {
-    legacyFilePath: TICKET_DM_PREFS_PATH,
     operation: 'persist',
   })
 }
@@ -170,7 +163,6 @@ async function initStore(): Promise<void> {
     try {
       const parsed = await loadMongoBackedJson<unknown>(
         TICKET_DM_PREFS_STORE_KEY,
-        TICKET_DM_PREFS_PATH,
         {}
       )
       if (!isObject(parsed)) return

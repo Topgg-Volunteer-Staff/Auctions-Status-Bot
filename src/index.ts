@@ -11,7 +11,6 @@ import {
   ButtonBuilder,
   ButtonStyle,
 } from 'discord.js'
-import path from 'node:path'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds, resolvedFlag } from './globals'
@@ -40,11 +39,6 @@ const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const fourImageFlagCounts = new Map<string, number>()
 
-const FOUR_IMAGE_FLAGS_PATH = path.join(
-  process.cwd(),
-  'data',
-  'four-image-flags.json'
-)
 const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
 
 let fourImageFlagsInitPromise: Promise<void> | null = null
@@ -57,7 +51,6 @@ function initFourImageFlagsStore(): Promise<void> {
     try {
       const parsed = await loadMongoBackedJson<unknown>(
         FOUR_IMAGE_FLAGS_STORE_KEY,
-        FOUR_IMAGE_FLAGS_PATH,
         {}
       )
       if (!parsed || typeof parsed !== 'object') return
@@ -89,7 +82,6 @@ async function persistFourImageFlagsStore(): Promise<void> {
     obj[userId] = count
   }
   await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
-    legacyFilePath: FOUR_IMAGE_FLAGS_PATH,
     operation: 'persist',
   })
 }

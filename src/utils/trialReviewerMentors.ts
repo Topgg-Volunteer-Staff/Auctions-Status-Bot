@@ -1,5 +1,3 @@
-import path from 'node:path'
-
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
@@ -8,8 +6,6 @@ import {
 type MentorMap = Record<string, string>
 type StoreShape = MentorMap & { _comment?: string }
 
-const STORE_DIR = path.join(process.cwd(), 'data')
-const STORE_PATH = path.join(STORE_DIR, 'trial-reviewer-mentors.json')
 const STORE_KEY = 'trial-reviewer-mentors'
 
 const DEFAULT_COMMENT =
@@ -55,7 +51,6 @@ function buildStoreFile(comment: string, map: MentorMap): StoreShape {
 async function loadStore(): Promise<{ comment: string; map: MentorMap }> {
   const raw = await loadMongoBackedJson<unknown>(
     STORE_KEY,
-    STORE_PATH,
     buildStoreFile(DEFAULT_COMMENT, {})
   )
   return normalizeStore(raw)
@@ -63,7 +58,6 @@ async function loadStore(): Promise<{ comment: string; map: MentorMap }> {
 
 async function persistStore(comment: string, map: MentorMap): Promise<void> {
   await saveMongoBackedJson(STORE_KEY, buildStoreFile(comment, map), {
-    legacyFilePath: STORE_PATH,
     operation: 'persist',
   })
 }

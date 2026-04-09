@@ -1,5 +1,4 @@
 import { Client } from 'discord.js'
-import { readFile } from 'node:fs/promises'
 
 import { sendErrorLog } from '../errorLogging'
 import { getMongoDatabase } from './mongo'
@@ -11,7 +10,6 @@ type MongoBackedStoreDocument = {
 }
 
 type SaveOptions = {
-  legacyFilePath?: string
   operation?: string
 }
 
@@ -44,7 +42,6 @@ const reportWriteFailure = async (
     {
       storeKey,
       operation: options?.operation ?? 'write',
-      legacyFilePath: options?.legacyFilePath,
     }
   ).catch(() => void 0)
 }
@@ -74,7 +71,6 @@ export const saveMongoBackedJson = async <T>(
 
 export const loadMongoBackedJson = async <T>(
   storeKey: string,
-  legacyFilePath: string,
   defaultValue: T
 ): Promise<T> => {
   try {
@@ -86,24 +82,8 @@ export const loadMongoBackedJson = async <T>(
     }
   } catch (error) {
     console.error(`[mongo-store] Failed to read ${storeKey} from MongoDB:`, error)
-  }
-
-  try {
-    const raw = await readFile(legacyFilePath, 'utf8')
-    const parsed = JSON.parse(raw) as T
-
-    await saveMongoBackedJson(storeKey, parsed, {
-      legacyFilePath,
-      operation: 'migrate-legacy-json',
-    }).catch(() => void 0)
-
-    return parsed
-  } catch (error) {
-    const maybe = error as { code?: unknown }
-    if (maybe.code !== 'ENOENT') {
-      console.error(`[mongo-store] Failed to load ${storeKey}:`, error)
-    }
-
     return defaultValue
   }
+
+  return defaultValue
 }
