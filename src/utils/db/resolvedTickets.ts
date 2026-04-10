@@ -206,11 +206,27 @@ export const recordResolvedTicket = async (
   await collection.updateOne(
     { _id: record.resolvedByUserId },
     {
+      $setOnInsert: {
+        tickets: [],
+      },
+    },
+    { upsert: true }
+  )
+
+  await collection.updateOne(
+    { _id: record.resolvedByUserId },
+    {
       $pull: {
         tickets: {
           threadId: record.threadId,
         },
       },
+    }
+  )
+
+  await collection.updateOne(
+    { _id: record.resolvedByUserId },
+    {
       $push: {
         tickets: {
           threadId: record.threadId,
@@ -218,8 +234,7 @@ export const recordResolvedTicket = async (
           resolvedAt: record.resolvedAt,
         },
       },
-    },
-    { upsert: true }
+    }
   )
 }
 
