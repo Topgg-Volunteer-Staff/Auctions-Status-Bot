@@ -14,6 +14,7 @@ import { recordResolvedTicket } from '../utils/db/resolvedTickets'
 import { emoji } from '../utils/emojis'
 import { sendMongoErrorLog } from '../utils/errorLogging'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
+import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 import { removeThread } from '../utils/tickets/trackActivity'
 
 export const command = new SlashCommandBuilder()
@@ -60,7 +61,7 @@ export const execute = async (
 
   try {
     await thread.setAutoArchiveDuration(1440, 'Ticket resolved!')
-    await thread.setName(`${resolvedFlag} ${thread.name}`)
+    await thread.setName(getResolvedThreadName(thread.name))
 
     let resolveString =
       'If your issue persists or if you need help with a different issue, please open a new ticket in'

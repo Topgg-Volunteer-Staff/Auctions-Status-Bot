@@ -24,6 +24,7 @@ import {
   initializeTicketDmStore,
   maybeNotifyTicketResponse,
 } from './utils/tickets/dmOnResponses'
+import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
@@ -572,7 +573,7 @@ client.on('messageCreate', async (message) => {
 
   try {
     if (!thread.name.startsWith(resolvedFlag)) {
-      await thread.setName(`${resolvedFlag} ${thread.name}`)
+      await thread.setName(getResolvedThreadName(thread.name))
     }
 
     await thread.setLocked(true, 'Resolved via prefix command')

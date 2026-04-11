@@ -6,6 +6,9 @@ import {
   MessageFlags,
 } from 'discord.js'
 
+import { resolvedFlag } from '../globals'
+import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
+
 export const button = {
   name: 'closeModTicket',
 }
@@ -46,8 +49,8 @@ export const execute = async (
       allowedMentions: { users: [] },
     })
 
-    if (!thread.name.startsWith('[Resolved]')) {
-      await thread.setName(`[Resolved] ${thread.name}`)
+    if (!thread.name.startsWith(resolvedFlag)) {
+      await thread.setName(getResolvedThreadName(thread.name))
     }
 
     await thread.setLocked(true, 'Ticket closed')
