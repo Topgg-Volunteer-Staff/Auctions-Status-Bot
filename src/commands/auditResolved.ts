@@ -139,6 +139,8 @@ const buildAuditEmbed = (): EmbedBuilder =>
 const formatThreadCountLabel = (count: number): string =>
   `${count} resolved thread${count === 1 ? '' : 's'}`
 
+const formatUserMention = (userId: string): string => `<@${userId}>`
+
 const resolveDisplayName = async (
   interaction: ChatInputCommandInteraction,
   userId: string,
@@ -332,14 +334,9 @@ export const execute = async (
         return
       }
 
-      const names = await Promise.all(
-        leaderboard.map((entry) =>
-          resolveDisplayName(interaction, entry.userId, `User ${entry.userId}`)
-        )
-      )
-
       const lines = leaderboard.map(
-        (entry, index) => `${index + 1}. **${names[index]}** - ${entry.count}`
+        (entry, index) =>
+          `${index + 1}. ${formatUserMention(entry.userId)} - ${entry.count}`
       )
 
       const totalResolved = leaderboard.reduce(
