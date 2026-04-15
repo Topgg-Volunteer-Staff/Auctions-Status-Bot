@@ -24,6 +24,10 @@ import {
   initializeTicketDmStore,
   maybeNotifyTicketResponse,
 } from './utils/tickets/dmOnResponses'
+import {
+  initializeStaffTicketReminderStore,
+  maybeHandleStaffTicketReminder,
+} from './utils/tickets/staffTicketReminders'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
   loadMongoBackedJson,
@@ -326,6 +330,14 @@ client.on('clientReady', async (readyClient) => {
     void sendMongoErrorLog(readyClient, 'ticketDm.store.init.failed', error)
   })
 
+  await initializeStaffTicketReminderStore(readyClient).catch((error) => {
+    void sendMongoErrorLog(
+      readyClient,
+      'staffTicketReminder.store.init.failed',
+      error
+    )
+  })
+
   await initializeInactiveAlertStore().catch((error) => {
     void sendMongoErrorLog(
       readyClient,
@@ -446,6 +458,10 @@ client.on('threadCreate', async (thread) => {
 client.on('messageCreate', async (message) => {
   await maybeNotifyTicketResponse(message).catch((error) => {
     console.error('Failed to process ticket DM response notification:', error)
+  })
+
+  await maybeHandleStaffTicketReminder(message).catch((error) => {
+    console.error('Failed to process staff ticket reminder:', error)
   })
 })
 
