@@ -10,10 +10,9 @@ import {
 
 import { channelIds, resolvedFlag } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
-import { recordResolvedTicket } from '../utils/db/resolvedTickets'
 import { emoji } from '../utils/emojis'
-import { sendMongoErrorLog } from '../utils/errorLogging'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
+import { recordResolvedTicketCredit } from '../utils/tickets/resolvedTicketCredit'
 import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 import { removeThread } from '../utils/tickets/trackActivity'
 
@@ -84,35 +83,15 @@ export const execute = async (
     })
 
     if (interaction.guild) {
-      await recordResolvedTicket({
-        threadId: thread.id,
-        threadName: originalThreadName,
+      await recordResolvedTicketCredit({
+        client,
+        command: 'resolve',
+        guildId: interaction.guildId ?? interaction.guild.id,
+        parentId: parent.id,
         resolvedAt: interaction.createdAt,
         resolvedByUserId: interaction.user.id,
-      }).catch((error) => {
-        console.error(
-          `Failed to record resolved ticket ${thread.id} in MongoDB:`,
-          error
-        )
-
-        return sendMongoErrorLog(
-          client,
-          'resolve.recordResolvedTicket.failed',
-          error,
-          {
-            threadId: thread.id,
-            threadName: originalThreadName,
-            parentId: parent.id,
-            guildId: interaction.guildId,
-            resolvedByUserId: interaction.user.id,
-            command: 'resolve',
-          }
-        ).catch((logError) => {
-          console.error(
-            `Failed to send resolve DB error log for thread ${thread.id}:`,
-            logError
-          )
-        })
+        threadId: thread.id,
+        threadName: originalThreadName,
       })
     }
 

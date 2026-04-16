@@ -7,14 +7,20 @@ import {
 } from 'discord.js'
 
 import { resolvedFlag } from '../globals'
+import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
+import {
+  getMostActiveStaffMemberId,
+  recordResolvedTicketCredit,
+} from '../utils/tickets/resolvedTicketCredit'
+import { removeThread } from '../utils/tickets/trackActivity'
 
 export const button = {
   name: 'closeModTicket',
 }
 
 export const execute = async (
-  _client: Client,
+  client: Client,
   interaction: ButtonInteraction
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
@@ -34,6 +40,8 @@ export const execute = async (
   const isModerator = interaction.member.permissions.has(
     PermissionsBitField.Flags.ManageThreads
   )
+  const shouldAwardMostActiveStaff = isOpener && !isModerator
+  const originalThreadName = thread.name
 
   if (!isOpener && !isModerator) {
     await interaction.reply({
@@ -52,6 +60,32 @@ export const execute = async (
     if (!thread.name.startsWith(resolvedFlag)) {
       await thread.setName(getResolvedThreadName(thread.name))
     }
+
+    if (shouldAwardMostActiveStaff) {
+      const mostActiveStaffMemberId = await getMostActiveStaffMemberId(thread)
+
+      if (mostActiveStaffMemberId) {
+        await recordResolvedTicketCredit({
+          client,
+          command: 'closeModTicket',
+          guildId: interaction.guildId,
+          parentId: thread.parentId,
+          resolvedAt: interaction.createdAt,
+          resolvedByUserId: mostActiveStaffMemberId,
+          threadId: thread.id,
+          threadName: originalThreadName,
+        })
+      }
+    }
+
+    await removeTicketDmPreference(thread.id).catch((error) => {
+      console.error(
+        `Failed to remove DM preference for closed ticket ${thread.id}:`,
+        error
+      )
+    })
+
+    await removeThread(thread.id)
 
     await thread.setLocked(true, 'Ticket closed')
     await thread.setArchived(true, 'Ticket closed by user')
