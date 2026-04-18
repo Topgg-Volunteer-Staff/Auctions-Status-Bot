@@ -17,7 +17,6 @@ import {
   ThreadAutoArchiveDuration,
   ThreadChannel,
   User,
-  type APIEmbedField,
 } from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
@@ -38,9 +37,6 @@ type MigrationTargetConfig = {
   title: string
   description: string
 }
-
-const MAX_MIGRATED_MESSAGES = 100
-const MAX_MESSAGE_CONTENT_LENGTH = 1_900
 
 export const command = new SlashCommandBuilder()
   .setName('migrate-ticket')
@@ -180,7 +176,6 @@ export const execute = async (
     return
   }
 
-  const messagesToCopy = await fetchMessagesForMigration(sourceThread)
 
   const destinationThread = await destinationParent.threads.create({
     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
@@ -219,19 +214,7 @@ export const execute = async (
 
   await sendDmOnResponsesPrompt(destinationThread, opener.id)
 
-  await destinationThread.send({
-    content:
-      messagesToCopy.truncated
-        ? `Copied ${messagesToCopy.messages.length} messages from <#${sourceThread.id}> below. Additional context remains available in the original thread.`
-        : `Copied ${messagesToCopy.messages.length} messages from <#${sourceThread.id}> below.`,
-    allowedMentions: { parse: [] },
-  })
 
-  await replayMessagesIntoThread({
-    messages: messagesToCopy.messages,
-    parent: destinationParent,
-    thread: destinationThread,
-  })
 
   const moveNotice = new EmbedBuilder()
     .setColor('#ff3366')
@@ -400,9 +383,9 @@ async function resolveTicketOpener(
     }
   }
 
-  const messages = await fetchMessagesForMigration(thread, 10)
+  const messages = await fetchRecentMessages(thread, 10)
 
-  for (const message of messages.messages) {
+  for (const message of messages) {
     const userIdFromButton = findOpenerIdInComponents(message)
     if (userIdFromButton) {
       const fetchedUser = await guild.client.users.fetch(userIdFromButton).catch(() => null)
@@ -452,17 +435,12 @@ function findFirstUserMention(content: string): string | null {
   return matches[0]?.[1] ?? null
 }
 
-async function fetchMessagesForMigration(
+async function fetchRecentMessages(
   thread: ThreadChannel,
-  limit = MAX_MIGRATED_MESSAGES
-): Promise<{
-  messages: Array<Message>
-  totalFetched: number
-  truncated: boolean
-}> {
+  limit: number
+): Promise<Array<Message>> {
   const fetchedMessages: Array<Message> = []
   let before: string | undefined
-  let truncated = false
 
   while (fetchedMessages.length < limit) {
     const batch = await thread.messages.fetch({
@@ -479,131 +457,7 @@ async function fetchMessagesForMigration(
     if (batch.size < 100) break
   }
 
-  const extraBatch =
-    fetchedMessages.length >= limit && before
-      ? await thread.messages.fetch({ before, limit: 1 })
-      : null
-
-  if (extraBatch && extraBatch.size > 0) {
-    truncated = true
-  }
-
-  const filtered = fetchedMessages
+  return fetchedMessages
     .filter((message) => !message.system)
     .sort((left, right) => left.createdTimestamp - right.createdTimestamp)
-
-  return {
-    messages: filtered,
-    totalFetched: filtered.length + (truncated ? 1 : 0),
-    truncated,
-  }
-}
-
-async function replayMessagesIntoThread(args: {
-  messages: Array<Message>
-  parent: TextChannel
-  thread: ThreadChannel
-}): Promise<void> {
-  const webhook = await args.parent.createWebhook({ name: 'Ticket Migration' })
-
-  try {
-    for (const message of args.messages) {
-      const content = truncateForDiscord(formatMigratedMessage(message))
-      const files = Array.from(message.attachments.values()).map((attachment, index) => ({
-        attachment: attachment.url,
-        name: attachment.name ?? `attachment-${index + 1}`,
-      }))
-
-      if (!content && files.length === 0) {
-        continue
-      }
-
-      try {
-        await webhook.send({
-          allowedMentions: { parse: [] },
-          ...(content ? { content } : {}),
-          ...(files.length > 0 ? { files } : {}),
-          avatarURL: message.author.displayAvatarURL(),
-          threadId: args.thread.id,
-          username: message.author.username,
-        })
-      } catch {
-        const fallbackContent = truncateForDiscord(
-          [
-            content,
-            files.length > 0
-              ? files.map((file) => String(file.attachment)).join('\n')
-              : '',
-          ]
-            .filter((value) => value.length > 0)
-            .join('\n\n')
-        )
-
-        if (!fallbackContent) {
-          continue
-        }
-
-        await webhook.send({
-          allowedMentions: { parse: [] },
-          avatarURL: message.author.displayAvatarURL(),
-          content: fallbackContent,
-          threadId: args.thread.id,
-          username: message.author.username,
-        })
-      }
-    }
-  } finally {
-    await webhook.delete().catch(() => void 0)
-  }
-}
-
-function formatMigratedMessage(message: Message): string {
-  const parts: Array<string> = []
-
-  const trimmedContent = message.content.trim()
-  if (trimmedContent.length > 0) {
-    parts.push(trimmedContent)
-  }
-
-  const embedText = message.embeds
-    .map((embed) => formatEmbedSummary(embed.title, embed.description, embed.fields))
-    .filter((value) => value.length > 0)
-    .join('\n\n')
-
-  if (embedText.length > 0) {
-    parts.push(embedText)
-  }
-
-  return parts.join('\n\n')
-}
-
-function formatEmbedSummary(
-  title: string | null | undefined,
-  description: string | null | undefined,
-  fields: ReadonlyArray<APIEmbedField>
-): string {
-  const lines: Array<string> = []
-
-  if (title && title.trim().length > 0) {
-    lines.push(`**${title.trim()}**`)
-  }
-
-  if (description && description.trim().length > 0) {
-    lines.push(description.trim())
-  }
-
-  for (const field of fields) {
-    if (!field.name.trim() && !field.value.trim()) continue
-    lines.push(`${field.name}: ${field.value}`)
-  }
-
-  return lines.join('\n')
-}
-
-function truncateForDiscord(content: string): string {
-  if (content.length <= MAX_MESSAGE_CONTENT_LENGTH) {
-    return content
-  }
-
-  return `${content.slice(0, MAX_MESSAGE_CONTENT_LENGTH - 16).trimEnd()}\n\n[truncated]`
 }
