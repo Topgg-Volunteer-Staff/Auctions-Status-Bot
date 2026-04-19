@@ -5,6 +5,8 @@ import {
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
 
+type ReminderPreferenceSource = 'thread' | 'global'
+
 type ReminderDelayChoice = {
   name: string
   value: string
@@ -18,9 +20,15 @@ type PendingStaffReminder = {
 }
 
 type StaffTicketReminderPreference = {
+  source: ReminderPreferenceSource
   userId: string
   delayMs: number
   pendingReminder?: PendingStaffReminder
+}
+
+type StaffGlobalTicketReminderPreference = {
+  userId: string
+  delayMs: number
 }
 
 type PersistedStaffTicketReminderStore = Record<
@@ -28,10 +36,24 @@ type PersistedStaffTicketReminderStore = Record<
   Record<string, StaffTicketReminderPreference>
 >
 
+type PersistedStaffGlobalTicketReminderStore = Record<
+  string,
+  StaffGlobalTicketReminderPreference
+>
+
 const STAFF_TICKET_REMINDER_STORE_KEY = 'staff-ticket-reminders'
+const STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY = 'staff-ticket-reminders-global'
 const DM_QUEUE_SPACING_MS = 1_000
 const TICKET_REMINDER_DM_FALLBACK_CHANNEL_ID =
   channelIds.inactiveThreadAlertsReviewers
+const THREAD_OWNER_SCAN_PAGE_LIMIT = 10
+
+const STAFF_REMINDER_ELIGIBLE_ROLE_IDS = [
+  roleIds.moderator,
+  roleIds.reviewer,
+  roleIds.trialReviewer,
+  roleIds.supportTeam,
+]
 
 export const TICKET_REMINDER_DELAY_CHOICES: Array<ReminderDelayChoice> = [
   { name: '1 minute', value: '1m', delayMs: 1 * 60_000 },
@@ -48,7 +70,12 @@ const reminderPreferences = new Map<
   string,
   Map<string, StaffTicketReminderPreference>
 >()
+const globalReminderPreferences = new Map<
+  string,
+  StaffGlobalTicketReminderPreference
+>()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
+const threadOwnerCache = new Map<string, string | null>()
 
 let initPromise: Promise<void> | null = null
 let writeChain: Promise<void> = Promise.resolve()
@@ -79,12 +106,9 @@ async function isStaffUserInGuild(
   const member = await guild.members.fetch(userId).catch(() => null)
   if (!member) return false
 
-  return [
-    roleIds.moderator,
-    roleIds.reviewer,
-    roleIds.trialReviewer,
-    roleIds.supportTeam,
-  ].some((roleId) => member.roles.cache.has(roleId))
+  return STAFF_REMINDER_ELIGIBLE_ROLE_IDS.some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
 }
 
 export async function isStaffReminderEligibleInteraction(
@@ -120,9 +144,17 @@ function normalizePendingReminder(value: unknown): PendingStaffReminder | null {
   }
 }
 
+function normalizeReminderSource(value: unknown): ReminderPreferenceSource {
+  return value === 'global' ? 'global' : 'thread'
+}
+
 function setRuntimeClient(client: Client): void {
   runtimeClient = client
   restorePendingReminderTimers()
+}
+
+function clearThreadOwnerCache(threadId: string): void {
+  threadOwnerCache.delete(threadId)
 }
 
 function getThreadPreferences(
@@ -139,7 +171,8 @@ function getThreadPreferences(
 }
 
 async function writeCurrentStore(): Promise<void> {
-  const data: PersistedStaffTicketReminderStore = {}
+  const threadData: PersistedStaffTicketReminderStore = {}
+  const globalData: PersistedStaffGlobalTicketReminderStore = {}
 
   for (const [threadId, threadPrefs] of reminderPreferences.entries()) {
     if (threadPrefs.size === 0) continue
@@ -148,11 +181,19 @@ async function writeCurrentStore(): Promise<void> {
     for (const [userId, pref] of threadPrefs.entries()) {
       serializedThreadPrefs[userId] = pref
     }
-    data[threadId] = serializedThreadPrefs
+    threadData[threadId] = serializedThreadPrefs
   }
 
-  await saveMongoBackedJson(STAFF_TICKET_REMINDER_STORE_KEY, data, {
+  for (const [userId, pref] of globalReminderPreferences.entries()) {
+    globalData[userId] = pref
+  }
+
+  await saveMongoBackedJson(STAFF_TICKET_REMINDER_STORE_KEY, threadData, {
     operation: 'persist',
+  })
+
+  await saveMongoBackedJson(STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY, globalData, {
+    operation: 'persist-global',
   })
 }
 
@@ -160,20 +201,48 @@ async function initStore(): Promise<void> {
   if (initPromise) return initPromise
 
   initPromise = (async () => {
-    const parsed = await loadMongoBackedJson<unknown>(
-      STAFF_TICKET_REMINDER_STORE_KEY,
-      {}
-    )
-    if (!isObject(parsed)) return
+    const [parsedThreadPrefs, parsedGlobalPrefs] = await Promise.all([
+      loadMongoBackedJson<unknown>(STAFF_TICKET_REMINDER_STORE_KEY, {}),
+      loadMongoBackedJson<unknown>(STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY, {}),
+    ])
 
     reminderPreferences.clear()
+    globalReminderPreferences.clear()
 
-    for (const [threadId, rawThreadPrefs] of Object.entries(parsed)) {
-      if (typeof threadId !== 'string' || !isObject(rawThreadPrefs)) continue
+    if (isObject(parsedThreadPrefs)) {
+      for (const [threadId, rawThreadPrefs] of Object.entries(parsedThreadPrefs)) {
+        if (typeof threadId !== 'string' || !isObject(rawThreadPrefs)) continue
 
-      const threadPrefs = new Map<string, StaffTicketReminderPreference>()
+        const threadPrefs = new Map<string, StaffTicketReminderPreference>()
 
-      for (const [userId, rawPref] of Object.entries(rawThreadPrefs)) {
+        for (const [userId, rawPref] of Object.entries(rawThreadPrefs)) {
+          if (typeof userId !== 'string' || !isObject(rawPref)) continue
+          if (rawPref.userId !== userId) continue
+          if (
+            typeof rawPref.delayMs !== 'number' ||
+            !Number.isFinite(rawPref.delayMs)
+          ) {
+            continue
+          }
+
+          const pendingReminder = normalizePendingReminder(rawPref.pendingReminder)
+
+          threadPrefs.set(userId, {
+            source: normalizeReminderSource(rawPref.source),
+            userId,
+            delayMs: rawPref.delayMs,
+            ...(pendingReminder ? { pendingReminder } : {}),
+          })
+        }
+
+        if (threadPrefs.size > 0) {
+          reminderPreferences.set(threadId, threadPrefs)
+        }
+      }
+    }
+
+    if (isObject(parsedGlobalPrefs)) {
+      for (const [userId, rawPref] of Object.entries(parsedGlobalPrefs)) {
         if (typeof userId !== 'string' || !isObject(rawPref)) continue
         if (rawPref.userId !== userId) continue
         if (
@@ -183,17 +252,10 @@ async function initStore(): Promise<void> {
           continue
         }
 
-        const pendingReminder = normalizePendingReminder(rawPref.pendingReminder)
-
-        threadPrefs.set(userId, {
+        globalReminderPreferences.set(userId, {
           userId,
           delayMs: rawPref.delayMs,
-          ...(pendingReminder ? { pendingReminder } : {}),
         })
-      }
-
-      if (threadPrefs.size > 0) {
-        reminderPreferences.set(threadId, threadPrefs)
       }
     }
   })()
@@ -278,6 +340,150 @@ function restorePendingReminderTimers(): void {
       schedulePendingReminder(threadId, userId, pref.pendingReminder)
     }
   }
+}
+
+async function resolveThreadOwnerUserId(
+  thread: ThreadChannel
+): Promise<string | null> {
+  if (threadOwnerCache.has(thread.id)) {
+    return threadOwnerCache.get(thread.id) ?? null
+  }
+
+  const staffMessageCounts = new Map<
+    string,
+    { count: number; latestMessageAt: number }
+  >()
+  const staffMembershipCache = new Map<string, boolean>()
+  let before: string | undefined
+
+  for (let page = 0; page < THREAD_OWNER_SCAN_PAGE_LIMIT; page++) {
+    const fetchOptions: { limit: number; before?: string } = { limit: 100 }
+    if (before) fetchOptions.before = before
+
+    const messages = await thread.messages.fetch(fetchOptions).catch(() => null)
+    if (!messages || messages.size === 0) break
+
+    for (const threadMessage of messages.values()) {
+      if (threadMessage.author.bot) continue
+      if (threadMessage.webhookId) continue
+      if (threadMessage.system) continue
+
+      let isStaffMember = staffMembershipCache.get(threadMessage.author.id)
+      if (typeof isStaffMember !== 'boolean') {
+        const member =
+          threadMessage.member ??
+          (await thread.guild.members
+            .fetch(threadMessage.author.id)
+            .catch(() => null))
+
+        isStaffMember =
+          !!member &&
+          STAFF_REMINDER_ELIGIBLE_ROLE_IDS.some((roleId) =>
+            member.roles.cache.has(roleId)
+          )
+
+        staffMembershipCache.set(threadMessage.author.id, isStaffMember)
+      }
+
+      if (!isStaffMember) continue
+
+      const current = staffMessageCounts.get(threadMessage.author.id) ?? {
+        count: 0,
+        latestMessageAt: 0,
+      }
+
+      current.count += 1
+      current.latestMessageAt = Math.max(
+        current.latestMessageAt,
+        threadMessage.createdTimestamp
+      )
+
+      staffMessageCounts.set(threadMessage.author.id, current)
+    }
+
+    before = messages.last()?.id
+    if (!before || messages.size < 100) break
+  }
+
+  let ownerId: string | null = null
+  let highestCount = 0
+  let latestMessageAt = 0
+
+  for (const [userId, summary] of staffMessageCounts.entries()) {
+    if (
+      summary.count > highestCount ||
+      (summary.count === highestCount && summary.latestMessageAt > latestMessageAt)
+    ) {
+      ownerId = userId
+      highestCount = summary.count
+      latestMessageAt = summary.latestMessageAt
+    }
+  }
+
+  threadOwnerCache.set(thread.id, ownerId)
+  return ownerId
+}
+
+async function syncGlobalThreadReminderPreference(
+  thread: ThreadChannel
+): Promise<Map<string, StaffTicketReminderPreference> | undefined> {
+  let threadPrefs = getThreadPreferences(thread.id)
+  const ownerId = await resolveThreadOwnerUserId(thread)
+  const ownerGlobalPref = ownerId
+    ? globalReminderPreferences.get(ownerId)
+    : undefined
+  let changed = false
+
+  if (threadPrefs) {
+    for (const [userId, pref] of [...threadPrefs.entries()]) {
+      if (pref.source !== 'global') continue
+
+      if (!ownerId || userId !== ownerId || !ownerGlobalPref) {
+        clearPendingReminderTimer(thread.id, userId)
+        threadPrefs.delete(userId)
+        changed = true
+      }
+    }
+
+    if (threadPrefs.size === 0) {
+      reminderPreferences.delete(thread.id)
+      threadPrefs = undefined
+    }
+  }
+
+  if (ownerId && ownerGlobalPref) {
+    const existing = threadPrefs?.get(ownerId)
+
+    if (!existing) {
+      const nextThreadPrefs = getThreadPreferences(thread.id, true)
+      if (!nextThreadPrefs) return threadPrefs
+
+      threadPrefs = nextThreadPrefs
+      threadPrefs.set(ownerId, {
+        source: 'global',
+        userId: ownerId,
+        delayMs: ownerGlobalPref.delayMs,
+      })
+      changed = true
+    } else if (
+      threadPrefs &&
+      existing.source === 'global' &&
+      existing.delayMs !== ownerGlobalPref.delayMs
+    ) {
+      threadPrefs.set(ownerId, {
+        ...existing,
+        source: 'global',
+        delayMs: ownerGlobalPref.delayMs,
+      })
+      changed = true
+    }
+  }
+
+  if (changed) {
+    await queuePersist().catch(() => void 0)
+  }
+
+  return threadPrefs
 }
 
 async function notifyReminderDmFailure(
@@ -391,12 +597,37 @@ export async function setStaffTicketReminderPreference(
 
   const existing = threadPrefs.get(userId)
   threadPrefs.set(userId, {
+    source: 'thread',
     userId,
     delayMs,
     ...(existing?.pendingReminder
       ? { pendingReminder: existing.pendingReminder }
       : {}),
   })
+
+  await queuePersist().catch(() => void 0)
+}
+
+export async function setGlobalStaffTicketReminderPreference(
+  userId: string,
+  delayMs: number
+): Promise<void> {
+  await initStore()
+
+  globalReminderPreferences.set(userId, {
+    userId,
+    delayMs,
+  })
+
+  for (const threadPrefs of reminderPreferences.values()) {
+    const existing = threadPrefs.get(userId)
+    if (!existing || existing.source !== 'global') continue
+
+    threadPrefs.set(userId, {
+      ...existing,
+      delayMs,
+    })
+  }
 
   await queuePersist().catch(() => void 0)
 }
@@ -419,6 +650,28 @@ export async function removeStaffTicketReminderPreference(
   await queuePersist().catch(() => void 0)
 }
 
+export async function removeGlobalStaffTicketReminderPreference(
+  userId: string
+): Promise<void> {
+  await initStore()
+
+  globalReminderPreferences.delete(userId)
+
+  for (const [threadId, threadPrefs] of reminderPreferences.entries()) {
+    const existing = threadPrefs.get(userId)
+    if (!existing || existing.source !== 'global') continue
+
+    clearPendingReminderTimer(threadId, userId)
+    threadPrefs.delete(userId)
+
+    if (threadPrefs.size === 0) {
+      reminderPreferences.delete(threadId)
+    }
+  }
+
+  await queuePersist().catch(() => void 0)
+}
+
 export async function maybeHandleStaffTicketReminder(
   message: Message
 ): Promise<void> {
@@ -431,16 +684,19 @@ export async function maybeHandleStaffTicketReminder(
 
   await initStore()
 
-  const threadPrefs = getThreadPreferences(message.channel.id)
-  if (!threadPrefs || threadPrefs.size === 0) return
-
   const isStaffAuthor = await isStaffUserInGuild(message.guild, message.author.id)
 
   if (isStaffAuthor) {
-    if (!threadPrefs.has(message.author.id)) return
+    clearThreadOwnerCache(message.channel.id)
+
+    const threadPrefs = getThreadPreferences(message.channel.id)
+    if (!threadPrefs?.has(message.author.id)) return
     await clearPendingReminder(message.channel.id, message.author.id)
     return
   }
+
+  const threadPrefs = await syncGlobalThreadReminderPreference(message.channel)
+  if (!threadPrefs || threadPrefs.size === 0) return
 
   let changed = false
 
