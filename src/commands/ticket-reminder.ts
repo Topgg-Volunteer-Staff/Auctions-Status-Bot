@@ -12,6 +12,7 @@ import { errorEmbed, successEmbed } from '../utils/embeds'
 import {
   getTicketReminderDelayLabel,
   getTicketReminderDelayMs,
+  hasGlobalStaffTicketReminderPreference,
   isStaffReminderEligibleInteraction,
   removeStaffTicketReminderPreference,
   setStaffTicketReminderPreference,
@@ -89,6 +90,18 @@ export const execute = async (
         successEmbed(
           'Ticket reminder disabled',
           'You will no longer receive DMs for new user replies in this ticket.'
+        ),
+      ],
+      flags: MessageFlags.Ephemeral,
+    })
+    return
+  }
+
+  if (await hasGlobalStaffTicketReminderPreference(interaction.user.id)) {
+    await interaction.reply({
+      embeds: [
+        errorEmbed(
+          'You already have global ticket reminders enabled. Use /ticket-reminder-global instead of opting into individual tickets.'
         ),
       ],
       flags: MessageFlags.Ephemeral,

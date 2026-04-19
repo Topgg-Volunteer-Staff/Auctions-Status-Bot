@@ -585,6 +585,13 @@ export function getTicketReminderDelayLabel(choice: string): string | null {
   return matched?.name ?? null
 }
 
+export async function hasGlobalStaffTicketReminderPreference(
+  userId: string
+): Promise<boolean> {
+  await initStore()
+  return globalReminderPreferences.has(userId)
+}
+
 export async function setStaffTicketReminderPreference(
   threadId: string,
   userId: string,
