@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, Client, EmbedBuilder, Guild, Message, ThreadChannel } from 'discord.js'
+import { ChatInputCommandInteraction, Client, EmbedBuilder, Guild, Message, TextChannel, ThreadChannel } from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
 import {
   loadMongoBackedJson,
@@ -30,6 +30,8 @@ type PersistedStaffTicketReminderStore = Record<
 
 const STAFF_TICKET_REMINDER_STORE_KEY = 'staff-ticket-reminders'
 const DM_QUEUE_SPACING_MS = 1_000
+const TICKET_REMINDER_DM_FALLBACK_CHANNEL_ID =
+  channelIds.inactiveThreadAlertsReviewers
 
 export const TICKET_REMINDER_DELAY_CHOICES: Array<ReminderDelayChoice> = [
   { name: '1 minute', value: '1m', delayMs: 1 * 60_000 },
@@ -278,6 +280,43 @@ function restorePendingReminderTimers(): void {
   }
 }
 
+async function notifyReminderDmFailure(
+  client: Client,
+  threadId: string,
+  userId: string,
+  messageUrl: string
+): Promise<void> {
+  const channel = (await client.channels
+    .fetch(TICKET_REMINDER_DM_FALLBACK_CHANNEL_ID)
+    .catch(() => null)) as TextChannel | null
+
+  if (!channel) {
+    console.warn(
+      `[staff-ticket-reminders] Failed to find DM fallback channel ${TICKET_REMINDER_DM_FALLBACK_CHANNEL_ID}`
+    )
+    return
+  }
+
+  await channel
+    .send({
+      content:
+        `<@${userId}> I couldn't DM your /ticket-reminder notification for <#${threadId}>. ` +
+        `Please enable your DMs in the main server or VC server so reminders can reach you. ` +
+        `${messageUrl}`,
+      allowedMentions: {
+        users: [userId],
+        roles: [],
+        parse: [],
+      },
+    })
+    .catch((error) => {
+      console.error(
+        `[staff-ticket-reminders] Failed to send DM fallback notice for ${threadId}:${userId}`,
+        error
+      )
+    })
+}
+
 async function sendPendingReminder(
   threadId: string,
   userId: string
@@ -313,6 +352,13 @@ async function sendPendingReminder(
     console.error(
       `[staff-ticket-reminders] Failed to send reminder for ${threadId}:${userId}`,
       error
+    )
+
+    await notifyReminderDmFailure(
+      client,
+      threadId,
+      userId,
+      reminder.messageUrl
     )
   }
 
