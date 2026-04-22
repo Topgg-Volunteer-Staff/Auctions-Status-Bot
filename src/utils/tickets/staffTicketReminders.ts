@@ -5,6 +5,7 @@ import {
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
 
+
 type ReminderPreferenceSource = 'thread' | 'global'
 
 type ReminderDelayChoice = {
@@ -653,6 +654,24 @@ export async function removeStaffTicketReminderPreference(
   if (threadPrefs.size === 0) {
     reminderPreferences.delete(threadId)
   }
+
+  await queuePersist().catch(() => void 0)
+}
+
+export async function removeThreadStaffTicketReminderPreferences(
+  threadId: string
+): Promise<void> {
+  await initStore()
+
+  const threadPrefs = getThreadPreferences(threadId)
+  if (!threadPrefs) return
+
+  for (const userId of threadPrefs.keys()) {
+    clearPendingReminderTimer(threadId, userId)
+  }
+
+  reminderPreferences.delete(threadId)
+  clearThreadOwnerCache(threadId)
 
   await queuePersist().catch(() => void 0)
 }

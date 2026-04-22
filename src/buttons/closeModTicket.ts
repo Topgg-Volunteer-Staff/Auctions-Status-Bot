@@ -13,6 +13,7 @@ import {
   getMostActiveStaffMemberId,
   recordResolvedTicketCredit,
 } from '../utils/tickets/resolvedTicketCredit'
+import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
 import { removeThread } from '../utils/tickets/trackActivity'
 
 export const button = {
@@ -84,6 +85,15 @@ export const execute = async (
         error
       )
     })
+
+    await removeThreadStaffTicketReminderPreferences(thread.id).catch(
+      (error) => {
+        console.error(
+          `Failed to remove staff reminders for closed ticket ${thread.id}:`,
+          error
+        )
+      }
+    )
 
     await removeThread(thread.id)
 

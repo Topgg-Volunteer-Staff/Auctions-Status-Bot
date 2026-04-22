@@ -14,6 +14,7 @@ import { emoji } from '../utils/emojis'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { recordResolvedTicketCredit } from '../utils/tickets/resolvedTicketCredit'
 import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
+import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
 import { removeThread } from '../utils/tickets/trackActivity'
 
 export const command = new SlashCommandBuilder()
@@ -81,6 +82,15 @@ export const execute = async (
         error
       )
     })
+
+    await removeThreadStaffTicketReminderPreferences(thread.id).catch(
+      (error) => {
+        console.error(
+          `Failed to remove staff reminders for resolved ticket ${thread.id}:`,
+          error
+        )
+      }
+    )
 
     if (interaction.guild) {
       await recordResolvedTicketCredit({
