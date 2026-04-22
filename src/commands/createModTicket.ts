@@ -70,7 +70,7 @@ export const execute = async (
         description: 'General help or other issues',
       },
       {
-        label: 'Have an issue with a moderator?',
+        label: 'Have an issue with a Moderator?',
         value: 'issue_with_moderator',
         description: 'Contact support about a moderator issue',
       },
@@ -102,7 +102,7 @@ export const execute = async (
         value: 'info_reviewer_app',
       },
       {
-        label: 'Have an issue with a reviewer?',
+        label: 'Have an issue with a Reviewer?',
         value: 'issue_with_reviewer',
       },
     ])
