@@ -69,6 +69,11 @@ export const execute = async (
         value: 'other',
         description: 'General help or other issues',
       },
+      {
+        label: 'Have an issue with a moderator?',
+        value: 'issue_with_moderator',
+        description: 'Contact support about a moderator issue',
+      },
     ])
 
   // Reviewer select menu
@@ -95,6 +100,10 @@ export const execute = async (
       {
         label: 'How do I become a Reviewer?',
         value: 'info_reviewer_app',
+      },
+      {
+        label: 'Have an issue with a reviewer?',
+        value: 'issue_with_reviewer',
       },
     ])
 
