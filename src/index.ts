@@ -28,6 +28,7 @@ import {
   initializeStaffTicketReminderStore,
   maybeHandleStaffTicketReminder,
 } from './utils/tickets/staffTicketReminders'
+import { initializeTempRoleStore } from './utils/tempRoles'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
   loadMongoBackedJson,
@@ -344,6 +345,10 @@ client.on('clientReady', async (readyClient) => {
       'inactiveAlerts.store.init.failed',
       error
     )
+  })
+
+  await initializeTempRoleStore(readyClient).catch((error) => {
+    void sendMongoErrorLog(readyClient, 'tempRole.store.init.failed', error)
   })
 
   startReminders(readyClient)
