@@ -106,7 +106,7 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           : null
 
         const lastRoutedStaff = alertToSend
-          ? await getLastRoutedStaffSpeaker(thread)
+          ? await getMostActiveRoutedStaffSpeaker(thread)
           : null
 
         const targetAlertChannel =
@@ -172,11 +172,22 @@ function getMemberAlertRoute(member: {
   return 'default'
 }
 
-async function getLastRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
+async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
   memberId: string
   route: AlertRoute
 } | null> {
   try {
+    const staffMessageCounts = new Map<
+      string,
+      { count: number; latestMessageAt: number; route: AlertRoute }
+    >()
+    const memberCache = new Map<
+      string,
+      {
+        id: string
+        roles: { cache: { has: (roleId: string) => boolean } }
+      } | null
+    >()
     let before: string | undefined
     const maxPages = 5
 
@@ -194,31 +205,72 @@ async function getLastRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
         if (message.webhookId) continue
         if (message.system) continue
 
-        const member =
-          message.member ??
-          (await thread.guild.members
-            .fetch(message.author.id)
-            .catch(() => null))
+        let cachedMember = memberCache.get(message.author.id)
+        if (typeof cachedMember === 'undefined') {
+          cachedMember =
+            message.member ??
+            (await thread.guild.members
+              .fetch(message.author.id)
+              .catch(() => null))
+          memberCache.set(message.author.id, cachedMember)
+        }
 
+        const member = cachedMember
         if (!member) continue
         const hasAnyAlertRole = Array.from(ALL_ALERT_ROLE_IDS).some((roleId) =>
           member.roles.cache.has(roleId)
         )
         if (!hasAnyAlertRole) continue
 
-        return {
-          memberId: member.id,
+        const summary = staffMessageCounts.get(member.id) ?? {
+          count: 0,
+          latestMessageAt: 0,
           route: getMemberAlertRoute(member),
         }
+
+        summary.count += 1
+        summary.latestMessageAt = Math.max(
+          summary.latestMessageAt,
+          message.createdTimestamp
+        )
+
+        staffMessageCounts.set(member.id, summary)
       }
 
       // Next page: fetch older messages
       before = messages.last()?.id
-      if (!before) return null
-      if (messages.size < 100) return null
+      if (!before || messages.size < 100) break
     }
 
-    return null
+    let selectedStaff: {
+      memberId: string
+      route: AlertRoute
+      count: number
+      latestMessageAt: number
+    } | null = null
+
+    for (const [memberId, summary] of staffMessageCounts.entries()) {
+      if (
+        !selectedStaff ||
+        summary.count > selectedStaff.count ||
+        (summary.count === selectedStaff.count &&
+          summary.latestMessageAt > selectedStaff.latestMessageAt)
+      ) {
+        selectedStaff = {
+          memberId,
+          route: summary.route,
+          count: summary.count,
+          latestMessageAt: summary.latestMessageAt,
+        }
+      }
+    }
+
+    return selectedStaff
+      ? {
+          memberId: selectedStaff.memberId,
+          route: selectedStaff.route,
+        }
+      : null
   } catch {
     return null
   }
