@@ -19,7 +19,7 @@ export const execute = async (
   }
 
   await interaction.reply({
-    content: `.b ${userId} compromised or hacked account`,
+    content: `/ban user:<@${userId}> delete_messages:Previous Hour reason:compromised or hacked account`,
     flags: MessageFlags.Ephemeral,
   })
 }
