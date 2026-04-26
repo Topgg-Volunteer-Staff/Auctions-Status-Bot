@@ -1,0 +1,127 @@
+[
+  {
+    "name": "Discord Bot Rules",
+    "description": "Guidelines and policy requirements for bots listed on top.gg.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146912808988-Discord-Bot-Guidelines"
+  },
+  {
+    "name": "Roblox Guidelines",
+    "description": "Guidelines and policy requirements for roblox servers listed on top.gg.",
+    "link": "https://support.top.gg/hc/en-us/articles/25221110016924-Roblox-Guidelines"
+  },
+  {
+    "name": "Server Guidelines",
+    "description": "Guidelines and policy requirements for Discord servers listed on top.gg.",
+    "link": "https://support.top.gg/hc/en-us/articles/23751048192028-Server-Guidelines"
+  },
+  {
+    "name": "Voting Guidelines",
+    "description": "Guidelines and policy requirements for Discord servers listed on top.gg.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146974461596-Voting-Guidelines"
+  },
+  {
+    "name": "Review Guidelines",
+    "description": "Guidelines and policy requirements for reviews on top.gg.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146920167196-Review-Guidelines"
+  },
+  {
+    "name": "Sharing Discord Bots",
+    "description": "Sharing your favorite Discord bots with your network can easily be done by clicking the “Share” button! It is also possible to share from a specific bot's or server's page.",
+    "link": "https://support.top.gg/hc/en-us/articles/23135970978204-Sharing-Discord-Bots"
+  },
+  {
+    "name": "How to Report a Bot/Server",
+    "description": "If you find a bot on our website that breaks our Guidelines, then we ask that you use the report feature on that community’s page to alert us so that our Moderators can investigate and take action if necessary. ",
+    "link": "https://support.top.gg/hc/en-us/articles/23135910583964-How-to-Report-a-Bot-Server"
+  },
+  {
+    "name": "Adding Languages to Your Project Page",
+    "description": "By adding languages to your Discord bot you can reach users who speak the language that your bot does!",
+    "link": "https://support.top.gg/hc/en-us/articles/23135790944028-Adding-Languages-to-Your-Project-Page"
+  },
+  {
+    "name": "How to Report A Bug, Recommend a New Feature, or Provide Feedback",
+    "description": "If something is broken on our website or not working as intended, you can do one of the following: First, refer to the pins in the #support channel of our Discord server to find more information regarding the most commonly reported issues, or ask for help from our community in the channel. If your issue is not solved by asking in our #support channel or if you do not feel comfortable asking for assistance there, you can contact us via https://support.top.gg - see the next section for detailed instructions on how.",
+    "link": "https://support.top.gg/hc/en-us/articles/23135702943132-How-to-Report-A-Bug-Recommend-a-New-Feature-or-Provide-Feedback"
+  },
+  {
+    "name": "How to Add Your Server to Top.gg",
+    "description": "Users can list their Discord server on Top.gg in just four easy steps. To see your server list, you’ll want to navigate your Servers' Page. This page displays the Discord servers you have available to add to Top.gg and your existing servers on the site. You can also navigate to https://top.gg/servers/new to add a server that way!",
+    "link": "https://support.top.gg/hc/en-us/articles/23135524249500-How-to-Add-Your-Server-to-Top-gg"
+  },
+  {
+    "name": "How the Project Reviewal Process Works",
+    "description": "When you submit your project, we have a team of volunteers who review your project to ensure quality and coherence with our guidelines. This process typically takes 1 to 2 weeks or more, but could vary based off of queue size. We're working on shortening queue time and looking for more Reviewers - so if you believe you have what it takes, feel free to apply in our Discord Server!",
+    "link": "https://support.top.gg/hc/en-us/articles/23135298323996-How-the-Project-Reviewal-Process-Works"
+  },
+  {
+    "name": "How to Add Your Bot",
+    "description": "Before you submit your bot to Top.gg, please make sure that your bot follows all of our guidelines found here and read over our process for approval found here.",
+    "link": "https://support.top.gg/hc/en-us/articles/23135162935708-How-to-Add-Your-Bot"
+  },
+  {
+    "name": "A Quick Start Guide to Top.gg",
+    "description": "Hello and welcome to Top.gg! Top.gg is a search-and-discovery website, where anyone can list their Discord bots. If you’re figuring out how to use Top.gg to find Discord bots, you’ve come to the right support article.",
+    "link": "https://support.top.gg/hc/en-us/articles/23134885714076-A-Quick-Start-Guide-to-Top-gg"
+  },
+  {
+    "name": "Project Ownership Transfers",
+    "description": "There are several reasons why you might want to transfer the ownership of a bot page between Top.gg accounts. You could have lost access to the original account (such as deleting the associated Discord account). Or the person who submitted the bot no longer works on the project and you want to take over the page so that you can edit it. If, for whatever reason, you need to claim access to a bot page and are unable to do so, please follow the steps outlined below to request an ownership transfer!",
+    "link": "https://support.top.gg/hc/en-us/articles/23143255132700-Project-Ownership-Transfers"
+  },
+  {
+    "name": "How to Appeal your Ban",
+    "description": "This article is for Ban Appeals from the Top.gg Website or Discord Server (discord.gg/dbl). If you are banned from a specific bot or bot's support server, please contact them instead.If you are blocked or banned from a part of our platform you can follow this appeal process to get your access back. ",
+    "link": "https://support.top.gg/hc/en-us/articles/23143055448220-How-to-Appeal-your-Ban"
+  },
+  {
+    "name": "How to Delete Your Account",
+    "description": "Leaving so soon? We understand and will miss you! If you wish to permanently delete your user account on Top.gg, you can do so by taking the following steps:",
+    "link": "https://support.top.gg/hc/en-us/articles/23142741928988-How-to-Delete-Your-Account"
+  },
+  {
+    "name": "Auctions Guidelines",
+    "description": "By default, you can advertise any Discord Bot or Server in which you have access to (such as one you are the owner of, or one you are on the team of). However, you can also create products on our auctions site to be able to link to any website/product.",
+    "link": "https://support.top.gg/hc/en-us/articles/23147075981468-Auctions-Guidelines"
+  },
+  {
+    "name": "Teams Overview",
+    "description": "Our Top.gg Teams feature enables multiple owners for communities and integrations on our site instead of a single owner. Today, these communities and integrations only include Discord Bots. The Teams feature provides bot owners with an easy way to add Users who collaborated on a project, with varying levels of roles and permissions.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146808091164-Teams-Overview"
+  },
+  {
+    "name": "Auctions Partnerships",
+    "description": "Auctions customers interested in running longer term advertising campaigns can partner with Top.gg to purchase select ad slot inventory for a fixed rate.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146541355164-Auctions-Partnerships"
+  },
+  {
+    "name": "How to Create a Product in Auctions",
+    "description": "By default, users can select bots that you own or are on the team for in Auctions to promote them on different category pages. However, Top.gg also offers a way for users to create a custom advertisement to bid with - these are called Products. You can create, edit, and delete products via the “Create” page on our Auctions site.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146417569052-How-to-Create-a-Product-in-Auctions"
+  },
+  {
+    "name": "Auctions Notifications",
+    "description": "To stay on top of your game during auctions, you can enable notifications for key auction events. There are two different types of notifications - email notifications and Discord notifications.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146322221084-Auctions-Notifications"
+  },
+  {
+    "name": "Why am I being charged for extra impressions?",
+    "description": "Retroactive Charging is when you are charged after the auction is over for impressions that you were not estimated to receive, but were within your budget to be purchased.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146214352156-Why-am-I-being-charged-for-extra-impressions"
+  },
+  {
+    "name": "How Do I Use Auctions?",
+    "description": "Auctions is an advertising feature on the Top.gg website which allows you to promote your product (or any product directly listed on Top.gg like Discord bots) on our platform. ",
+    "link": "https://support.top.gg/hc/en-us/articles/23146173577372-How-Do-I-Use-Auctions"
+  },
+  {
+    "name": "How Does CPM Bidding Work?",
+    "description": "CPM, also known as cost per mille, is the amount you’re willing to pay per thousand impressions on your advertisement on our page. For instance, if you bid $2.00 CPM, that means you have to pay $2.00 per 1000 impressions of your product on our web page.",
+    "link": "https://support.top.gg/hc/en-us/articles/23146002059676-How-Does-CPM-Bidding-Work"
+  },
+  {
+    "name": "Auctions Categories and Slots Overview",
+    "description": "If you’re unsure what Auctions is, please read our support article here before continuing.",
+    "link": "https://support.top.gg/hc/en-us/articles/23145828500764-Auctions-Categories-and-Slots-Overview"
+  }
+]

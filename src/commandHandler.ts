@@ -6,6 +6,7 @@ import {
   Routes,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  AutocompleteInteraction,
   ButtonInteraction,
   ModalSubmitInteraction,
   StringSelectMenuInteraction,
@@ -32,6 +33,11 @@ type CommandExecute = (
   interaction: ChatInputCommandInteraction
 ) => Promise<unknown> | unknown
 
+type CommandAutocomplete = (
+  client: Client,
+  interaction: AutocompleteInteraction
+) => Promise<unknown> | unknown
+
 type ButtonExecute = (
   client: Client,
   interaction: ButtonInteraction
@@ -50,6 +56,7 @@ type MenuExecute = (
 interface CommandModule {
   command: SlashCommandBuilder
   execute: CommandExecute
+  autocomplete?: CommandAutocomplete
 }
 
 interface ButtonModule {
@@ -72,6 +79,7 @@ const commands: Array<{
   name: string
   data: SlashCommandBuilder
   execute: CommandExecute
+  autocomplete?: CommandAutocomplete
 }> = []
 
 const buttons: Array<{
@@ -141,7 +149,22 @@ export const commandHandler = async (client: Client) => {
         continue
       }
       const name = mod.command.name
-      commands.push({ name, data: mod.command, execute: mod.execute })
+      const entry: {
+        name: string
+        data: SlashCommandBuilder
+        execute: CommandExecute
+        autocomplete?: CommandAutocomplete
+      } = {
+        name,
+        data: mod.command,
+        execute: mod.execute,
+      }
+
+      if (mod.autocomplete) {
+        entry.autocomplete = mod.autocomplete
+      }
+
+      commands.push(entry)
       console.log('Registered command:', name)
     } catch (err) {
       console.error(`[commands] Failed to load "${file}"`, err)
@@ -344,7 +367,10 @@ export const commandHandler = async (client: Client) => {
   // ---- Interaction routing (with safety) ----
   client.on('interactionCreate', async (interaction) => {
     try {
-      if (interaction.isChatInputCommand()) {
+      if (interaction.isAutocomplete()) {
+        const cmd = commands.find((c) => c.name === interaction.commandName)
+        if (cmd?.autocomplete) await cmd.autocomplete(client, interaction)
+      } else if (interaction.isChatInputCommand()) {
         const cmd = commands.find((c) => c.name === interaction.commandName)
         if (cmd) await cmd.execute(client, interaction)
       } else if (interaction.isButton()) {
