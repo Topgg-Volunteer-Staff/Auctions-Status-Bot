@@ -9,13 +9,25 @@ const ERROR_LOG_CHANNEL_ID = '396848636081733632'
 const MONGO_ERROR_MENTION = '<@884516044151083079>'
 const MAX_FIELD_VALUE = 1024
 const MAX_DESCRIPTION = 4000
+const ERROR_BURST_WINDOW_MS = 30_000
 
 type ErrorMetaValue = string | number | boolean | null | undefined
 type ErrorMeta = Record<string, ErrorMetaValue>
+type ErrorLogOptions = {
+  content?: string
+  allowedMentions?: {
+    users?: string[]
+  }
+}
+type ErrorBurstState = {
+  lastSentAt: number
+  warnedAt: number | null
+}
 
 let consoleForwardingInstalled = false
 let processHandlersInstalled = false
 let consoleForwardQueue: Promise<void> = Promise.resolve()
+const errorBurstState = new Map<string, ErrorBurstState>()
 
 const truncate = (value: string, max: number): string =>
   value.length > max ? `${value.slice(0, max - 3)}...` : value
@@ -34,6 +46,105 @@ export const formatError = (error: unknown): string => {
   }
   if (typeof error === 'string') return error
   return safeStringify(error)
+}
+
+const buildErrorSignature = (title: string, description: string): string =>
+  `${title}\n${description}`
+
+const shouldSkipBurst = (
+  signature: string,
+  now: number
+): { skip: boolean; sendNotice: boolean } => {
+  const existing = errorBurstState.get(signature)
+
+  if (!existing || now - existing.lastSentAt > ERROR_BURST_WINDOW_MS) {
+    errorBurstState.set(signature, {
+      lastSentAt: now,
+      warnedAt: null,
+    })
+    return { skip: false, sendNotice: false }
+  }
+
+  existing.lastSentAt = now
+
+  if (existing.warnedAt === null) {
+    existing.warnedAt = now
+    return { skip: true, sendNotice: true }
+  }
+
+  return { skip: true, sendNotice: false }
+}
+
+const sendBurstNotice = async (channel: TextChannel): Promise<void> => {
+  await channel.send(
+    'More errors have occurred, but I am slowing down to avoid rate limiting the Discord API.'
+  )
+}
+
+const sendErrorLogMessage = async (
+  client: Client,
+  title: string,
+  error: unknown,
+  meta?: ErrorMeta,
+  options?: ErrorLogOptions
+): Promise<void> => {
+  const channel = await getLogChannel(client)
+  if (!channel) {
+    process.stderr.write(
+      `[errorLogging] Could not find text channel ${ERROR_LOG_CHANNEL_ID}\n`
+    )
+    return
+  }
+
+  const description = truncate(formatError(error), MAX_DESCRIPTION)
+  const burst = shouldSkipBurst(buildErrorSignature(title, description), Date.now())
+
+  if (burst.sendNotice) {
+    await sendBurstNotice(channel).catch(() => void 0)
+  }
+
+  if (burst.skip) {
+    return
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor('#FF0000')
+    .setTitle(title)
+    .setDescription(`\`\`\`\n${description}\n\`\`\``)
+    .setTimestamp()
+
+  if (meta) {
+    const fields = Object.entries(meta)
+      .filter(([, value]) => value !== undefined)
+      .slice(0, 10)
+      .map(([key, value]) => ({
+        name: key,
+        value: truncate(String(value), MAX_FIELD_VALUE),
+        inline: true,
+      }))
+
+    if (fields.length > 0) {
+      embed.addFields(fields)
+    }
+  }
+
+  const messageOptions: {
+    embeds: [EmbedBuilder]
+    content?: string
+    allowedMentions?: { users?: string[] }
+  } = {
+    embeds: [embed],
+  }
+
+  if (options?.content) {
+    messageOptions.content = options.content
+  }
+
+  if (options?.allowedMentions) {
+    messageOptions.allowedMentions = options.allowedMentions
+  }
+
+  await channel.send(messageOptions)
 }
 
 const isTextSendable = (
@@ -60,38 +171,7 @@ export const sendErrorLog = async (
   error: unknown,
   meta?: ErrorMeta
 ): Promise<void> => {
-  const channel = await getLogChannel(client)
-  if (!channel) {
-    process.stderr.write(
-      `[errorLogging] Could not find text channel ${ERROR_LOG_CHANNEL_ID}\n`
-    )
-    return
-  }
-
-  const description = truncate(formatError(error), MAX_DESCRIPTION)
-
-  const embed = new EmbedBuilder()
-    .setColor('#FF0000')
-    .setTitle(title)
-    .setDescription(`\`\`\`\n${description}\n\`\`\``)
-    .setTimestamp()
-
-  if (meta) {
-    const fields = Object.entries(meta)
-      .filter(([, value]) => value !== undefined)
-      .slice(0, 10)
-      .map(([key, value]) => ({
-        name: key,
-        value: truncate(String(value), MAX_FIELD_VALUE),
-        inline: true,
-      }))
-
-    if (fields.length > 0) {
-      embed.addFields(fields)
-    }
-  }
-
-  await channel.send({ embeds: [embed] })
+  await sendErrorLogMessage(client, title, error, meta)
 }
 
 export const sendMongoErrorLog = async (
@@ -100,40 +180,8 @@ export const sendMongoErrorLog = async (
   error: unknown,
   meta?: ErrorMeta
 ): Promise<void> => {
-  const channel = await getLogChannel(client)
-  if (!channel) {
-    process.stderr.write(
-      `[errorLogging] Could not find text channel ${ERROR_LOG_CHANNEL_ID}\n`
-    )
-    return
-  }
-
-  const description = truncate(formatError(error), MAX_DESCRIPTION)
-
-  const embed = new EmbedBuilder()
-    .setColor('#FF0000')
-    .setTitle(title)
-    .setDescription(`\`\`\`\n${description}\n\`\`\``)
-    .setTimestamp()
-
-  if (meta) {
-    const fields = Object.entries(meta)
-      .filter(([, value]) => value !== undefined)
-      .slice(0, 10)
-      .map(([key, value]) => ({
-        name: key,
-        value: truncate(String(value), MAX_FIELD_VALUE),
-        inline: true,
-      }))
-
-    if (fields.length > 0) {
-      embed.addFields(fields)
-    }
-  }
-
-  await channel.send({
+  await sendErrorLogMessage(client, title, error, meta, {
     content: MONGO_ERROR_MENTION,
-    embeds: [embed],
     allowedMentions: {
       users: ['884516044151083079'],
     },
