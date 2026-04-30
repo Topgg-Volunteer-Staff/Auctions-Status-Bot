@@ -1,5 +1,5 @@
 import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
-import { channelIds, resolvedFlag } from '../../globals'
+import { channelIds, resolvedFlag, roleIds } from '../../globals'
 import {
   getThreadLastMessage,
   hasAlertBeenSent,
@@ -21,8 +21,8 @@ const DEFAULT_ALERT_ROLE_IDS = new Set([
 ])
 
 const REVIEWER_ALERT_ROLE_IDS = new Set([
-  '767389896133443625',
-  '767392998157451265',
+  roleIds.reviewer,
+  roleIds.trialReviewer,
 ])
 
 const ALL_ALERT_ROLE_IDS = new Set([
@@ -122,6 +122,19 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
             lastRoutedStaff?.memberId ?? null
           )
 
+          if (
+            lastRoutedStaff?.isTrialReviewer &&
+            reviewerAlertChannel &&
+            reviewerAlertChannel.id !== targetAlertChannel.id
+          ) {
+            await sendInactiveAlert(
+              reviewerAlertChannel,
+              thread,
+              alertToSend,
+              lastRoutedStaff.memberId
+            )
+          }
+
           if (alertToSend === '7d') {
             await markAlertSent(threadId, '7d')
             // If it's been inactive for 7 days, also suppress any pending 48h alert.
@@ -175,11 +188,17 @@ function getMemberAlertRoute(member: {
 async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
   memberId: string
   route: AlertRoute
+  isTrialReviewer: boolean
 } | null> {
   try {
     const staffMessageCounts = new Map<
       string,
-      { count: number; latestMessageAt: number; route: AlertRoute }
+      {
+        count: number
+        latestMessageAt: number
+        route: AlertRoute
+        isTrialReviewer: boolean
+      }
     >()
     const memberCache = new Map<
       string,
@@ -226,6 +245,7 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
           count: 0,
           latestMessageAt: 0,
           route: getMemberAlertRoute(member),
+          isTrialReviewer: member.roles.cache.has(roleIds.trialReviewer),
         }
 
         summary.count += 1
@@ -245,6 +265,7 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
     let selectedStaff: {
       memberId: string
       route: AlertRoute
+      isTrialReviewer: boolean
       count: number
       latestMessageAt: number
     } | null = null
@@ -259,6 +280,7 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
         selectedStaff = {
           memberId,
           route: summary.route,
+          isTrialReviewer: summary.isTrialReviewer,
           count: summary.count,
           latestMessageAt: summary.latestMessageAt,
         }
@@ -269,6 +291,7 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
       ? {
           memberId: selectedStaff.memberId,
           route: selectedStaff.route,
+          isTrialReviewer: selectedStaff.isTrialReviewer,
         }
       : null
   } catch {
