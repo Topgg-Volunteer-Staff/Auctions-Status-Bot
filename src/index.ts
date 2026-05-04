@@ -111,9 +111,9 @@ const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 //   return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
 // }
 
-type SendableChannel = {
-  send: (options: unknown) => Promise<unknown>
-}
+// type SendableChannel = {
+//   send: (options: unknown) => Promise<unknown>
+// }
 
 // function isSendableChannel(channel: unknown): channel is SendableChannel {
 //   if (!channel || typeof channel !== 'object') return false
