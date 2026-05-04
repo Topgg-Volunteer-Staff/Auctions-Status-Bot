@@ -2,14 +2,14 @@ import {
   Client,
   Partials,
   GatewayIntentBits,
-  EmbedBuilder,
+  // EmbedBuilder,
   TextChannel,
   ThreadChannel,
   ChannelType,
-  ActionRowBuilder,
-  AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  // ActionRowBuilder,
+  // AttachmentBuilder,
+  // ButtonBuilder,
+  // ButtonStyle,
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
@@ -31,8 +31,8 @@ import {
 import { initializeTempRoleStore } from './utils/tempRoles'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
-  loadMongoBackedJson,
-  saveMongoBackedJson,
+  // loadMongoBackedJson,
+  // saveMongoBackedJson,
   setMongoStoreErrorClient,
 } from './utils/db/mongoBackedJsonStore'
 import {
@@ -42,7 +42,7 @@ import {
   sendErrorLog,
 } from './utils/errorLogging'
 
-const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
+// const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 // const fourImageFlagCounts = new Map<string, number>()
 
@@ -115,11 +115,11 @@ type SendableChannel = {
   send: (options: unknown) => Promise<unknown>
 }
 
-function isSendableChannel(channel: unknown): channel is SendableChannel {
-  if (!channel || typeof channel !== 'object') return false
-  const maybe = channel as { send?: unknown }
-  return typeof maybe.send === 'function'
-}
+// function isSendableChannel(channel: unknown): channel is SendableChannel {
+//   if (!channel || typeof channel !== 'object') return false
+//   const maybe = channel as { send?: unknown }
+//   return typeof maybe.send === 'function'
+// }
 
 // (Attachment link editing removed; we only show the collage now.)
 
@@ -265,31 +265,31 @@ function isSendableChannel(channel: unknown): channel is SendableChannel {
 //   }
 // }
 
-async function fetchImageBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const fetchFn =
-      typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'
-        ? (globalThis as unknown as { fetch: typeof fetch }).fetch
-        : (await import('node-fetch')).default
+// async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+//   try {
+//     const fetchFn =
+//       typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'
+//         ? (globalThis as unknown as { fetch: typeof fetch }).fetch
+//         : (await import('node-fetch')).default
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10_000)
+//     const controller = new AbortController()
+//     const timeout = setTimeout(() => controller.abort(), 10_000)
 
-    const res = await fetchFn(url, {
-      signal: controller.signal,
-      headers: {
-        // Some environments/CDNs behave better with an explicit UA.
-        'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
-      },
-    })
-    clearTimeout(timeout)
-    if (!res.ok) return null
-    const arrayBuffer = await res.arrayBuffer()
-    return Buffer.from(arrayBuffer)
-  } catch {
-    return null
-  }
-}
+//     const res = await fetchFn(url, {
+//       signal: controller.signal,
+//       headers: {
+//         // Some environments/CDNs behave better with an explicit UA.
+//         'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
+//       },
+//     })
+//     clearTimeout(timeout)
+//     if (!res.ok) return null
+//     const arrayBuffer = await res.arrayBuffer()
+//     return Buffer.from(arrayBuffer)
+//   } catch {
+//     return null
+//   }
+// }
 
 const client = new Client({
   intents: [
@@ -316,9 +316,9 @@ setMongoStoreErrorClient(client)
 installConsoleErrorForwarding(client)
 installGlobalErrorHandlers(client)
 
-void initFourImageFlagsStore().catch((error) => {
-  void sendErrorLog(client, 'fourImage.init.failed', error)
-})
+// void initFourImageFlagsStore().catch((error) => {
+//   void sendErrorLog(client, 'fourImage.init.failed', error)
+// })
 
 client.on('clientReady', async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}!`)
