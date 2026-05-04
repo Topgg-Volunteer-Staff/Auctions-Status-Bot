@@ -100,16 +100,16 @@ const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 //   return fourImageFlagsWriteChain
 // }
 
-function isImageAttachment(attachment: {
-  contentType: string | null
-  name: string | null
-}): boolean {
-  const contentType = (attachment.contentType || '').toLowerCase()
-  if (contentType.startsWith('image/')) return true
+// function isImageAttachment(attachment: {
+//   contentType: string | null
+//   name: string | null
+// }): boolean {
+//   const contentType = (attachment.contentType || '').toLowerCase()
+//   if (contentType.startsWith('image/')) return true
 
-  const name = (attachment.name || '').toLowerCase()
-  return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
-}
+//   const name = (attachment.name || '').toLowerCase()
+//   return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
+// }
 
 type SendableChannel = {
   send: (options: unknown) => Promise<unknown>
@@ -123,147 +123,147 @@ function isSendableChannel(channel: unknown): channel is SendableChannel {
 
 // (Attachment link editing removed; we only show the collage now.)
 
-async function sendFourImageFlagLog(options: {
-  userId: string
-  userTag: string
-  userMention: string
-  guildId: string
-  guildName: string
-  channelId: string
-  channelMention: string
-  messageId: string
-  messageUrl: string
-  messageContent: string
-  reason: string
-  flagCount: number
-  attachmentUrls: Array<string>
-  attachmentBuffers?: Array<Buffer>
-  deleted: boolean
-}): Promise<void> {
-  const logChannel = await client.channels
-    .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
-    .catch(() => null)
+// async function sendFourImageFlagLog(options: {
+//   userId: string
+//   userTag: string
+//   userMention: string
+//   guildId: string
+//   guildName: string
+//   channelId: string
+//   channelMention: string
+//   messageId: string
+//   messageUrl: string
+//   messageContent: string
+//   reason: string
+//   flagCount: number
+//   attachmentUrls: Array<string>
+//   attachmentBuffers?: Array<Buffer>
+//   deleted: boolean
+// }): Promise<void> {
+//   const logChannel = await client.channels
+//     .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
+//     .catch(() => null)
 
-  if (!logChannel || !isSendableChannel(logChannel)) {
-    return
-  }
+//   if (!logChannel || !isSendableChannel(logChannel)) {
+//     return
+//   }
 
-  const sendableChannel = logChannel
+//   const sendableChannel = logChannel
 
-  const fields = [
-    { name: 'Reason', value: options.reason, inline: true },
-    { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
-    { name: 'Flag Count', value: String(options.flagCount), inline: true },
-    {
-      name: 'Message',
-      value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
-      inline: false,
-    },
-    {
-      name: 'Content',
-      value: options.messageContent
-        ? options.messageContent.slice(0, 1000)
-        : '*No content*',
-      inline: false,
-    },
-  ] satisfies Array<{
-    name: string
-    value: string
-    inline?: boolean
-  }>
+//   const fields = [
+//     { name: 'Reason', value: options.reason, inline: true },
+//     { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
+//     { name: 'Flag Count', value: String(options.flagCount), inline: true },
+//     {
+//       name: 'Message',
+//       value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
+//       inline: false,
+//     },
+//     {
+//       name: 'Content',
+//       value: options.messageContent
+//         ? options.messageContent.slice(0, 1000)
+//         : '*No content*',
+//       inline: false,
+//     },
+//   ] satisfies Array<{
+//     name: string
+//     value: string
+//     inline?: boolean
+//   }>
 
-  const baseEmbed = new EmbedBuilder()
-    .setColor('#FFAA00')
-    .setTitle('4-image message flagged')
-    .setDescription(
-      [
-        `User: ${options.userMention} (\`${options.userTag}\` | \`${options.userId}\`)`,
-        `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
-      ].join('\n')
-    )
-    .setFields(fields)
-    .setTimestamp()
+//   const baseEmbed = new EmbedBuilder()
+//     .setColor('#FFAA00')
+//     .setTitle('4-image message flagged')
+//     .setDescription(
+//       [
+//         `User: ${options.userMention} (\`${options.userTag}\` | \`${options.userId}\`)`,
+//         `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
+//       ].join('\n')
+//     )
+//     .setFields(fields)
+//     .setTimestamp()
 
-  const components = [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`fourimgBanTemplate_${options.userId}`)
-        .setLabel('Get ban template')
-        .setStyle(ButtonStyle.Danger)
-    ),
-  ]
+//   const components = [
+//     new ActionRowBuilder<ButtonBuilder>().addComponents(
+//       new ButtonBuilder()
+//         .setCustomId(`fourimgBanTemplate_${options.userId}`)
+//         .setLabel('Get ban template')
+//         .setStyle(ButtonStyle.Danger)
+//     ),
+//   ]
 
-  const files: Array<AttachmentBuilder> = []
-  // Attach the 4 raw images as message attachments (not inside the embed).
-  const rawBuffers: Array<Buffer> = []
-  if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
-    rawBuffers.push(
-      ...options.attachmentBuffers.filter((b): b is Buffer =>
-        Buffer.isBuffer(b)
-      )
-    )
-  } else {
-    const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
-    if (urls.length > 0) {
-      const fetched = await Promise.all(urls.map(fetchImageBuffer))
-      rawBuffers.push(
-        ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
-      )
-    }
-  }
+//   const files: Array<AttachmentBuilder> = []
+//   // Attach the 4 raw images as message attachments (not inside the embed).
+//   const rawBuffers: Array<Buffer> = []
+//   if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
+//     rawBuffers.push(
+//       ...options.attachmentBuffers.filter((b): b is Buffer =>
+//         Buffer.isBuffer(b)
+//       )
+//     )
+//   } else {
+//     const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
+//     if (urls.length > 0) {
+//       const fetched = await Promise.all(urls.map(fetchImageBuffer))
+//       rawBuffers.push(
+//         ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
+//       )
+//     }
+//   }
 
-  if (rawBuffers.length > 0) {
-    rawBuffers.slice(0, 4).forEach((buf, idx) => {
-      files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
-    })
-  }
+//   if (rawBuffers.length > 0) {
+//     rawBuffers.slice(0, 4).forEach((buf, idx) => {
+//       files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
+//     })
+//   }
 
-  if (files.length === 0) {
-    console.warn(
-      `[four-image] no images could be attached (node=${
-        process.version
-      }, hasFetch=${
-        typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
-        'function'
-      })`
-    )
-  }
+//   if (files.length === 0) {
+//     console.warn(
+//       `[four-image] no images could be attached (node=${
+//         process.version
+//       }, hasFetch=${
+//         typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
+//         'function'
+//       })`
+//     )
+//   }
 
-  try {
-    await sendableChannel.send({
-      embeds: [baseEmbed],
-      components,
-      files,
-      allowedMentions: { parse: [] },
-    })
-  } catch {
-    // If attaching fails (most commonly due to size limits), fall back to logging links.
-    const urlList = options.attachmentUrls.filter(Boolean).slice(0, 4)
-    if (urlList.length > 0) {
-      baseEmbed.addFields({
-        name: 'Attachments',
-        value: urlList
-          .map((u, i) => `${i + 1}. ${u}`)
-          .join('\n')
-          .slice(0, 1024),
-        inline: false,
-      })
-    }
+//   try {
+//     await sendableChannel.send({
+//       embeds: [baseEmbed],
+//       components,
+//       files,
+//       allowedMentions: { parse: [] },
+//     })
+//   } catch {
+//     // If attaching fails (most commonly due to size limits), fall back to logging links.
+//     const urlList = options.attachmentUrls.filter(Boolean).slice(0, 4)
+//     if (urlList.length > 0) {
+//       baseEmbed.addFields({
+//         name: 'Attachments',
+//         value: urlList
+//           .map((u, i) => `${i + 1}. ${u}`)
+//           .join('\n')
+//           .slice(0, 1024),
+//         inline: false,
+//       })
+//     }
 
-    await sendableChannel
-      .send({
-        embeds: [baseEmbed],
-        components,
-        allowedMentions: { parse: [] },
-      })
-      .catch((error) => {
-        void sendErrorLog(client, 'fourImage.logSend.fallback.failed', error, {
-          messageId: options.messageId,
-          channelId: options.channelId,
-        })
-      })
-  }
-}
+//     await sendableChannel
+//       .send({
+//         embeds: [baseEmbed],
+//         components,
+//         allowedMentions: { parse: [] },
+//       })
+//       .catch((error) => {
+//         void sendErrorLog(client, 'fourImage.logSend.fallback.failed', error, {
+//           messageId: options.messageId,
+//           channelId: options.channelId,
+//         })
+//       })
+//   }
+// }
 
 async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
