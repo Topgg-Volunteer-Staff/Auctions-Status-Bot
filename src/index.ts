@@ -356,90 +356,89 @@ client.on('clientReady', async (readyClient) => {
 
 commandHandler(client)
 
-client.on('messageCreate', async (message) => {
-  // disabling as moving to TopDogg
-  return;
-  try {
-    if (!message.inGuild()) return
-    if (message.author.bot) return
-    if (message.webhookId) return
+// disabling as moving to TopDogg
+// client.on('messageCreate', async (message) => {
+//   try {
+//     if (!message.inGuild()) return
+//     if (message.author.bot) return
+//     if (message.webhookId) return
 
-    await initFourImageFlagsStore()
+//     await initFourImageFlagsStore()
 
-    // Only act when there are exactly 4 attachments and all are images.
-    if (message.attachments.size !== 4) return
-    const attachments = Array.from(message.attachments.values())
-    const allImages = attachments.every((a) => isImageAttachment(a))
-    if (!allImages) return
+//     // Only act when there are exactly 4 attachments and all are images.
+//     if (message.attachments.size !== 4) return
+//     const attachments = Array.from(message.attachments.values())
+//     const allImages = attachments.every((a) => isImageAttachment(a))
+//     if (!allImages) return
 
-    const hasNoContent = !message.content || message.content.trim().length === 0
-    const hasEveryonePing =
-      message.mentions.everyone || /@everyone\b/i.test(message.content)
+//     const hasNoContent = !message.content || message.content.trim().length === 0
+//     const hasEveryonePing =
+//       message.mentions.everyone || /@everyone\b/i.test(message.content)
 
-    // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
-    if (hasNoContent || hasEveryonePing) {
-      const reason = hasNoContent
-        ? 'Empty message with 4 images'
-        : '@everyone ping with 4 images'
+//     // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
+//     if (hasNoContent || hasEveryonePing) {
+//       const reason = hasNoContent
+//         ? 'Empty message with 4 images'
+//         : '@everyone ping with 4 images'
 
-      const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
-      fourImageFlagCounts.set(message.author.id, newCount)
-      await queuePersistFourImageFlagsStore().catch((error) => {
-        void sendErrorLog(client, 'fourImage.persist.failed', error, {
-          userId: message.author.id,
-        })
-      })
+//       const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
+//       fourImageFlagCounts.set(message.author.id, newCount)
+//       await queuePersistFourImageFlagsStore().catch((error) => {
+//         void sendErrorLog(client, 'fourImage.persist.failed', error, {
+//           userId: message.author.id,
+//         })
+//       })
 
-      const attachmentUrls = attachments
-        .map((a) => a.url)
-        .filter((u): u is string => typeof u === 'string' && u.length > 0)
+//       const attachmentUrls = attachments
+//         .map((a) => a.url)
+//         .filter((u): u is string => typeof u === 'string' && u.length > 0)
 
-      // Fetch attachment bytes BEFORE deleting the message so we can always build/upload the collage.
-      const preDeleteBuffers = await Promise.all(
-        attachmentUrls.slice(0, 4).map(fetchImageBuffer)
-      )
-      const attachmentBuffers = preDeleteBuffers.every(
-        (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
-      )
-        ? preDeleteBuffers
-        : undefined
+//       // Fetch attachment bytes BEFORE deleting the message so we can always build/upload the collage.
+//       const preDeleteBuffers = await Promise.all(
+//         attachmentUrls.slice(0, 4).map(fetchImageBuffer)
+//       )
+//       const attachmentBuffers = preDeleteBuffers.every(
+//         (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
+//       )
+//         ? preDeleteBuffers
+//         : undefined
 
-      let deleted = false
-      try {
-        await message.delete()
-        deleted = true
-      } catch (error) {
-        deleted = false
-        void sendErrorLog(client, 'fourImage.delete.failed', error, {
-          messageId: message.id,
-          channelId: message.channelId,
-        })
-      }
+//       let deleted = false
+//       try {
+//         await message.delete()
+//         deleted = true
+//       } catch (error) {
+//         deleted = false
+//         void sendErrorLog(client, 'fourImage.delete.failed', error, {
+//           messageId: message.id,
+//           channelId: message.channelId,
+//         })
+//       }
 
-      const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
+//       const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
 
-      await sendFourImageFlagLog({
-        userId: message.author.id,
-        userTag: message.author.tag,
-        userMention: `<@${message.author.id}>`,
-        guildId: message.guildId,
-        guildName: message.guild.name,
-        channelId: message.channelId,
-        channelMention: `<#${message.channelId}>`,
-        messageId: message.id,
-        messageUrl,
-        messageContent: message.content,
-        reason,
-        flagCount: newCount,
-        attachmentUrls,
-        ...(attachmentBuffers ? { attachmentBuffers } : {}),
-        deleted,
-      })
-    }
-  } catch (error) {
-    void sendErrorLog(client, 'fourImage.handler.failed', error)
-  }
-})
+//       await sendFourImageFlagLog({
+//         userId: message.author.id,
+//         userTag: message.author.tag,
+//         userMention: `<@${message.author.id}>`,
+//         guildId: message.guildId,
+//         guildName: message.guild.name,
+//         channelId: message.channelId,
+//         channelMention: `<#${message.channelId}>`,
+//         messageId: message.id,
+//         messageUrl,
+//         messageContent: message.content,
+//         reason,
+//         flagCount: newCount,
+//         attachmentUrls,
+//         ...(attachmentBuffers ? { attachmentBuffers } : {}),
+//         deleted,
+//       })
+//     }
+//   } catch (error) {
+//     void sendErrorLog(client, 'fourImage.handler.failed', error)
+//   }
+// })
 
 client.on('threadCreate', async (thread) => {
   if (
