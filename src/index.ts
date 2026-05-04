@@ -357,6 +357,8 @@ client.on('clientReady', async (readyClient) => {
 commandHandler(client)
 
 client.on('messageCreate', async (message) => {
+  // disabling as moving to TopDogg
+  return;
   try {
     if (!message.inGuild()) return
     if (message.author.bot) return
