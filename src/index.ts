@@ -44,61 +44,61 @@ import {
 
 const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
-const fourImageFlagCounts = new Map<string, number>()
+// const fourImageFlagCounts = new Map<string, number>()
 
-const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
+// const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
 
-let fourImageFlagsInitPromise: Promise<void> | null = null
-let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
+// let fourImageFlagsInitPromise: Promise<void> | null = null
+// let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
 
-function initFourImageFlagsStore(): Promise<void> {
-  if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
+// function initFourImageFlagsStore(): Promise<void> {
+//   if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
 
-  fourImageFlagsInitPromise = (async () => {
-    try {
-      const parsed = await loadMongoBackedJson<unknown>(
-        FOUR_IMAGE_FLAGS_STORE_KEY,
-        {}
-      )
-      if (!parsed || typeof parsed !== 'object') return
+//   fourImageFlagsInitPromise = (async () => {
+//     try {
+//       const parsed = await loadMongoBackedJson<unknown>(
+//         FOUR_IMAGE_FLAGS_STORE_KEY,
+//         {}
+//       )
+//       if (!parsed || typeof parsed !== 'object') return
 
-      fourImageFlagCounts.clear()
+//       fourImageFlagCounts.clear()
 
-      for (const [userId, count] of Object.entries(parsed)) {
-        if (typeof userId !== 'string') continue
-        if (typeof count !== 'number' || !Number.isFinite(count)) continue
-        if (count <= 0) continue
-        fourImageFlagCounts.set(userId, Math.floor(count))
-      }
-    } catch (err) {
-      const maybe = err as { code?: unknown }
-      if (maybe.code !== 'ENOENT') {
-        console.error('Failed to load four-image flag counts:', err)
-      }
-    }
-  })()
+//       for (const [userId, count] of Object.entries(parsed)) {
+//         if (typeof userId !== 'string') continue
+//         if (typeof count !== 'number' || !Number.isFinite(count)) continue
+//         if (count <= 0) continue
+//         fourImageFlagCounts.set(userId, Math.floor(count))
+//       }
+//     } catch (err) {
+//       const maybe = err as { code?: unknown }
+//       if (maybe.code !== 'ENOENT') {
+//         console.error('Failed to load four-image flag counts:', err)
+//       }
+//     }
+//   })()
 
-  return fourImageFlagsInitPromise
-}
+//   return fourImageFlagsInitPromise
+// }
 
-async function persistFourImageFlagsStore(): Promise<void> {
-  await initFourImageFlagsStore()
+// async function persistFourImageFlagsStore(): Promise<void> {
+//   await initFourImageFlagsStore()
 
-  const obj: Record<string, number> = {}
-  for (const [userId, count] of fourImageFlagCounts.entries()) {
-    obj[userId] = count
-  }
-  await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
-    operation: 'persist',
-  })
-}
+//   const obj: Record<string, number> = {}
+//   for (const [userId, count] of fourImageFlagCounts.entries()) {
+//     obj[userId] = count
+//   }
+//   await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
+//     operation: 'persist',
+//   })
+// }
 
-function queuePersistFourImageFlagsStore(): Promise<void> {
-  fourImageFlagsWriteChain = fourImageFlagsWriteChain
-    .then(() => persistFourImageFlagsStore())
-    .catch(() => persistFourImageFlagsStore())
-  return fourImageFlagsWriteChain
-}
+// function queuePersistFourImageFlagsStore(): Promise<void> {
+//   fourImageFlagsWriteChain = fourImageFlagsWriteChain
+//     .then(() => persistFourImageFlagsStore())
+//     .catch(() => persistFourImageFlagsStore())
+//   return fourImageFlagsWriteChain
+// }
 
 function isImageAttachment(attachment: {
   contentType: string | null
