@@ -53,6 +53,7 @@ const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
 const ticketDmPreferences = new Map<string, TicketDmPreference>()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
 const recentlyReportedDmIssues = new Map<string, number>()
+const threadReminderChains = new Map<string, Promise<void>>()
 
 let initPromise: Promise<void> | null = null
 let writeChain: Promise<void> = Promise.resolve()
@@ -255,6 +256,24 @@ function queueDm(task: () => Promise<void>): Promise<void> {
     })
 
   return dmQueue
+}
+
+function queueThreadReminderTask(
+  threadId: string,
+  task: () => Promise<void>
+): Promise<void> {
+  const previous = threadReminderChains.get(threadId) ?? Promise.resolve()
+  const next = previous
+    .catch(() => void 0)
+    .then(task)
+    .finally(() => {
+      if (threadReminderChains.get(threadId) === next) {
+        threadReminderChains.delete(threadId)
+      }
+    })
+
+  threadReminderChains.set(threadId, next)
+  return next
 }
 
 function setRuntimeClient(client: Client): void {
@@ -784,48 +803,53 @@ export async function maybeNotifyTicketResponse(message: Message): Promise<void>
     if (message.author.bot || message.webhookId || message.system) return
     if (!isSupportedTicketThread(message)) return
 
-    await initStore()
-    const pref = ticketDmPreferences.get(message.channel.id)
-    if (!pref || !pref.enabled) return
+    await queueThreadReminderTask(message.channel.id, async () => {
+      await initStore()
+      const pref = ticketDmPreferences.get(message.channel.id)
+      if (!pref || !pref.enabled) return
 
-    // The opener replied in-thread, so cancel any pending reminder
-    // and allow the next staff cycle to notify again.
-    if (message.author.id === pref.openerId) {
-      await clearPendingReminder(message.channel.id)
+      // The opener replied in-thread, so cancel any pending reminder
+      // and allow the next staff cycle to notify again.
+      if (message.author.id === pref.openerId) {
+        await clearPendingReminder(message.channel.id)
 
-      const latestPref = ticketDmPreferences.get(message.channel.id)
-      if (latestPref?.awaitingOpenerResponse) {
-        ticketDmPreferences.set(message.channel.id, {
-          ...latestPref,
-          awaitingOpenerResponse: false,
-        })
-        await queuePersist().catch(() => void 0)
+        const latestPref = ticketDmPreferences.get(message.channel.id)
+        if (latestPref?.awaitingOpenerResponse) {
+          ticketDmPreferences.set(message.channel.id, {
+            ...latestPref,
+            awaitingOpenerResponse: false,
+          })
+          await queuePersist().catch(() => void 0)
+        }
+
+        return
       }
 
-      return
-    }
+      if (!(await isStaffMessage(message))) return
 
-    if (!(await isStaffMessage(message))) return
+      const latestPref = ticketDmPreferences.get(message.channel.id)
+      if (!latestPref || !latestPref.enabled) return
 
-    // Notify once per staff cycle.
-    if (pref.awaitingOpenerResponse) return
-    if (pref.pendingReminder) return
+      // Notify once per staff cycle.
+      if (latestPref.awaitingOpenerResponse) return
+      if (latestPref.pendingReminder) return
 
-    const dueAt = Date.now() + STAFF_RESPONSE_REMINDER_DELAY_MS
-    const pendingReminder: TicketPendingReminder = {
-      dueAt,
-      messageUrl: message.url,
-      responderName: message.member?.displayName ?? message.author.username,
-    }
+      const dueAt = Date.now() + STAFF_RESPONSE_REMINDER_DELAY_MS
+      const pendingReminder: TicketPendingReminder = {
+        dueAt,
+        messageUrl: message.url,
+        responderName: message.member?.displayName ?? message.author.username,
+      }
 
-    ticketDmPreferences.set(message.channel.id, {
-      ...pref,
-      awaitingOpenerResponse: true,
-      pendingReminder,
+      ticketDmPreferences.set(message.channel.id, {
+        ...latestPref,
+        awaitingOpenerResponse: true,
+        pendingReminder,
+      })
+      await queuePersist().catch(() => void 0)
+
+      scheduleReminder(message.channel.id, pendingReminder)
     })
-    await queuePersist().catch(() => void 0)
-
-    scheduleReminder(message.channel.id, pendingReminder)
   } catch (error) {
     await reportDmReminderIssue({
       reason: 'Error in ticket DM reminder workflow',
