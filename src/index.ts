@@ -2,14 +2,14 @@ import {
   Client,
   Partials,
   GatewayIntentBits,
-  EmbedBuilder,
+  // EmbedBuilder,
   TextChannel,
   ThreadChannel,
   ChannelType,
-  ActionRowBuilder,
-  AttachmentBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  // ActionRowBuilder,
+  // AttachmentBuilder,
+  // ButtonBuilder,
+  // ButtonStyle,
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
@@ -31,8 +31,8 @@ import {
 import { initializeTempRoleStore } from './utils/tempRoles'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
-  loadMongoBackedJson,
-  saveMongoBackedJson,
+  // loadMongoBackedJson,
+  // saveMongoBackedJson,
   setMongoStoreErrorClient,
 } from './utils/db/mongoBackedJsonStore'
 import {
@@ -42,254 +42,254 @@ import {
   sendErrorLog,
 } from './utils/errorLogging'
 
-const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
+// const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
-const fourImageFlagCounts = new Map<string, number>()
+// const fourImageFlagCounts = new Map<string, number>()
 
-const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
+// const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
 
-let fourImageFlagsInitPromise: Promise<void> | null = null
-let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
+// let fourImageFlagsInitPromise: Promise<void> | null = null
+// let fourImageFlagsWriteChain: Promise<void> = Promise.resolve()
 
-function initFourImageFlagsStore(): Promise<void> {
-  if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
+// function initFourImageFlagsStore(): Promise<void> {
+//   if (fourImageFlagsInitPromise) return fourImageFlagsInitPromise
 
-  fourImageFlagsInitPromise = (async () => {
-    try {
-      const parsed = await loadMongoBackedJson<unknown>(
-        FOUR_IMAGE_FLAGS_STORE_KEY,
-        {}
-      )
-      if (!parsed || typeof parsed !== 'object') return
+//   fourImageFlagsInitPromise = (async () => {
+//     try {
+//       const parsed = await loadMongoBackedJson<unknown>(
+//         FOUR_IMAGE_FLAGS_STORE_KEY,
+//         {}
+//       )
+//       if (!parsed || typeof parsed !== 'object') return
 
-      fourImageFlagCounts.clear()
+//       fourImageFlagCounts.clear()
 
-      for (const [userId, count] of Object.entries(parsed)) {
-        if (typeof userId !== 'string') continue
-        if (typeof count !== 'number' || !Number.isFinite(count)) continue
-        if (count <= 0) continue
-        fourImageFlagCounts.set(userId, Math.floor(count))
-      }
-    } catch (err) {
-      const maybe = err as { code?: unknown }
-      if (maybe.code !== 'ENOENT') {
-        console.error('Failed to load four-image flag counts:', err)
-      }
-    }
-  })()
+//       for (const [userId, count] of Object.entries(parsed)) {
+//         if (typeof userId !== 'string') continue
+//         if (typeof count !== 'number' || !Number.isFinite(count)) continue
+//         if (count <= 0) continue
+//         fourImageFlagCounts.set(userId, Math.floor(count))
+//       }
+//     } catch (err) {
+//       const maybe = err as { code?: unknown }
+//       if (maybe.code !== 'ENOENT') {
+//         console.error('Failed to load four-image flag counts:', err)
+//       }
+//     }
+//   })()
 
-  return fourImageFlagsInitPromise
-}
+//   return fourImageFlagsInitPromise
+// }
 
-async function persistFourImageFlagsStore(): Promise<void> {
-  await initFourImageFlagsStore()
+// async function persistFourImageFlagsStore(): Promise<void> {
+//   await initFourImageFlagsStore()
 
-  const obj: Record<string, number> = {}
-  for (const [userId, count] of fourImageFlagCounts.entries()) {
-    obj[userId] = count
-  }
-  await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
-    operation: 'persist',
-  })
-}
+//   const obj: Record<string, number> = {}
+//   for (const [userId, count] of fourImageFlagCounts.entries()) {
+//     obj[userId] = count
+//   }
+//   await saveMongoBackedJson(FOUR_IMAGE_FLAGS_STORE_KEY, obj, {
+//     operation: 'persist',
+//   })
+// }
 
-function queuePersistFourImageFlagsStore(): Promise<void> {
-  fourImageFlagsWriteChain = fourImageFlagsWriteChain
-    .then(() => persistFourImageFlagsStore())
-    .catch(() => persistFourImageFlagsStore())
-  return fourImageFlagsWriteChain
-}
+// function queuePersistFourImageFlagsStore(): Promise<void> {
+//   fourImageFlagsWriteChain = fourImageFlagsWriteChain
+//     .then(() => persistFourImageFlagsStore())
+//     .catch(() => persistFourImageFlagsStore())
+//   return fourImageFlagsWriteChain
+// }
 
-function isImageAttachment(attachment: {
-  contentType: string | null
-  name: string | null
-}): boolean {
-  const contentType = (attachment.contentType || '').toLowerCase()
-  if (contentType.startsWith('image/')) return true
+// function isImageAttachment(attachment: {
+//   contentType: string | null
+//   name: string | null
+// }): boolean {
+//   const contentType = (attachment.contentType || '').toLowerCase()
+//   if (contentType.startsWith('image/')) return true
 
-  const name = (attachment.name || '').toLowerCase()
-  return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
-}
+//   const name = (attachment.name || '').toLowerCase()
+//   return /\.(png|jpe?g|gif|webp|bmp|tiff?)$/.test(name)
+// }
 
-type SendableChannel = {
-  send: (options: unknown) => Promise<unknown>
-}
+// type SendableChannel = {
+//   send: (options: unknown) => Promise<unknown>
+// }
 
-function isSendableChannel(channel: unknown): channel is SendableChannel {
-  if (!channel || typeof channel !== 'object') return false
-  const maybe = channel as { send?: unknown }
-  return typeof maybe.send === 'function'
-}
+// function isSendableChannel(channel: unknown): channel is SendableChannel {
+//   if (!channel || typeof channel !== 'object') return false
+//   const maybe = channel as { send?: unknown }
+//   return typeof maybe.send === 'function'
+// }
 
 // (Attachment link editing removed; we only show the collage now.)
 
-async function sendFourImageFlagLog(options: {
-  userId: string
-  userTag: string
-  userMention: string
-  guildId: string
-  guildName: string
-  channelId: string
-  channelMention: string
-  messageId: string
-  messageUrl: string
-  messageContent: string
-  reason: string
-  flagCount: number
-  attachmentUrls: Array<string>
-  attachmentBuffers?: Array<Buffer>
-  deleted: boolean
-}): Promise<void> {
-  const logChannel = await client.channels
-    .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
-    .catch(() => null)
+// async function sendFourImageFlagLog(options: {
+//   userId: string
+//   userTag: string
+//   userMention: string
+//   guildId: string
+//   guildName: string
+//   channelId: string
+//   channelMention: string
+//   messageId: string
+//   messageUrl: string
+//   messageContent: string
+//   reason: string
+//   flagCount: number
+//   attachmentUrls: Array<string>
+//   attachmentBuffers?: Array<Buffer>
+//   deleted: boolean
+// }): Promise<void> {
+//   const logChannel = await client.channels
+//     .fetch(FOUR_IMAGE_LOG_CHANNEL_ID)
+//     .catch(() => null)
 
-  if (!logChannel || !isSendableChannel(logChannel)) {
-    return
-  }
+//   if (!logChannel || !isSendableChannel(logChannel)) {
+//     return
+//   }
 
-  const sendableChannel = logChannel
+//   const sendableChannel = logChannel
 
-  const fields = [
-    { name: 'Reason', value: options.reason, inline: true },
-    { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
-    { name: 'Flag Count', value: String(options.flagCount), inline: true },
-    {
-      name: 'Message',
-      value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
-      inline: false,
-    },
-    {
-      name: 'Content',
-      value: options.messageContent
-        ? options.messageContent.slice(0, 1000)
-        : '*No content*',
-      inline: false,
-    },
-  ] satisfies Array<{
-    name: string
-    value: string
-    inline?: boolean
-  }>
+//   const fields = [
+//     { name: 'Reason', value: options.reason, inline: true },
+//     { name: 'Deleted', value: options.deleted ? 'Yes' : 'No', inline: true },
+//     { name: 'Flag Count', value: String(options.flagCount), inline: true },
+//     {
+//       name: 'Message',
+//       value: `[Jump](${options.messageUrl}) (\`${options.messageId}\`)`,
+//       inline: false,
+//     },
+//     {
+//       name: 'Content',
+//       value: options.messageContent
+//         ? options.messageContent.slice(0, 1000)
+//         : '*No content*',
+//       inline: false,
+//     },
+//   ] satisfies Array<{
+//     name: string
+//     value: string
+//     inline?: boolean
+//   }>
 
-  const baseEmbed = new EmbedBuilder()
-    .setColor('#FFAA00')
-    .setTitle('4-image message flagged')
-    .setDescription(
-      [
-        `User: ${options.userMention} (\`${options.userTag}\` | \`${options.userId}\`)`,
-        `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
-      ].join('\n')
-    )
-    .setFields(fields)
-    .setTimestamp()
+//   const baseEmbed = new EmbedBuilder()
+//     .setColor('#FFAA00')
+//     .setTitle('4-image message flagged')
+//     .setDescription(
+//       [
+//         `User: ${options.userMention} (\`${options.userTag}\` | \`${options.userId}\`)`,
+//         `Channel: ${options.channelMention} (\`${options.channelId}\`)`,
+//       ].join('\n')
+//     )
+//     .setFields(fields)
+//     .setTimestamp()
 
-  const components = [
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`fourimgBanTemplate_${options.userId}`)
-        .setLabel('Get ban template')
-        .setStyle(ButtonStyle.Danger)
-    ),
-  ]
+//   const components = [
+//     new ActionRowBuilder<ButtonBuilder>().addComponents(
+//       new ButtonBuilder()
+//         .setCustomId(`fourimgBanTemplate_${options.userId}`)
+//         .setLabel('Get ban template')
+//         .setStyle(ButtonStyle.Danger)
+//     ),
+//   ]
 
-  const files: Array<AttachmentBuilder> = []
-  // Attach the 4 raw images as message attachments (not inside the embed).
-  const rawBuffers: Array<Buffer> = []
-  if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
-    rawBuffers.push(
-      ...options.attachmentBuffers.filter((b): b is Buffer =>
-        Buffer.isBuffer(b)
-      )
-    )
-  } else {
-    const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
-    if (urls.length > 0) {
-      const fetched = await Promise.all(urls.map(fetchImageBuffer))
-      rawBuffers.push(
-        ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
-      )
-    }
-  }
+//   const files: Array<AttachmentBuilder> = []
+//   // Attach the 4 raw images as message attachments (not inside the embed).
+//   const rawBuffers: Array<Buffer> = []
+//   if (options.attachmentBuffers && options.attachmentBuffers.length > 0) {
+//     rawBuffers.push(
+//       ...options.attachmentBuffers.filter((b): b is Buffer =>
+//         Buffer.isBuffer(b)
+//       )
+//     )
+//   } else {
+//     const urls = options.attachmentUrls.filter(Boolean).slice(0, 4)
+//     if (urls.length > 0) {
+//       const fetched = await Promise.all(urls.map(fetchImageBuffer))
+//       rawBuffers.push(
+//         ...fetched.filter((b): b is Buffer => Boolean(b) && Buffer.isBuffer(b))
+//       )
+//     }
+//   }
 
-  if (rawBuffers.length > 0) {
-    rawBuffers.slice(0, 4).forEach((buf, idx) => {
-      files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
-    })
-  }
+//   if (rawBuffers.length > 0) {
+//     rawBuffers.slice(0, 4).forEach((buf, idx) => {
+//       files.push(new AttachmentBuilder(buf, { name: `image-${idx + 1}.png` }))
+//     })
+//   }
 
-  if (files.length === 0) {
-    console.warn(
-      `[four-image] no images could be attached (node=${
-        process.version
-      }, hasFetch=${
-        typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
-        'function'
-      })`
-    )
-  }
+//   if (files.length === 0) {
+//     console.warn(
+//       `[four-image] no images could be attached (node=${
+//         process.version
+//       }, hasFetch=${
+//         typeof (globalThis as unknown as { fetch?: unknown }).fetch ===
+//         'function'
+//       })`
+//     )
+//   }
 
-  try {
-    await sendableChannel.send({
-      embeds: [baseEmbed],
-      components,
-      files,
-      allowedMentions: { parse: [] },
-    })
-  } catch {
-    // If attaching fails (most commonly due to size limits), fall back to logging links.
-    const urlList = options.attachmentUrls.filter(Boolean).slice(0, 4)
-    if (urlList.length > 0) {
-      baseEmbed.addFields({
-        name: 'Attachments',
-        value: urlList
-          .map((u, i) => `${i + 1}. ${u}`)
-          .join('\n')
-          .slice(0, 1024),
-        inline: false,
-      })
-    }
+//   try {
+//     await sendableChannel.send({
+//       embeds: [baseEmbed],
+//       components,
+//       files,
+//       allowedMentions: { parse: [] },
+//     })
+//   } catch {
+//     // If attaching fails (most commonly due to size limits), fall back to logging links.
+//     const urlList = options.attachmentUrls.filter(Boolean).slice(0, 4)
+//     if (urlList.length > 0) {
+//       baseEmbed.addFields({
+//         name: 'Attachments',
+//         value: urlList
+//           .map((u, i) => `${i + 1}. ${u}`)
+//           .join('\n')
+//           .slice(0, 1024),
+//         inline: false,
+//       })
+//     }
 
-    await sendableChannel
-      .send({
-        embeds: [baseEmbed],
-        components,
-        allowedMentions: { parse: [] },
-      })
-      .catch((error) => {
-        void sendErrorLog(client, 'fourImage.logSend.fallback.failed', error, {
-          messageId: options.messageId,
-          channelId: options.channelId,
-        })
-      })
-  }
-}
+//     await sendableChannel
+//       .send({
+//         embeds: [baseEmbed],
+//         components,
+//         allowedMentions: { parse: [] },
+//       })
+//       .catch((error) => {
+//         void sendErrorLog(client, 'fourImage.logSend.fallback.failed', error, {
+//           messageId: options.messageId,
+//           channelId: options.channelId,
+//         })
+//       })
+//   }
+// }
 
-async function fetchImageBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const fetchFn =
-      typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'
-        ? (globalThis as unknown as { fetch: typeof fetch }).fetch
-        : (await import('node-fetch')).default
+// async function fetchImageBuffer(url: string): Promise<Buffer | null> {
+//   try {
+//     const fetchFn =
+//       typeof (globalThis as unknown as { fetch?: unknown }).fetch === 'function'
+//         ? (globalThis as unknown as { fetch: typeof fetch }).fetch
+//         : (await import('node-fetch')).default
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10_000)
+//     const controller = new AbortController()
+//     const timeout = setTimeout(() => controller.abort(), 10_000)
 
-    const res = await fetchFn(url, {
-      signal: controller.signal,
-      headers: {
-        // Some environments/CDNs behave better with an explicit UA.
-        'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
-      },
-    })
-    clearTimeout(timeout)
-    if (!res.ok) return null
-    const arrayBuffer = await res.arrayBuffer()
-    return Buffer.from(arrayBuffer)
-  } catch {
-    return null
-  }
-}
+//     const res = await fetchFn(url, {
+//       signal: controller.signal,
+//       headers: {
+//         // Some environments/CDNs behave better with an explicit UA.
+//         'user-agent': 'TopGG-Tickets/1.0 (+https://top.gg)',
+//       },
+//     })
+//     clearTimeout(timeout)
+//     if (!res.ok) return null
+//     const arrayBuffer = await res.arrayBuffer()
+//     return Buffer.from(arrayBuffer)
+//   } catch {
+//     return null
+//   }
+// }
 
 const client = new Client({
   intents: [
@@ -316,9 +316,9 @@ setMongoStoreErrorClient(client)
 installConsoleErrorForwarding(client)
 installGlobalErrorHandlers(client)
 
-void initFourImageFlagsStore().catch((error) => {
-  void sendErrorLog(client, 'fourImage.init.failed', error)
-})
+// void initFourImageFlagsStore().catch((error) => {
+//   void sendErrorLog(client, 'fourImage.init.failed', error)
+// })
 
 client.on('clientReady', async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}!`)
@@ -356,88 +356,89 @@ client.on('clientReady', async (readyClient) => {
 
 commandHandler(client)
 
-client.on('messageCreate', async (message) => {
-  try {
-    if (!message.inGuild()) return
-    if (message.author.bot) return
-    if (message.webhookId) return
+// disabling as moving to TopDogg
+// client.on('messageCreate', async (message) => {
+//   try {
+//     if (!message.inGuild()) return
+//     if (message.author.bot) return
+//     if (message.webhookId) return
 
-    await initFourImageFlagsStore()
+//     await initFourImageFlagsStore()
 
-    // Only act when there are exactly 4 attachments and all are images.
-    if (message.attachments.size !== 4) return
-    const attachments = Array.from(message.attachments.values())
-    const allImages = attachments.every((a) => isImageAttachment(a))
-    if (!allImages) return
+//     // Only act when there are exactly 4 attachments and all are images.
+//     if (message.attachments.size !== 4) return
+//     const attachments = Array.from(message.attachments.values())
+//     const allImages = attachments.every((a) => isImageAttachment(a))
+//     if (!allImages) return
 
-    const hasNoContent = !message.content || message.content.trim().length === 0
-    const hasEveryonePing =
-      message.mentions.everyone || /@everyone\b/i.test(message.content)
+//     const hasNoContent = !message.content || message.content.trim().length === 0
+//     const hasEveryonePing =
+//       message.mentions.everyone || /@everyone\b/i.test(message.content)
 
-    // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
-    if (hasNoContent || hasEveryonePing) {
-      const reason = hasNoContent
-        ? 'Empty message with 4 images'
-        : '@everyone ping with 4 images'
+//     // Delete only if: exactly 4 images AND (empty message OR @everyone ping)
+//     if (hasNoContent || hasEveryonePing) {
+//       const reason = hasNoContent
+//         ? 'Empty message with 4 images'
+//         : '@everyone ping with 4 images'
 
-      const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
-      fourImageFlagCounts.set(message.author.id, newCount)
-      await queuePersistFourImageFlagsStore().catch((error) => {
-        void sendErrorLog(client, 'fourImage.persist.failed', error, {
-          userId: message.author.id,
-        })
-      })
+//       const newCount = (fourImageFlagCounts.get(message.author.id) ?? 0) + 1
+//       fourImageFlagCounts.set(message.author.id, newCount)
+//       await queuePersistFourImageFlagsStore().catch((error) => {
+//         void sendErrorLog(client, 'fourImage.persist.failed', error, {
+//           userId: message.author.id,
+//         })
+//       })
 
-      const attachmentUrls = attachments
-        .map((a) => a.url)
-        .filter((u): u is string => typeof u === 'string' && u.length > 0)
+//       const attachmentUrls = attachments
+//         .map((a) => a.url)
+//         .filter((u): u is string => typeof u === 'string' && u.length > 0)
 
-      // Fetch attachment bytes BEFORE deleting the message so we can always build/upload the collage.
-      const preDeleteBuffers = await Promise.all(
-        attachmentUrls.slice(0, 4).map(fetchImageBuffer)
-      )
-      const attachmentBuffers = preDeleteBuffers.every(
-        (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
-      )
-        ? preDeleteBuffers
-        : undefined
+//       // Fetch attachment bytes BEFORE deleting the message so we can always build/upload the collage.
+//       const preDeleteBuffers = await Promise.all(
+//         attachmentUrls.slice(0, 4).map(fetchImageBuffer)
+//       )
+//       const attachmentBuffers = preDeleteBuffers.every(
+//         (b): b is Buffer => Boolean(b) && Buffer.isBuffer(b)
+//       )
+//         ? preDeleteBuffers
+//         : undefined
 
-      let deleted = false
-      try {
-        await message.delete()
-        deleted = true
-      } catch (error) {
-        deleted = false
-        void sendErrorLog(client, 'fourImage.delete.failed', error, {
-          messageId: message.id,
-          channelId: message.channelId,
-        })
-      }
+//       let deleted = false
+//       try {
+//         await message.delete()
+//         deleted = true
+//       } catch (error) {
+//         deleted = false
+//         void sendErrorLog(client, 'fourImage.delete.failed', error, {
+//           messageId: message.id,
+//           channelId: message.channelId,
+//         })
+//       }
 
-      const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
+//       const messageUrl = `https://discord.com/channels/${message.guildId}/${message.channelId}/${message.id}`
 
-      await sendFourImageFlagLog({
-        userId: message.author.id,
-        userTag: message.author.tag,
-        userMention: `<@${message.author.id}>`,
-        guildId: message.guildId,
-        guildName: message.guild.name,
-        channelId: message.channelId,
-        channelMention: `<#${message.channelId}>`,
-        messageId: message.id,
-        messageUrl,
-        messageContent: message.content,
-        reason,
-        flagCount: newCount,
-        attachmentUrls,
-        ...(attachmentBuffers ? { attachmentBuffers } : {}),
-        deleted,
-      })
-    }
-  } catch (error) {
-    void sendErrorLog(client, 'fourImage.handler.failed', error)
-  }
-})
+//       await sendFourImageFlagLog({
+//         userId: message.author.id,
+//         userTag: message.author.tag,
+//         userMention: `<@${message.author.id}>`,
+//         guildId: message.guildId,
+//         guildName: message.guild.name,
+//         channelId: message.channelId,
+//         channelMention: `<#${message.channelId}>`,
+//         messageId: message.id,
+//         messageUrl,
+//         messageContent: message.content,
+//         reason,
+//         flagCount: newCount,
+//         attachmentUrls,
+//         ...(attachmentBuffers ? { attachmentBuffers } : {}),
+//         deleted,
+//       })
+//     }
+//   } catch (error) {
+//     void sendErrorLog(client, 'fourImage.handler.failed', error)
+//   }
+// })
 
 client.on('threadCreate', async (thread) => {
   if (
