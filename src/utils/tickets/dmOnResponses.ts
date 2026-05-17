@@ -38,6 +38,11 @@ type TicketDmPreference = {
 
 type PersistedTicketDmPreferences = Record<string, TicketDmPreference>
 
+type PersistedTicketDmPreferencesStore = {
+  threads: PersistedTicketDmPreferences
+  userDefaults: Record<string, boolean>
+}
+
 const TICKET_DM_PREFS_STORE_KEY = 'ticket-dm-responses'
 const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
@@ -51,6 +56,7 @@ const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
 ]
 
 const ticketDmPreferences = new Map<string, TicketDmPreference>()
+const openerDmDefaults = new Map<string, boolean>()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
 const recentlyReportedDmIssues = new Map<string, number>()
 const threadReminderChains = new Map<string, Promise<void>>()
@@ -152,9 +158,54 @@ async function writeCurrentStoreToDisk(): Promise<void> {
   for (const [threadId, pref] of ticketDmPreferences.entries()) {
     data[threadId] = pref
   }
-  await saveMongoBackedJson(TICKET_DM_PREFS_STORE_KEY, data, {
+
+  const userDefaults: Record<string, boolean> = {}
+  for (const [openerId, enabled] of openerDmDefaults.entries()) {
+    userDefaults[openerId] = enabled
+  }
+
+  await saveMongoBackedJson<PersistedTicketDmPreferencesStore>(
+    TICKET_DM_PREFS_STORE_KEY,
+    {
+      threads: data,
+      userDefaults,
+    },
+    {
     operation: 'persist',
-  })
+    }
+  )
+}
+
+function getPersistedThreads(
+  parsed: Record<string, unknown>
+): PersistedTicketDmPreferences {
+  if (isObject(parsed.threads)) {
+    return parsed.threads as PersistedTicketDmPreferences
+  }
+
+  return parsed as PersistedTicketDmPreferences
+}
+
+function loadPersistedUserDefaults(parsed: Record<string, unknown>): boolean {
+  if (!isObject(parsed.userDefaults)) {
+    return false
+  }
+
+  let migrated = false
+  for (const [openerId, enabled] of Object.entries(parsed.userDefaults)) {
+    if (typeof enabled !== 'boolean') {
+      migrated = true
+      continue
+    }
+
+    openerDmDefaults.set(openerId, enabled)
+  }
+
+  return migrated
+}
+
+function getDefaultDmResponsesEnabled(openerId: string): boolean {
+  return openerDmDefaults.get(openerId) ?? true
 }
 
 async function initStore(): Promise<void> {
@@ -168,9 +219,14 @@ async function initStore(): Promise<void> {
       )
       if (!isObject(parsed)) return
 
-      let migrated = false
+      let migrated = !isObject(parsed.threads)
 
-      for (const [threadId, pref] of Object.entries(parsed)) {
+      openerDmDefaults.clear()
+      if (loadPersistedUserDefaults(parsed)) {
+        migrated = true
+      }
+
+      for (const [threadId, pref] of Object.entries(getPersistedThreads(parsed))) {
         if (typeof threadId !== 'string' || !isObject(pref)) continue
 
         const openerId = pref.openerId
@@ -682,7 +738,7 @@ export async function registerTicketThread(
 
   ticketDmPreferences.set(threadId, {
     openerId,
-    enabled: existing?.enabled ?? true,
+    enabled: existing?.enabled ?? getDefaultDmResponsesEnabled(openerId),
     awaitingOpenerResponse: existing?.awaitingOpenerResponse ?? false,
     ...(existing?.pendingReminder
       ? { pendingReminder: existing.pendingReminder }
@@ -709,6 +765,8 @@ export async function toggleTicketDmResponses(
   }
 
   const nextEnabled = !(current?.enabled ?? false)
+  openerDmDefaults.set(openerId, nextEnabled)
+
   ticketDmPreferences.set(threadId, {
     openerId,
     enabled: nextEnabled,
@@ -742,11 +800,14 @@ export async function removeTicketDmPreference(threadId: string): Promise<void> 
 export function updateDmResponseEmbed(
   openerId: string,
   enabled: boolean,
-  status?: TicketDmDeliveryStatus
+  status?: TicketDmDeliveryStatus,
+  inheritedDisabled = false
 ): EmbedBuilder {
   const statusLine = enabled
     ? `<@${openerId}> has opted in for DM responses.`
-    : `<@${openerId}> has opted out of DM responses.`
+    : inheritedDisabled
+      ? `<@${openerId}> opted out of ticket DMs last time.`
+      : `<@${openerId}> has opted out of DM responses.`
   const deliveryStatusLine = buildDmDeliveryStatusLine(status)
   const deliveryStatusText = deliveryStatusLine
     ? `\n\n${deliveryStatusLine}`
@@ -773,16 +834,19 @@ export async function sendDmOnResponsesPrompt(
   setRuntimeClient(thread.client)
   await registerTicketThread(thread.id, openerId)
 
+  const current = ticketDmPreferences.get(thread.id)
+  const enabled = current?.enabled ?? getDefaultDmResponsesEnabled(openerId)
+  const inheritedDisabled = !enabled
+
   const sent = await thread.send({
-    embeds: [updateDmResponseEmbed(openerId, true)],
-    components: [createDmOnResponsesRow(openerId, true)],
+    embeds: [updateDmResponseEmbed(openerId, enabled, undefined, inheritedDisabled)],
+    components: [createDmOnResponsesRow(openerId, enabled)],
     allowedMentions: { parse: [], users: [openerId] },
   })
 
-  const current = ticketDmPreferences.get(thread.id)
   ticketDmPreferences.set(thread.id, {
     openerId,
-    enabled: current?.enabled ?? true,
+    enabled,
     awaitingOpenerResponse: current?.awaitingOpenerResponse ?? false,
     ...(current?.pendingReminder
       ? { pendingReminder: current.pendingReminder }
