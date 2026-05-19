@@ -82,7 +82,7 @@ export const execute = async (
     .setPlaceholder('Select a reason to contact a reviewer')
     .addOptions([
       {
-        label: 'DISPUTE - Why was my bot declined?',
+        label: 'DISPUTE - Why was my project declined?',
         value: 'dispute_decline',
       },
       {
@@ -117,7 +117,7 @@ export const execute = async (
   const embedReview = new EmbedBuilder()
     .setTitle(`${emoji.sunglasses} Contact a Reviewer`)
     .setDescription(
-      `Want to appeal a bot decline? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
+      `Need help with a bot, server, or Roblox experience review? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
     .setColor('#ff6b00')
 
