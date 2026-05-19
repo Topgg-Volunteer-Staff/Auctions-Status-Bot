@@ -27,9 +27,9 @@ export const execute = async (
 
   const embed = new EmbedBuilder()
     .setColor('#E91E63')
-    .setTitle('Why was my bot declined?')
+    .setTitle('Why was my project declined?')
     .setDescription(
-      '**__This ticket is strictly for discussing bot rejections.__**\n\nIf you are disputing your projects decline, click the button below. For all other questions, please use the <#714045415707770900> channel!\n\n:x: Tickets opened for any other reason will be closed without explanation.'
+      '**__This ticket is strictly for discussing project rejections.__**\n\nIf you are disputing your projects decline, click the button below. For all other questions, please use the <#714045415707770900> channel!\n\n:x: Tickets opened for any other reason will be closed without explanation.'
     )
 
   await interaction.followUp({
