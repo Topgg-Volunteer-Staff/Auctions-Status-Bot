@@ -117,7 +117,7 @@ export const execute = async (
   const embedReview = new EmbedBuilder()
     .setTitle(`${emoji.sunglasses} Contact a Reviewer`)
     .setDescription(
-      `Need help with a bot, server, or Roblox experience review? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
+      `Need help with a bot, server, or roblox game dispute? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
     )
     .setColor('#ff6b00')
 
