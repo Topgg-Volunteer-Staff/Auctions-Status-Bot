@@ -1,4 +1,8 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonInteraction,
+  ButtonStyle,
   Client,
   ChatInputCommandInteraction,
   EmbedBuilder,
@@ -17,6 +21,7 @@ import {
 } from '../utils/db/resolvedTickets'
 
 const auditColor = 0xff3366
+export const auditPageButtonName = 'auditPage'
 
 const datePattern = /^(\d{2})-(\d{2})-(\d{4})$/
 
@@ -141,8 +146,83 @@ const formatThreadCountLabel = (count: number): string =>
 
 const formatUserMention = (userId: string): string => `<@${userId}>`
 
+const clampPageIndex = (pageIndex: number, pageCount: number): number => {
+  if (pageCount <= 0) return 0
+  if (pageIndex < 0) return 0
+  if (pageIndex >= pageCount) return pageCount - 1
+  return pageIndex
+}
+
+const buildAuditPageCustomId = (
+  userId: string,
+  startInput: string,
+  endInput: string,
+  pageIndex: number
+): string =>
+  `${auditPageButtonName}_${userId}_${startInput}_${endInput}_${pageIndex + 1}`
+
+export const getAuditPageEmbed = (
+  embeds: Array<EmbedBuilder>,
+  pageIndex: number
+): EmbedBuilder => {
+  const safePageIndex = clampPageIndex(pageIndex, embeds.length)
+  const embed = embeds[safePageIndex]
+
+  if (!embed) {
+    throw new Error('No audit pages were available to display.')
+  }
+
+  return embed
+}
+
+export const buildAuditPaginationComponents = (
+  userId: string,
+  startInput: string,
+  endInput: string,
+  pageIndex: number,
+  pageCount: number
+): Array<ActionRowBuilder<ButtonBuilder>> => {
+  if (pageCount <= 1) return []
+
+  const clampedPageIndex = clampPageIndex(pageIndex, pageCount)
+
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(
+          buildAuditPageCustomId(
+            userId,
+            startInput,
+            endInput,
+            clampedPageIndex - 1
+          )
+        )
+        .setLabel('Previous')
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(clampedPageIndex === 0),
+      new ButtonBuilder()
+        .setCustomId(`${auditPageButtonName}_indicator`)
+        .setLabel(`Page ${clampedPageIndex + 1}/${pageCount}`)
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(true),
+      new ButtonBuilder()
+        .setCustomId(
+          buildAuditPageCustomId(
+            userId,
+            startInput,
+            endInput,
+            clampedPageIndex + 1
+          )
+        )
+        .setLabel('Next')
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(clampedPageIndex >= pageCount - 1)
+    ),
+  ]
+}
+
 const resolveDisplayName = async (
-  interaction: ChatInputCommandInteraction,
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
   userId: string,
   fallback: string
 ): Promise<string> => {
@@ -171,7 +251,7 @@ const chunkThreadLines = (lines: Array<string>): Array<string> => {
 }
 
 const buildUserEmbeds = async (
-  interaction: ChatInputCommandInteraction,
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
   targetUser: User,
   range: DateRangeWithLabel
 ): Promise<Array<EmbedBuilder>> => {
@@ -237,6 +317,33 @@ const buildUserEmbeds = async (
 
     return embed
   })
+}
+
+export const getUserAuditEmbeds = async (
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  targetUser: User,
+  startInput: string,
+  endInput: string
+): Promise<Array<EmbedBuilder>> => {
+  const range = createDateRange(startInput, endInput)
+  const hasAmbiguousInput = isAmbiguousDateRange(startInput, endInput)
+
+  let embeds = await buildUserEmbeds(interaction, targetUser, range)
+
+  if (hasAmbiguousInput && isNoResultsEmbedSet(embeds)) {
+    const fallbackRange = createSwappedDateRange(startInput, endInput)
+    const fallbackEmbeds = await buildUserEmbeds(
+      interaction,
+      targetUser,
+      fallbackRange
+    )
+
+    if (!isNoResultsEmbedSet(fallbackEmbeds)) {
+      embeds = fallbackEmbeds
+    }
+  }
+
+  return embeds
 }
 
 export const command = new SlashCommandBuilder()
@@ -364,24 +471,25 @@ export const execute = async (
       return
     }
 
-    let embeds = await buildUserEmbeds(interaction, targetUser, range)
+    const embeds = await getUserAuditEmbeds(
+      interaction,
+      targetUser,
+      startInput,
+      endInput
+    )
+    const pageIndex = 0
+    const currentEmbed = getAuditPageEmbed(embeds, pageIndex)
 
-    if (hasAmbiguousInput && isNoResultsEmbedSet(embeds)) {
-      const fallbackRange = createSwappedDateRange(startInput, endInput)
-      const fallbackEmbeds = await buildUserEmbeds(
-        interaction,
-        targetUser,
-        fallbackRange
-      )
-
-      const hasFallbackResults = !isNoResultsEmbedSet(fallbackEmbeds)
-
-      if (hasFallbackResults) {
-        embeds = fallbackEmbeds
-      }
-    }
-
-    await interaction.editReply({ embeds })
+    await interaction.editReply({
+      embeds: [currentEmbed],
+      components: buildAuditPaginationComponents(
+        targetUser.id,
+        startInput,
+        endInput,
+        pageIndex,
+        embeds.length
+      ),
+    })
   } catch (error) {
     const message =
       error instanceof Error
