@@ -22,6 +22,7 @@ import {
 
 const auditColor = 0xff3366
 export const auditPageButtonName = 'auditPage'
+const auditThreadsPerPage = 10
 
 const datePattern = /^(\d{2})-(\d{2})-(\d{4})$/
 
@@ -232,22 +233,14 @@ const resolveDisplayName = async (
   return member?.displayName ?? fallback
 }
 
-const chunkThreadLines = (lines: Array<string>): Array<string> => {
-  const chunks: Array<string> = []
-  let current = ''
+const paginateThreadLines = (lines: Array<string>): Array<Array<string>> => {
+  const pages: Array<Array<string>> = []
 
-  for (const line of lines) {
-    const next = current ? `${current}\n${line}` : line
-    if (next.length > 3500) {
-      if (current) chunks.push(current)
-      current = line
-      continue
-    }
-    current = next
+  for (let index = 0; index < lines.length; index += auditThreadsPerPage) {
+    pages.push(lines.slice(index, index + auditThreadsPerPage))
   }
 
-  if (current) chunks.push(current)
-  return chunks
+  return pages
 }
 
 const buildUserEmbeds = async (
@@ -289,9 +282,9 @@ const buildUserEmbeds = async (
     return `• <#${record.threadId}> (${record.threadName}) - ${resolvedAt}`
   })
 
-  const chunks = chunkThreadLines(threadLines)
+  const pages = paginateThreadLines(threadLines)
 
-  return chunks.map((chunk, index) => {
+  return pages.map((pageLines, index) => {
     const embed = buildAuditEmbed()
       .setDescription(
         [
@@ -302,16 +295,16 @@ const buildUserEmbeds = async (
           displayName,
           '',
           `**Resolved Threads**`,
-          chunk,
+          pageLines.join('\n'),
         ].join('\n')
       )
       .setFooter({
         text: `Showing ${formatThreadCountLabel(records.length)}`,
       })
 
-    if (chunks.length > 1) {
+    if (pages.length > 1) {
       embed.setFooter({
-        text: `Showing ${formatThreadCountLabel(records.length)} • Page ${index + 1}/${chunks.length}`,
+        text: `Showing ${formatThreadCountLabel(records.length)} • Page ${index + 1}/${pages.length}`,
       })
     }
 
