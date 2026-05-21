@@ -8,6 +8,7 @@
   ThreadChannel,
 } from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
+import { getMongoDatabase } from '../db/mongo'
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
@@ -33,6 +34,7 @@ type TicketDmPreference = {
   toggleMessageUrl?: string
   awaitingOpenerResponse?: boolean
   pendingReminder?: TicketPendingReminder
+  pendingReminderClaimedAt?: number
   lastDmDeliveryStatus?: TicketDmDeliveryStatus
 }
 
@@ -44,11 +46,13 @@ type PersistedTicketDmPreferencesStore = {
 }
 
 const TICKET_DM_PREFS_STORE_KEY = 'ticket-dm-responses'
+const APP_DATA_COLLECTION_NAME = 'appData'
 const DM_DEBUG_CHANNEL_ID = '396848636081733632'
 
 const STAFF_RESPONSE_REMINDER_DELAY_MS = 5 * 60_000
 const DM_QUEUE_SPACING_MS = 1_000
 const DM_ISSUE_DEDUPE_WINDOW_MS = 6 * 60 * 60_000
+const PENDING_REMINDER_CLAIM_TTL_MS = 2 * 60_000
 const EXPECTED_DM_DELIVERY_ERROR_CODES = new Set([50007, 50278])
 const EXPECTED_DM_DELIVERY_ERROR_PATTERNS = [
   /cannot send messages to this user/i,
@@ -124,6 +128,66 @@ function normalizePendingReminder(value: unknown): TicketPendingReminder | null 
     messageUrl: value.messageUrl,
     responderName: value.responderName,
   }
+}
+
+function normalizeClaimedAt(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return normalizeDueAt(value)
+}
+
+function normalizeStoredTicketPreference(
+  pref: Record<string, unknown>
+): TicketDmPreference | null {
+  const openerId = pref.openerId
+  const enabled = pref.enabled
+  const toggleMessageUrl = pref.toggleMessageUrl
+  if (typeof openerId !== 'string' || typeof enabled !== 'boolean') {
+    return null
+  }
+
+  const normalizedPendingReminder = normalizePendingReminder(pref.pendingReminder)
+  const normalizedDeliveryStatus = normalizeDeliveryStatus(
+    pref.lastDmDeliveryStatus
+  )
+  const normalizedClaimedAt = normalizeClaimedAt(pref.pendingReminderClaimedAt)
+  const awaitingFromFile =
+    typeof pref.awaitingOpenerResponse === 'boolean'
+      ? pref.awaitingOpenerResponse
+      : false
+  const awaitingOpenerResponse = normalizedPendingReminder
+    ? true
+    : awaitingFromFile
+
+  return {
+    openerId,
+    enabled,
+    awaitingOpenerResponse,
+    ...(normalizedPendingReminder
+      ? { pendingReminder: normalizedPendingReminder }
+      : {}),
+    ...(normalizedPendingReminder && normalizedClaimedAt !== null
+      ? { pendingReminderClaimedAt: normalizedClaimedAt }
+      : {}),
+    ...(normalizedDeliveryStatus
+      ? { lastDmDeliveryStatus: normalizedDeliveryStatus }
+      : {}),
+    ...(typeof toggleMessageUrl === 'string' && toggleMessageUrl.length > 0
+      ? { toggleMessageUrl }
+      : {}),
+  }
+}
+
+function reminderMatches(
+  left: TicketPendingReminder | undefined,
+  right: TicketPendingReminder
+): boolean {
+  if (!left) return false
+
+  return (
+    left.dueAt === right.dueAt &&
+    left.messageUrl === right.messageUrl &&
+    left.responderName === right.responderName
+  )
 }
 
 function isValidDeliveryStatus(value: unknown): value is TicketDmDeliveryStatus {
@@ -229,26 +293,12 @@ async function initStore(): Promise<void> {
       for (const [threadId, pref] of Object.entries(getPersistedThreads(parsed))) {
         if (typeof threadId !== 'string' || !isObject(pref)) continue
 
-        const openerId = pref.openerId
-        const enabled = pref.enabled
-        const toggleMessageUrl = pref.toggleMessageUrl
-        if (typeof openerId !== 'string' || typeof enabled !== 'boolean') {
-          continue
-        }
+        const normalizedPref = normalizeStoredTicketPreference(pref)
+        if (!normalizedPref) continue
 
-        const normalizedPendingReminder = normalizePendingReminder(
-          pref.pendingReminder
-        )
-        const normalizedDeliveryStatus = normalizeDeliveryStatus(
-          pref.lastDmDeliveryStatus
-        )
-        const awaitingFromFile =
-          typeof pref.awaitingOpenerResponse === 'boolean'
-            ? pref.awaitingOpenerResponse
-            : false
-        const awaitingOpenerResponse = normalizedPendingReminder
-          ? true
-          : awaitingFromFile
+        const normalizedPendingReminder = normalizedPref.pendingReminder
+        const normalizedDeliveryStatus = normalizedPref.lastDmDeliveryStatus
+        const normalizedClaimedAt = normalizedPref.pendingReminderClaimedAt
 
         if (
           normalizedPendingReminder &&
@@ -259,19 +309,21 @@ async function initStore(): Promise<void> {
           migrated = true
         }
 
+        if (
+          pref.pendingReminderClaimedAt !== undefined &&
+          normalizedClaimedAt === null
+        ) {
+          migrated = true
+        }
+
+        if (!normalizedPendingReminder && pref.pendingReminderClaimedAt !== undefined) {
+          migrated = true
+        }
+
         ticketDmPreferences.set(threadId, {
-          openerId,
-          enabled,
-          awaitingOpenerResponse,
-          ...(normalizedPendingReminder
-            ? { pendingReminder: normalizedPendingReminder }
-            : {}),
+          ...normalizedPref,
           ...(normalizedDeliveryStatus
             ? { lastDmDeliveryStatus: normalizedDeliveryStatus }
-            : {}),
-          ...(typeof toggleMessageUrl === 'string' &&
-          toggleMessageUrl.length > 0
-            ? { toggleMessageUrl }
             : {}),
         })
       }
@@ -596,7 +648,11 @@ async function clearPendingReminder(threadId: string): Promise<void> {
   const pref = ticketDmPreferences.get(threadId)
   if (!pref?.pendingReminder) return
 
-  const { pendingReminder: _removedReminder, ...nextPref } = pref
+  const {
+    pendingReminder: _removedReminder,
+    pendingReminderClaimedAt: _removedClaim,
+    ...nextPref
+  } = pref
   ticketDmPreferences.set(threadId, {
     ...nextPref,
     awaitingOpenerResponse: false,
@@ -609,7 +665,11 @@ function scheduleReminder(threadId: string, reminder: TicketPendingReminder): vo
   if (!runtimeClient) return
   if (pendingReminderTimers.has(threadId)) return
 
-  const delay = Math.max(0, reminder.dueAt - Date.now())
+  const pref = ticketDmPreferences.get(threadId)
+  const claimDelay = pref?.pendingReminderClaimedAt
+    ? pref.pendingReminderClaimedAt + PENDING_REMINDER_CLAIM_TTL_MS - Date.now()
+    : 0
+  const delay = Math.max(0, reminder.dueAt - Date.now(), claimDelay)
   const timer = setTimeout(() => {
     void sendPendingReminder(threadId)
   }, delay)
@@ -628,6 +688,84 @@ function restorePendingReminderTimers(): void {
   }
 }
 
+async function claimPendingReminderForSend(
+  threadId: string,
+  reminder: TicketPendingReminder
+): Promise<boolean> {
+  const claimedAt = Date.now()
+  const staleBefore = claimedAt - PENDING_REMINDER_CLAIM_TTL_MS
+  const collection = (await getMongoDatabase()).collection<{
+    _id: string
+    updatedAt: Date
+    data?: unknown
+  }>(APP_DATA_COLLECTION_NAME)
+  const basePath = `data.threads.${threadId}`
+  const claimedAtPath = `${basePath}.pendingReminderClaimedAt`
+
+  const result = await collection.updateOne(
+    {
+      _id: TICKET_DM_PREFS_STORE_KEY,
+      [`${basePath}.enabled`]: true,
+      [`${basePath}.pendingReminder.dueAt`]: reminder.dueAt,
+      [`${basePath}.pendingReminder.messageUrl`]: reminder.messageUrl,
+      [`${basePath}.pendingReminder.responderName`]: reminder.responderName,
+      $or: [
+        { [claimedAtPath]: { $exists: false } },
+        { [claimedAtPath]: { $lte: staleBefore } },
+      ],
+    },
+    {
+      $set: {
+        [claimedAtPath]: claimedAt,
+        updatedAt: new Date(),
+      },
+    }
+  )
+
+  if (result.modifiedCount < 1) {
+    return false
+  }
+
+  const current = ticketDmPreferences.get(threadId)
+  if (current && reminderMatches(current.pendingReminder, reminder)) {
+    ticketDmPreferences.set(threadId, {
+      ...current,
+      pendingReminderClaimedAt: claimedAt,
+    })
+  }
+
+  return true
+}
+
+async function syncThreadPreferenceFromStore(
+  threadId: string
+): Promise<TicketDmPreference | undefined> {
+  const parsed = await loadMongoBackedJson<unknown>(TICKET_DM_PREFS_STORE_KEY, {})
+  if (!isObject(parsed)) {
+    clearPendingReminderTimer(threadId)
+    ticketDmPreferences.delete(threadId)
+    return undefined
+  }
+
+  const threads = getPersistedThreads(parsed)
+  const pref = threads[threadId]
+  if (!isObject(pref)) {
+    clearPendingReminderTimer(threadId)
+    ticketDmPreferences.delete(threadId)
+    return undefined
+  }
+
+  const normalizedPref = normalizeStoredTicketPreference(pref)
+  if (!normalizedPref) {
+    clearPendingReminderTimer(threadId)
+    ticketDmPreferences.delete(threadId)
+    return undefined
+  }
+
+  ticketDmPreferences.set(threadId, normalizedPref)
+  return normalizedPref
+}
+
 async function sendPendingReminder(threadId: string): Promise<void> {
   clearPendingReminderTimer(threadId)
 
@@ -637,6 +775,26 @@ async function sendPendingReminder(threadId: string): Promise<void> {
   const pref = ticketDmPreferences.get(threadId)
   const reminder = pref?.pendingReminder
   if (!pref || !pref.enabled || !reminder) return
+
+  const claimed = await claimPendingReminderForSend(threadId, reminder).catch(
+    async (error) => {
+      await reportDmReminderIssue({
+        reason: 'Failed to claim pending DM reminder',
+        threadId,
+        openerId: pref.openerId,
+        error,
+      })
+      return false
+    }
+  )
+
+  if (!claimed) {
+    const latestPref = await syncThreadPreferenceFromStore(threadId).catch(() => pref)
+    if (latestPref?.pendingReminder) {
+      scheduleReminder(threadId, latestPref.pendingReminder)
+    }
+    return
+  }
 
   const embed = new EmbedBuilder()
     .setTitle('Ticket Response')
@@ -690,7 +848,11 @@ async function sendPendingReminder(threadId: string): Promise<void> {
   }
 
   if (!sent) {
-    const { pendingReminder: _failedReminder, ...nextPref } = latestPref
+    const {
+      pendingReminder: _failedReminder,
+      pendingReminderClaimedAt: _failedClaim,
+      ...nextPref
+    } = latestPref
     ticketDmPreferences.set(threadId, {
       ...nextPref,
       enabled: false,
@@ -702,7 +864,11 @@ async function sendPendingReminder(threadId: string): Promise<void> {
     return
   }
 
-  const { pendingReminder: _removedReminder, ...nextPref } = latestPref
+  const {
+    pendingReminder: _removedReminder,
+    pendingReminderClaimedAt: _removedClaim,
+    ...nextPref
+  } = latestPref
   ticketDmPreferences.set(threadId, {
     ...nextPref,
     awaitingOpenerResponse: true,
@@ -905,8 +1071,10 @@ export async function maybeNotifyTicketResponse(message: Message): Promise<void>
         responderName: message.member?.displayName ?? message.author.username,
       }
 
+      const { pendingReminderClaimedAt: _previousClaimedAt, ...restPref } = latestPref
+
       ticketDmPreferences.set(message.channel.id, {
-        ...latestPref,
+        ...restPref,
         awaitingOpenerResponse: true,
         pendingReminder,
       })
