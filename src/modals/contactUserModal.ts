@@ -4,6 +4,7 @@ import {
   TextChannel,
   ThreadAutoArchiveDuration,
   EmbedBuilder,
+  DiscordAPIError,
   MessageFlags,
   MessageType,
   type Collection,
@@ -13,6 +14,22 @@ import { channelIds } from '../globals'
 import { errorEmbed } from '../utils/embeds/errorEmbed'
 import { successEmbed } from '../utils/embeds/successEmbed'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+
+const EXPECTED_DM_ERROR_CODES = new Set([50007, 50278])
+
+function isExpectedDmError(error: unknown): boolean {
+  if (error instanceof DiscordAPIError) {
+    return (
+      typeof error.code === 'number' && EXPECTED_DM_ERROR_CODES.has(error.code)
+    )
+  }
+
+  if (!(error instanceof Error)) return false
+
+  return /cannot send messages to this user|no mutual guilds/i.test(
+    error.message
+  )
+}
 
 export const modal = {
   name: 'contactUserModal',
@@ -98,6 +115,29 @@ export const execute = async (
       embeds: [embed],
     })
 
+    let dmFailureMessage: string | null = null
+    try {
+      await user.send({
+        embeds: [
+          new EmbedBuilder()
+            .setTitle('A staff member opened a ticket for you')
+            .setColor('#E91E63')
+            .setDescription(
+              `${interaction.user} opened a ticket for you in ${interaction.guild.name}.\n\n[Open Ticket](${sentMessage.url})`
+            )
+            .setTimestamp(),
+        ],
+      })
+    } catch (dmError) {
+      dmFailureMessage = isExpectedDmError(dmError)
+        ? 'The ticket was created, but I could not DM the user about it. They likely have DMs disabled.'
+        : 'The ticket was created, but I could not DM the user about it.'
+
+      if (!isExpectedDmError(dmError)) {
+        console.error('Failed to DM contacted user about ticket creation:', dmError)
+      }
+    }
+
     await sentMessage.pin()
 
     // If there are uploaded files, send them as a separate follow-up message
@@ -129,7 +169,9 @@ export const execute = async (
       embeds: [
         successEmbed(
           'Ticket opened!',
-          `Your ticket has been created at <#${thread.id}>.`
+          dmFailureMessage
+            ? `Your ticket has been created at <#${thread.id}>.\n\n${dmFailureMessage}`
+            : `Your ticket has been created at <#${thread.id}>.`
         ),
       ],
     })
