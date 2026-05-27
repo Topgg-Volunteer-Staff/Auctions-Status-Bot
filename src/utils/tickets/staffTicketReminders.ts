@@ -343,7 +343,7 @@ function restorePendingReminderTimers(): void {
   }
 }
 
-async function resolveThreadOwnerUserId(
+export async function resolveThreadOwnerUserId(
   thread: ThreadChannel
 ): Promise<string | null> {
   if (threadOwnerCache.has(thread.id)) {

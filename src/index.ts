@@ -27,6 +27,7 @@ import {
 import {
   initializeStaffTicketReminderStore,
   maybeHandleStaffTicketReminder,
+  resolveThreadOwnerUserId,
 } from './utils/tickets/staffTicketReminders'
 import { initializeTempRoleStore } from './utils/tempRoles'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
@@ -44,7 +45,120 @@ import {
 
 // const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
+const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
+const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
 // const fourImageFlagCounts = new Map<string, number>()
+
+async function fetchTicketThreadsFromParent(
+  channel: TextChannel
+): Promise<Array<ThreadChannel>> {
+  const active = await channel.threads.fetchActive().catch(() => null)
+  const archived = await channel.threads.fetchArchived({ limit: 100 }).catch(() => null)
+
+  const threads: Array<ThreadChannel> = []
+
+  if (active) {
+    for (const thread of active.threads.values()) {
+      threads.push(thread)
+    }
+  }
+
+  if (archived) {
+    for (const thread of archived.threads.values()) {
+      threads.push(thread)
+    }
+  }
+
+  return threads
+}
+
+async function getOpenThreadsForStaffMember(
+  memberId: string,
+  ticketParents: Array<TextChannel>
+): Promise<Array<ThreadChannel>> {
+  const matchingThreads: Array<ThreadChannel> = []
+
+  for (const parent of ticketParents) {
+    const threads = await fetchTicketThreadsFromParent(parent)
+
+    for (const thread of threads) {
+      if (
+        thread.type !== ChannelType.PrivateThread ||
+        thread.name.startsWith(resolvedFlag)
+      ) {
+        continue
+      }
+
+      const ownerId = await resolveThreadOwnerUserId(thread).catch(() => null)
+      if (ownerId === memberId) {
+        matchingThreads.push(thread)
+      }
+    }
+  }
+
+  return matchingThreads
+}
+
+async function maybeNotifyStaffBreakOpenThreads(
+  oldMember: Parameters<Client['on']>[1] extends (
+    ...args: infer TArgs
+  ) => unknown
+    ? TArgs[0]
+    : never,
+  newMember: Parameters<Client['on']>[1] extends (
+    ...args: infer TArgs
+  ) => unknown
+    ? TArgs[1]
+    : never
+): Promise<void> {
+  if (
+    oldMember.roles.cache.has(STAFF_ON_BREAK_ROLE_ID) ||
+    !newMember.roles.cache.has(STAFF_ON_BREAK_ROLE_ID)
+  ) {
+    return
+  }
+
+  const moderatorsChat = (await newMember.guild.channels
+    .fetch(MODERATORS_CHAT_CHANNEL_ID)
+    .catch(() => null)) as TextChannel | null
+
+  if (!moderatorsChat) {
+    return
+  }
+
+  const parentChannels = await Promise.all([
+    newMember.guild.channels.fetch(channelIds.modTickets),
+    newMember.guild.channels.fetch(channelIds.auctionsTickets),
+  ])
+
+  const ticketParents = parentChannels.filter(
+    (channel): channel is TextChannel => channel instanceof TextChannel
+  )
+
+  if (ticketParents.length === 0) {
+    return
+  }
+
+  const openThreads = await getOpenThreadsForStaffMember(
+    newMember.id,
+    ticketParents
+  )
+
+  const content = openThreads.length
+    ? `Hey, I noticed <@${newMember.id}> went on break, here are there open threads: ${openThreads
+        .map((thread) => `<#${thread.id}>`)
+        .join(', ')}\n\nhope they enjoy there break :saluting_face:`
+    : `Hey, I noticed <@${newMember.id}> went on break, there are no open threads under them.\n\nhope they enjoy there break :saluting_face:`
+
+  await moderatorsChat.send({
+    content,
+    allowedMentions: {
+      users: [newMember.id],
+      roles: [],
+      parse: [],
+    },
+  })
+}
 
 // const FOUR_IMAGE_FLAGS_STORE_KEY = 'four-image-flags'
 
@@ -581,6 +695,14 @@ client.on('guildMemberRemove', async (member) => {
     }
   } catch (error) {
     console.error('Error in guildMemberRemove handler:', error)
+  }
+})
+
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  try {
+    await maybeNotifyStaffBreakOpenThreads(oldMember, newMember)
+  } catch (error) {
+    console.error('Error in guildMemberUpdate break-role handler:', error)
   }
 })
 
