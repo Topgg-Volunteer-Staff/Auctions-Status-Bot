@@ -15,6 +15,7 @@ import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
 import { channelIds, resolvedFlag } from './globals'
 import { threadAlerts } from './commands/alert'
+import { getOpenThreadsForStaffMember } from './utils/tickets/staffOwnedThreads'
 import {
   initializeInactiveAlertStore,
   initializeThreadActivity,
@@ -27,7 +28,6 @@ import {
 import {
   initializeStaffTicketReminderStore,
   maybeHandleStaffTicketReminder,
-  resolveThreadOwnerUserId,
 } from './utils/tickets/staffTicketReminders'
 import { initializeTempRoleStore } from './utils/tempRoles'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
@@ -48,56 +48,6 @@ const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
 const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
 // const fourImageFlagCounts = new Map<string, number>()
-
-async function fetchTicketThreadsFromParent(
-  channel: TextChannel
-): Promise<Array<ThreadChannel>> {
-  const active = await channel.threads.fetchActive().catch(() => null)
-  const archived = await channel.threads.fetchArchived({ limit: 100 }).catch(() => null)
-
-  const threads: Array<ThreadChannel> = []
-
-  if (active) {
-    for (const thread of active.threads.values()) {
-      threads.push(thread)
-    }
-  }
-
-  if (archived) {
-    for (const thread of archived.threads.values()) {
-      threads.push(thread)
-    }
-  }
-
-  return threads
-}
-
-async function getOpenThreadsForStaffMember(
-  memberId: string,
-  ticketParents: Array<TextChannel>
-): Promise<Array<ThreadChannel>> {
-  const matchingThreads: Array<ThreadChannel> = []
-
-  for (const parent of ticketParents) {
-    const threads = await fetchTicketThreadsFromParent(parent)
-
-    for (const thread of threads) {
-      if (
-        thread.type !== ChannelType.PrivateThread ||
-        thread.name.startsWith(resolvedFlag)
-      ) {
-        continue
-      }
-
-      const ownerId = await resolveThreadOwnerUserId(thread).catch(() => null)
-      if (ownerId === memberId) {
-        matchingThreads.push(thread)
-      }
-    }
-  }
-
-  return matchingThreads
-}
 
 async function maybeNotifyStaffBreakOpenThreads(
   oldMember: Parameters<Client['on']>[1] extends (
@@ -126,23 +76,7 @@ async function maybeNotifyStaffBreakOpenThreads(
     return
   }
 
-  const parentChannels = await Promise.all([
-    newMember.guild.channels.fetch(channelIds.modTickets),
-    newMember.guild.channels.fetch(channelIds.auctionsTickets),
-  ])
-
-  const ticketParents = parentChannels.filter(
-    (channel): channel is TextChannel => channel instanceof TextChannel
-  )
-
-  if (ticketParents.length === 0) {
-    return
-  }
-
-  const openThreads = await getOpenThreadsForStaffMember(
-    newMember.id,
-    ticketParents
-  )
+  const openThreads = await getOpenThreadsForStaffMember(newMember.id, newMember.guild)
 
   const content = openThreads.length
     ? `Hey, I noticed <@${newMember.id}> went on break, here are there open threads: ${openThreads
