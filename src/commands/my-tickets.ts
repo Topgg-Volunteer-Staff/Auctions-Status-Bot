@@ -9,7 +9,11 @@ import {
 import { channelIds } from '../globals'
 import { errorEmbed, successEmbed } from '../utils/embeds'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
-import { getOpenThreadsForStaffMember } from '../utils/tickets/staffOwnedThreads'
+import {
+  getOpenThreadsForStaffMember,
+  getTicketAttentionState,
+  type TicketAttentionState,
+} from '../utils/tickets/staffOwnedThreads'
 
 type TicketCategory = 'Mod' | 'Reviewer' | 'Auctions'
 
@@ -49,12 +53,20 @@ export const execute = async (
     interaction.guild
   )
 
-  openThreads.sort(
-    (left, right) =>
-      (threadOpenedUnixSeconds(left) ?? 0) - (threadOpenedUnixSeconds(right) ?? 0)
+  const openThreadDetails = await Promise.all(
+    openThreads.map(async (thread) => ({
+      thread,
+      attentionState: await getTicketAttentionState(thread),
+    }))
   )
 
-  if (openThreads.length === 0) {
+  openThreadDetails.sort(
+    (left, right) =>
+      (threadOpenedUnixSeconds(left.thread) ?? 0) -
+      (threadOpenedUnixSeconds(right.thread) ?? 0)
+  )
+
+  if (openThreadDetails.length === 0) {
     await interaction.editReply({
       embeds: [
         successEmbed(
@@ -66,9 +78,9 @@ export const execute = async (
     return
   }
 
-  const lines = openThreads.map(
-    (thread) =>
-      `- [${getTicketCategory(thread)}] <#${thread.id}> (${thread.name}) - ${formatOpened(thread)}`
+  const lines = openThreadDetails.map(
+    ({ thread, attentionState }) =>
+      `- [${getTicketCategory(thread)}] [${formatAttentionState(attentionState)}] <#${thread.id}> (${thread.name}) - ${formatOpened(thread)}`
   )
 
   const pages = chunkLines(lines, 3800)
@@ -79,7 +91,7 @@ export const execute = async (
         index === 0 ? 'Your tickets' : 'More tickets',
         `${
           index === 0
-            ? `Found ${openThreads.length} open ticket${openThreads.length === 1 ? '' : 's'} currently assigned to you by staff message ownership.\n\n`
+            ? `Found ${openThreadDetails.length} open ticket${openThreadDetails.length === 1 ? '' : 's'} currently assigned to you by staff message ownership. Each ticket shows whether it needs your reply.\n\n`
             : ''
         }${page}`
       ).setFooter({
@@ -104,6 +116,18 @@ function normalizeName(name: string): string {
     .replace(/\s*-\s*/g, '-')
     .trim()
     .toLowerCase()
+}
+
+function formatAttentionState(attentionState: TicketAttentionState): string {
+  if (attentionState === 'awaiting-response') {
+    return 'Awaiting your response'
+  }
+
+  if (attentionState === 'waiting-on-user') {
+    return 'Waiting on user'
+  }
+
+  return 'Reply status unavailable'
 }
 
 function chunkLines(lines: Array<string>, maxLength: number): Array<string> {

@@ -1,18 +1,32 @@
 import {
   ChannelType,
+  Message,
   TextChannel,
   ThreadChannel,
   type Guild,
 } from 'discord.js'
-import { channelIds, resolvedFlag } from '../../globals'
+import { channelIds, resolvedFlag, roleIds } from '../../globals'
 import { resolveThreadOwnerUserId } from './staffTicketReminders'
 
 export type TicketCategory = 'Mod' | 'Reviewer' | 'Auctions'
+export type TicketAttentionState =
+  | 'awaiting-response'
+  | 'waiting-on-user'
+  | 'unknown'
 
 export type TicketThreadMatch = {
   category: TicketCategory
   thread: ThreadChannel
 }
+
+const THREAD_ATTENTION_PAGE_SIZE = 25
+const THREAD_ATTENTION_SCAN_PAGE_LIMIT = 3
+const STAFF_TICKET_ROLE_IDS = [
+  roleIds.moderator,
+  roleIds.reviewer,
+  roleIds.trialReviewer,
+  roleIds.supportTeam,
+]
 
 async function fetchTicketThreadsFromParent(
   channel: TextChannel
@@ -64,6 +78,60 @@ function isOpenTicketThread(thread: ThreadChannel): boolean {
   )
 }
 
+async function isStaffMember(
+  guild: Guild,
+  userId: string,
+  staffMembershipCache: Map<string, boolean>
+): Promise<boolean> {
+  const cached = staffMembershipCache.get(userId)
+  if (typeof cached === 'boolean') {
+    return cached
+  }
+
+  const member = await guild.members.fetch(userId).catch(() => null)
+  const isStaff =
+    !!member &&
+    STAFF_TICKET_ROLE_IDS.some((roleId) => member.roles.cache.has(roleId))
+
+  staffMembershipCache.set(userId, isStaff)
+  return isStaff
+}
+
+async function getLatestRelevantMessage(thread: ThreadChannel): Promise<Message | null> {
+  let before: string | undefined
+
+  for (let page = 0; page < THREAD_ATTENTION_SCAN_PAGE_LIMIT; page++) {
+    const fetchOptions: { limit: number; before?: string } = {
+      limit: THREAD_ATTENTION_PAGE_SIZE,
+    }
+    if (before) fetchOptions.before = before
+
+    const messages = await thread.messages.fetch(fetchOptions).catch(() => null)
+    if (!messages || messages.size === 0) {
+      break
+    }
+
+    const orderedMessages = [...messages.values()].sort(
+      (left, right) => right.createdTimestamp - left.createdTimestamp
+    )
+
+    for (const message of orderedMessages) {
+      if (message.author.bot || message.webhookId || message.system) {
+        continue
+      }
+
+      return message
+    }
+
+    before = messages.last()?.id
+    if (!before || messages.size < THREAD_ATTENTION_PAGE_SIZE) {
+      break
+    }
+  }
+
+  return null
+}
+
 export function getTicketCategory(thread: ThreadChannel): TicketCategory {
   if (thread.parentId === channelIds.auctionsTickets) {
     return 'Auctions'
@@ -75,6 +143,24 @@ export function getTicketCategory(thread: ThreadChannel): TicketCategory {
     normalizedName.startsWith('reviewer-')
     ? 'Reviewer'
     : 'Mod'
+}
+
+export async function getTicketAttentionState(
+  thread: ThreadChannel
+): Promise<TicketAttentionState> {
+  const latestMessage = await getLatestRelevantMessage(thread)
+  if (!latestMessage) {
+    return 'unknown'
+  }
+
+  const staffMembershipCache = new Map<string, boolean>()
+  const latestAuthorIsStaff = await isStaffMember(
+    thread.guild,
+    latestMessage.author.id,
+    staffMembershipCache
+  )
+
+  return latestAuthorIsStaff ? 'waiting-on-user' : 'awaiting-response'
 }
 
 export async function getOpenUnclaimedTickets(
