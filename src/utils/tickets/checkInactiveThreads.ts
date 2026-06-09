@@ -185,6 +185,52 @@ function getMemberAlertRoute(member: {
   return 'default'
 }
 
+function getMentionedUserIds(content: string): Array<string> {
+  const userIds: Array<string> = []
+
+  for (const match of content.matchAll(/<@!?(\d+)>/g)) {
+    const userId = match[1]
+    if (userId) {
+      userIds.push(userId)
+    }
+  }
+
+  return userIds
+}
+
+async function getAlertEligibleMember(
+  thread: ThreadChannel,
+  userId: string,
+  memberCache: Map<
+    string,
+    {
+      id: string
+      roles: { cache: { has: (roleId: string) => boolean } }
+    } | null
+  >
+): Promise<{
+  id: string
+  roles: { cache: { has: (roleId: string) => boolean } }
+} | null> {
+  let cachedMember = memberCache.get(userId)
+  if (typeof cachedMember === 'undefined') {
+    cachedMember = await thread.guild.members.fetch(userId).catch(() => null)
+    memberCache.set(userId, cachedMember)
+  }
+
+  if (!cachedMember) {
+    return null
+  }
+
+  const member = cachedMember
+
+  const hasAnyAlertRole = Array.from(ALL_ALERT_ROLE_IDS).some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
+
+  return hasAnyAlertRole ? member : null
+}
+
 async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
   memberId: string
   route: AlertRoute
@@ -207,6 +253,12 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
         roles: { cache: { has: (roleId: string) => boolean } }
       } | null
     >()
+    let latestMentionedStaff: {
+      memberId: string
+      route: AlertRoute
+      isTrialReviewer: boolean
+      mentionedAt: number
+    } | null = null
     let before: string | undefined
     const maxPages = 5
 
@@ -220,26 +272,54 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
       if (!messages || messages.size === 0) return null
 
       for (const message of messages.values()) {
+        if (message.author.id === thread.client.user?.id) {
+          let lastMentionedStaff:
+            | {
+                id: string
+                roles: { cache: { has: (roleId: string) => boolean } }
+              }
+            | null = null
+
+          for (const mentionedUserId of getMentionedUserIds(message.content)) {
+            const mentionedMember = await getAlertEligibleMember(
+              thread,
+              mentionedUserId,
+              memberCache
+            )
+
+            if (mentionedMember) {
+              lastMentionedStaff = mentionedMember
+            }
+          }
+
+          if (
+            lastMentionedStaff &&
+            (!latestMentionedStaff ||
+              message.createdTimestamp > latestMentionedStaff.mentionedAt)
+          ) {
+            latestMentionedStaff = {
+              memberId: lastMentionedStaff.id,
+              route: getMemberAlertRoute(lastMentionedStaff),
+              isTrialReviewer: lastMentionedStaff.roles.cache.has(
+                roleIds.trialReviewer
+              ),
+              mentionedAt: message.createdTimestamp,
+            }
+          }
+
+          continue
+        }
+
         if (message.author.bot) continue
         if (message.webhookId) continue
         if (message.system) continue
 
-        let cachedMember = memberCache.get(message.author.id)
-        if (typeof cachedMember === 'undefined') {
-          cachedMember =
-            message.member ??
-            (await thread.guild.members
-              .fetch(message.author.id)
-              .catch(() => null))
-          memberCache.set(message.author.id, cachedMember)
-        }
-
-        const member = cachedMember
-        if (!member) continue
-        const hasAnyAlertRole = Array.from(ALL_ALERT_ROLE_IDS).some((roleId) =>
-          member.roles.cache.has(roleId)
+        const member = await getAlertEligibleMember(
+          thread,
+          message.author.id,
+          memberCache
         )
-        if (!hasAnyAlertRole) continue
+        if (!member) continue
 
         const summary = staffMessageCounts.get(member.id) ?? {
           count: 0,
@@ -292,6 +372,12 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
           memberId: selectedStaff.memberId,
           route: selectedStaff.route,
           isTrialReviewer: selectedStaff.isTrialReviewer,
+        }
+      : latestMentionedStaff
+      ? {
+          memberId: latestMentionedStaff.memberId,
+          route: latestMentionedStaff.route,
+          isTrialReviewer: latestMentionedStaff.isTrialReviewer,
         }
       : null
   } catch {
