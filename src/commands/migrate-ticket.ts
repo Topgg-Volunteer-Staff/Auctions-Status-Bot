@@ -31,11 +31,12 @@ type MigrationTarget = 'auctions' | 'moderator' | 'reviewer'
 type MigrationTargetConfig = {
   closeButton: boolean
   color: `#${string}`
+  intakePrompt: string
   notifyRoleId: string
   notifyRoleMention: string
+  queueLabel: string
+  responseExpectation: string
   threadName: string
-  title: string
-  description: string
 }
 
 export const command = new SlashCommandBuilder()
@@ -151,9 +152,7 @@ export const execute = async (
 
   const targetConfig = getTargetConfig({
     guild: interaction.guild,
-    note,
     opener,
-    sourceThread,
     target,
   })
 
@@ -196,6 +195,40 @@ export const execute = async (
       ]
     : []
 
+  const migrationEmbed = new EmbedBuilder()
+    .setColor(targetConfig.color)
+    .setTitle(`${targetConfig.queueLabel} Ticket`)
+    .setDescription(
+      'This ticket has been moved into the correct queue so the right team can pick it up without losing context.'
+    )
+    .setThumbnail(opener.displayAvatarURL())
+    .addFields(
+      {
+        inline: true,
+        name: 'Ticket for',
+        value: `<@${opener.id}>`,
+      },
+      {
+        inline: true,
+        name: 'Moved by',
+        value: `<@${interaction.user.id}>`,
+      },
+      {
+        name: 'Moved from',
+        value: formatSourceThreadLabel(sourceThread),
+      },
+      {
+        name: 'What to include',
+        value: targetConfig.intakePrompt,
+      },
+      {
+        name: 'What happens next',
+        value: targetConfig.responseExpectation,
+      }
+    )
+    .setFooter({ text: 'Keep any follow-up details in this thread.' })
+    .setTimestamp()
+
   await destinationThread.send({
     allowedMentions: {
       parse: [],
@@ -203,31 +236,51 @@ export const execute = async (
       users: [opener.id],
     },
     components: headerComponents,
-    content: `${targetConfig.notifyRoleMention}, <@${opener.id}>'s ticket was migrated here by <@${interaction.user.id}>.`,
-    embeds: [
-      new EmbedBuilder()
-        .setColor(targetConfig.color)
-        .setTitle(targetConfig.title)
-        .setDescription(targetConfig.description),
-    ],
+    content: `${targetConfig.notifyRoleMention} <@${opener.id}>`,
+    embeds: [migrationEmbed],
   })
+
+  if (note) {
+    await sendMigrationStaffNote({
+      destinationParent,
+      destinationThread,
+      note,
+      staffAvatarUrl: interaction.member.displayAvatarURL(),
+      staffName: interaction.member.displayName,
+    })
+  }
 
   await sendDmOnResponsesPrompt(destinationThread, opener.id)
 
 
 
   const moveNotice = new EmbedBuilder()
-    .setColor('#ff3366')
+    .setColor(targetConfig.color)
     .setTitle('Ticket moved')
     .setDescription(
-      [
-        `This ticket was moved by <@${interaction.user.id}>.`,
-        `Please continue in <#${destinationThread.id}>.`,
-        note ? `Staff note: ${note}` : '',
-      ]
-        .filter((value) => value.length > 0)
-        .join('\n\n')
+      `Please continue in <#${destinationThread.id}>.`
     )
+    .addFields(
+      {
+        inline: true,
+        name: 'Moved by',
+        value: `<@${interaction.user.id}>`,
+      },
+      {
+        inline: true,
+        name: 'New queue',
+        value: targetConfig.queueLabel,
+      },
+      ...(note
+        ? [
+            {
+              name: 'Staff note',
+              value: 'Posted in the new thread as a separate follow-up.',
+            },
+          ]
+        : [])
+    )
+    .setTimestamp()
 
   await sourceThread.send({
     allowedMentions: { parse: [], users: [interaction.user.id] },
@@ -288,14 +341,9 @@ function getTargetParentChannelId(target: MigrationTarget): string {
 
 function getTargetConfig(args: {
   guild: Guild
-  note: string
   opener: User
-  sourceThread: ThreadChannel
   target: MigrationTarget
 }): MigrationTargetConfig {
-  const linkLine = `This ticket was migrated from <#${args.sourceThread.id}>.`
-  const noteLine = args.note ? `Staff note: ${args.note}` : ''
-
   if (args.target === 'auctions') {
     const date = new Date()
     const weekendLine =
@@ -306,18 +354,13 @@ function getTargetConfig(args: {
     return {
       closeButton: false,
       color: '#ff3366',
-      description: [
-        `${linkLine}`,
-        'If your issue is related to payments you have made, include your FastSpring order ID starting with `DBOTSBV` when relevant.',
-        weekendLine,
-        noteLine,
-      ]
-        .filter((value) => value.length > 0)
-        .join('\n\n'),
+      intakePrompt:
+        'If this is payment-related, include the FastSpring order ID that starts with `DBOTSBV` and any relevant screenshots.',
       notifyRoleId: roleIds.supportTeam,
       notifyRoleMention: `<@&${roleIds.supportTeam}>`,
+      queueLabel: 'Auctions Support',
+      responseExpectation: weekendLine,
       threadName: args.opener.username,
-      title: `Private Auctions Support Thread for ${args.opener.username}`,
     }
   }
 
@@ -329,34 +372,73 @@ function getTargetConfig(args: {
     return {
       closeButton: true,
       color: '#ff6b00',
-      description: [
-        linkLine,
-        'A reviewer will take a look as soon as possible. Please keep any follow-up details in this thread.',
-        noteLine,
-      ]
-        .filter((value) => value.length > 0)
-        .join('\n\n'),
+      intakePrompt:
+        'Keep any follow-up details, screenshots, and relevant links in this thread so the reviewer team has the full context.',
       notifyRoleId: reviewerPingRoleId,
       notifyRoleMention: `<@&${reviewerPingRoleId}>`,
+      queueLabel: 'Reviewer Support',
+      responseExpectation:
+        'A reviewer will take a look as soon as possible and continue the conversation here.',
       threadName: `Reviewer - ${args.opener.username}`,
-      title: `Reviewer Support for ${args.opener.username}`,
     }
   }
 
   return {
     closeButton: true,
     color: '#ff3366',
-    description: [
-      linkLine,
-      'A moderator will respond as soon as possible. Please keep all relevant context in this thread.',
-      noteLine,
-    ]
-      .filter((value) => value.length > 0)
-      .join('\n\n'),
+    intakePrompt:
+      'Keep all relevant context, screenshots, and links in this thread so the moderation team can pick up smoothly.',
     notifyRoleId: roleIds.modNotifications,
     notifyRoleMention: `<@&${roleIds.modNotifications}>`,
+    queueLabel: 'Moderator Support',
+    responseExpectation:
+      'A moderator will respond as soon as possible and continue handling the ticket here.',
     threadName: `Ticket - ${args.opener.username}`,
-    title: `Moderator Support for ${args.opener.username}`,
+  }
+}
+
+function formatSourceThreadLabel(thread: ThreadChannel): string {
+  const queueLabel =
+    thread.parentId === channelIds.auctionsTickets
+      ? 'Auctions queue'
+      : thread.parentId === channelIds.modTickets
+      ? 'Moderator queue'
+      : thread.parent?.name ?? 'Previous queue'
+
+  return `**${thread.name}** in ${queueLabel}`
+}
+
+async function sendMigrationStaffNote(args: {
+  destinationParent: TextChannel
+  destinationThread: ThreadChannel
+  note: string
+  staffAvatarUrl: string
+  staffName: string
+}): Promise<void> {
+  const noteContent = `**Staff note**\n${args.note}`
+
+  try {
+    const webhook = await args.destinationParent.createWebhook({
+      avatar: args.staffAvatarUrl,
+      name: args.staffName,
+    })
+
+    try {
+      await webhook.send({
+        allowedMentions: { parse: [] },
+        content: noteContent,
+        threadId: args.destinationThread.id,
+      })
+    } finally {
+      await webhook.delete().catch(() => void 0)
+    }
+
+    return
+  } catch {
+    await args.destinationThread.send({
+      allowedMentions: { parse: [] },
+      content: `**Staff note from ${args.staffName}**\n${args.note}`,
+    })
   }
 }
 
