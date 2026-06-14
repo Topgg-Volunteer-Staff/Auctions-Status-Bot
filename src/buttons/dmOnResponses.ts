@@ -1,9 +1,7 @@
 import { ButtonInteraction, Client, MessageFlags } from 'discord.js'
 import {
-  createDmOnResponsesRow,
-  getTicketDmDeliveryStatus,
-  toggleTicketDmResponses,
-  updateDmResponseEmbed,
+  createDmOnResponsesScopeRow,
+  getTicketDmResponsesState,
 } from '../utils/tickets/dmOnResponses'
 
 export const button = {
@@ -34,11 +32,18 @@ export const execute = async (
     return
   }
 
-  const enabled = await toggleTicketDmResponses(interaction.channel.id, openerId)
-  const deliveryStatus = getTicketDmDeliveryStatus(interaction.channel.id)
+  const { enabled } = await getTicketDmResponsesState(
+    interaction.channel.id,
+    openerId
+  )
+  const nextEnabled = !enabled
+  const content = nextEnabled
+    ? 'Turn DM reminders on for just this ticket, or turn them on here and save that as your default for future tickets?'
+    : 'Turn DM reminders off for just this ticket, or turn them off here and save that as your default for future tickets?'
 
-  await interaction.update({
-    embeds: [updateDmResponseEmbed(openerId, enabled, deliveryStatus)],
-    components: [createDmOnResponsesRow(openerId, enabled)],
+  await interaction.reply({
+    content,
+    components: [createDmOnResponsesScopeRow(openerId, nextEnabled)],
+    flags: MessageFlags.Ephemeral,
   })
 }

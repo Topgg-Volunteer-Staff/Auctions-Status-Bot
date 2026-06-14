@@ -45,6 +45,8 @@ type PersistedTicketDmPreferencesStore = {
   userDefaults: Record<string, boolean>
 }
 
+type TicketDmResponsesScope = 'ticket' | 'global'
+
 const TICKET_DM_PREFS_STORE_KEY = 'ticket-dm-responses'
 const APP_DATA_COLLECTION_NAME = 'appData'
 const DM_DEBUG_CHANNEL_ID = '396848636081733632'
@@ -270,6 +272,35 @@ function loadPersistedUserDefaults(parsed: Record<string, unknown>): boolean {
 
 function getDefaultDmResponsesEnabled(openerId: string): boolean {
   return openerDmDefaults.get(openerId) ?? true
+}
+
+function isInheritedDisabled(openerId: string, enabled: boolean): boolean {
+  return !enabled && !getDefaultDmResponsesEnabled(openerId)
+}
+
+function buildThreadPreference(
+  openerId: string,
+  enabled: boolean,
+  current?: TicketDmPreference
+): TicketDmPreference {
+  return {
+    openerId,
+    enabled,
+    awaitingOpenerResponse: current?.awaitingOpenerResponse ?? false,
+    ...(current?.pendingReminder
+      ? { pendingReminder: current.pendingReminder }
+      : {}),
+    ...(current?.pendingReminder &&
+    typeof current.pendingReminderClaimedAt === 'number'
+      ? { pendingReminderClaimedAt: current.pendingReminderClaimedAt }
+      : {}),
+    ...(current?.lastDmDeliveryStatus
+      ? { lastDmDeliveryStatus: current.lastDmDeliveryStatus }
+      : {}),
+    ...(current?.toggleMessageUrl
+      ? { toggleMessageUrl: current.toggleMessageUrl }
+      : {}),
+  }
 }
 
 async function initStore(): Promise<void> {
@@ -513,10 +544,17 @@ async function updateTogglePromptEmbed(threadId: string): Promise<void> {
   const targetMessage = await channel.messages.fetch(messageId).catch(() => null)
   if (!targetMessage) return
 
+  const inheritedDisabled = isInheritedDisabled(pref.openerId, pref.enabled)
+
   await targetMessage
     .edit({
       embeds: [
-        updateDmResponseEmbed(pref.openerId, pref.enabled, pref.lastDmDeliveryStatus),
+        updateDmResponseEmbed(
+          pref.openerId,
+          pref.enabled,
+          pref.lastDmDeliveryStatus,
+          inheritedDisabled
+        ),
       ],
       components: [createDmOnResponsesRow(pref.openerId, pref.enabled)],
       allowedMentions: { parse: [] },
@@ -894,6 +932,28 @@ export function createDmOnResponsesRow(
   )
 }
 
+export function createDmOnResponsesScopeRow(
+  openerId: string,
+  nextEnabled: boolean
+): ActionRowBuilder<ButtonBuilder> {
+  const action = nextEnabled ? 'enable' : 'disable'
+  const ticketLabel = nextEnabled
+    ? 'Turn On This Ticket'
+    : 'Turn Off This Ticket'
+  const globalLabel = nextEnabled ? 'Turn On Globally' : 'Turn Off Globally'
+
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`dmOnResponsesTicket_${action}_${openerId}`)
+      .setLabel(ticketLabel)
+      .setStyle(nextEnabled ? ButtonStyle.Success : ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`dmOnResponsesGlobal_${action}_${openerId}`)
+      .setLabel(globalLabel)
+      .setStyle(nextEnabled ? ButtonStyle.Primary : ButtonStyle.Danger)
+  )
+}
+
 export async function registerTicketThread(
   threadId: string,
   openerId: string
@@ -902,26 +962,45 @@ export async function registerTicketThread(
   const existing = ticketDmPreferences.get(threadId)
   if (existing?.openerId === openerId) return
 
-  ticketDmPreferences.set(threadId, {
-    openerId,
-    enabled: existing?.enabled ?? getDefaultDmResponsesEnabled(openerId),
-    awaitingOpenerResponse: existing?.awaitingOpenerResponse ?? false,
-    ...(existing?.pendingReminder
-      ? { pendingReminder: existing.pendingReminder }
-      : {}),
-    ...(existing?.lastDmDeliveryStatus
-      ? { lastDmDeliveryStatus: existing.lastDmDeliveryStatus }
-      : {}),
-    ...(existing?.toggleMessageUrl
-      ? { toggleMessageUrl: existing.toggleMessageUrl }
-      : {}),
-  })
+  ticketDmPreferences.set(
+    threadId,
+    buildThreadPreference(
+      openerId,
+      existing?.enabled ?? getDefaultDmResponsesEnabled(openerId),
+      existing
+    )
+  )
   await queuePersist().catch(() => void 0)
 }
 
-export async function toggleTicketDmResponses(
+export async function getTicketDmResponsesState(
   threadId: string,
   openerId: string
+): Promise<{
+  enabled: boolean
+  inheritedDisabled: boolean
+  deliveryStatus?: TicketDmDeliveryStatus
+}> {
+  await initStore()
+
+  const current = ticketDmPreferences.get(threadId)
+  const resolvedOpenerId = current?.openerId ?? openerId
+  const enabled = current?.enabled ?? getDefaultDmResponsesEnabled(resolvedOpenerId)
+
+  return {
+    enabled,
+    inheritedDisabled: isInheritedDisabled(resolvedOpenerId, enabled),
+    ...(current?.lastDmDeliveryStatus
+      ? { deliveryStatus: current.lastDmDeliveryStatus }
+      : {}),
+  }
+}
+
+export async function setTicketDmResponses(
+  threadId: string,
+  openerId: string,
+  enabled: boolean,
+  scope: TicketDmResponsesScope
 ): Promise<boolean> {
   await initStore()
 
@@ -930,30 +1009,26 @@ export async function toggleTicketDmResponses(
     return current.enabled
   }
 
-  const nextEnabled = !(current?.enabled ?? false)
-  openerDmDefaults.set(openerId, nextEnabled)
+  const hadPendingReminder = Boolean(current?.pendingReminder)
+  if (scope === 'global') {
+    openerDmDefaults.set(openerId, enabled)
+  }
 
-  ticketDmPreferences.set(threadId, {
-    openerId,
-    enabled: nextEnabled,
-    awaitingOpenerResponse: current?.awaitingOpenerResponse ?? false,
-    ...(current?.pendingReminder
-      ? { pendingReminder: current.pendingReminder }
-      : {}),
-    ...(current?.lastDmDeliveryStatus
-      ? { lastDmDeliveryStatus: current.lastDmDeliveryStatus }
-      : {}),
-    ...(current?.toggleMessageUrl
-      ? { toggleMessageUrl: current.toggleMessageUrl }
-      : {}),
-  })
+  ticketDmPreferences.set(
+    threadId,
+    buildThreadPreference(openerId, enabled, current)
+  )
 
-  if (!nextEnabled) {
+  if (!enabled) {
     await clearPendingReminder(threadId)
   }
 
-  await queuePersist().catch(() => void 0)
-  return nextEnabled
+  if (enabled || !hadPendingReminder) {
+    await queuePersist().catch(() => void 0)
+  }
+
+  await updateTogglePromptEmbed(threadId)
+  return enabled
 }
 
 export async function removeTicketDmPreference(threadId: string): Promise<void> {
@@ -982,7 +1057,7 @@ export function updateDmResponseEmbed(
   return new EmbedBuilder()
     .setTitle('Ticket Response Notifications')
     .setDescription(
-      `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nTo disable these DMs, toggle the button below.${deliveryStatusText}`
+      `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nUse the button below to change this setting.${deliveryStatusText}`
     )
     .setColor(enabled ? '#2ecc71' : '#95a5a6')
 }
@@ -1002,7 +1077,7 @@ export async function sendDmOnResponsesPrompt(
 
   const current = ticketDmPreferences.get(thread.id)
   const enabled = current?.enabled ?? getDefaultDmResponsesEnabled(openerId)
-  const inheritedDisabled = !enabled
+  const inheritedDisabled = isInheritedDisabled(openerId, enabled)
 
   const sent = await thread.send({
     embeds: [updateDmResponseEmbed(openerId, enabled, undefined, inheritedDisabled)],
@@ -1011,15 +1086,7 @@ export async function sendDmOnResponsesPrompt(
   })
 
   ticketDmPreferences.set(thread.id, {
-    openerId,
-    enabled,
-    awaitingOpenerResponse: current?.awaitingOpenerResponse ?? false,
-    ...(current?.pendingReminder
-      ? { pendingReminder: current.pendingReminder }
-      : {}),
-    ...(current?.lastDmDeliveryStatus
-      ? { lastDmDeliveryStatus: current.lastDmDeliveryStatus }
-      : {}),
+    ...buildThreadPreference(openerId, enabled, current),
     toggleMessageUrl: sent.url,
   })
   await queuePersist().catch(() => void 0)
