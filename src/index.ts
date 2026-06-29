@@ -81,8 +81,8 @@ async function maybeNotifyStaffBreakOpenThreads(
   const content = openThreads.length
     ? `Hey, I noticed <@${newMember.id}> went on break, here are there open threads: ${openThreads
         .map((thread) => `<#${thread.id}>`)
-        .join(', ')}\n\nhope they enjoy there break :saluting_face:`
-    : `Hey, I noticed <@${newMember.id}> went on break, there are no open threads under them.\n\nhope they enjoy there break :saluting_face:`
+        .join(', ')}\n\nhope they enjoy their break :saluting_face:`
+    : `Hey, I noticed <@${newMember.id}> went on break, there are no open threads under them.\n\nhope they enjoy their break :saluting_face:`
 
   await moderatorsChat.send({
     content,
