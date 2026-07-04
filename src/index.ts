@@ -208,7 +208,7 @@ async function maybeNotifyStaffBreakOpenThreads(
       } ${staffBots
         .map((bot) => `"${bot.name}" (${bot.id})`)
         .join(', ')} in the VC.`
-    : ''
+    : `\nAnd they don't have any bots in the VC either.`
 
   const content = `${threadSummary}${botSummary}\n\nhope they enjoy their break :saluting_face:`
 
