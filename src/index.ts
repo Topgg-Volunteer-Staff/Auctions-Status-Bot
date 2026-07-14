@@ -7,6 +7,7 @@ import {
   ThreadChannel,
   ChannelType,
   GuildMember,
+  PartialGuildMember,
   // ActionRowBuilder,
   // AttachmentBuilder,
   // ButtonBuilder,
@@ -163,21 +164,14 @@ async function getBotsForStaffMember(
 }
 
 async function maybeNotifyStaffBreakOpenThreads(
-  oldMember: Parameters<Client['on']>[1] extends (
-    ...args: infer TArgs
-  ) => unknown
-    ? TArgs[0]
-    : never,
-  newMember: Parameters<Client['on']>[1] extends (
-    ...args: infer TArgs
-  ) => unknown
-    ? TArgs[1]
-    : never
+  oldMember: GuildMember | PartialGuildMember,
+  newMember: GuildMember
 ): Promise<void> {
-  if (
-    oldMember.roles.cache.has(STAFF_ON_BREAK_ROLE_ID) ||
-    !newMember.roles.cache.has(STAFF_ON_BREAK_ROLE_ID)
-  ) {
+  const addedRoleIds = newMember.roles.cache.filter(
+    (role) => !oldMember.roles.cache.has(role.id)
+  )
+
+  if (!addedRoleIds.has(STAFF_ON_BREAK_ROLE_ID)) {
     return
   }
 
