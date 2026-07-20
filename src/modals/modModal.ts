@@ -131,11 +131,26 @@ export const execute = async (
     }
   }
 
+  // Extract the transferee selected in the modal so it can be shown in the
+  // bot-authored ticket embed without including it in the user's webhook post.
+  let ownershipTransfer = ''
+  if (type === 'transfer_ownership') {
+    try {
+      const selectedUsers = interaction.fields.getSelectedUsers(
+        'ownershipUserSelect'
+      )
+      ownershipTransfer = selectedUsers?.first()?.id || ''
+    } catch {
+      ownershipTransfer = ''
+    }
+  }
+
   // Extract ownership type for transfer_ownership tickets
   let selectedOwnershipType = ''
   if (type === 'transfer_ownership') {
     try {
-      const raw = interaction.fields.getTextInputValue('ownershipType')
+      const raw =
+        interaction.fields.getStringSelectValues('ownershipType')[0] || ''
       const normalized = raw.trim().toLowerCase()
       if (normalized === 'bot' || normalized === 'server') {
         selectedOwnershipType = normalized
@@ -224,6 +239,12 @@ export const execute = async (
   if (trimmedTitle.length > 0) {
     embed.setTitle(trimmedTitle)
   }
+  if (ownershipTransfer) {
+    embed.addFields({
+      name: 'User to transfer to',
+      value: `<@${ownershipTransfer}> (${ownershipTransfer})`,
+    })
+  }
 
   let threadName = interaction.user.username
   if (type) {
@@ -239,8 +260,9 @@ export const execute = async (
       const displayType = reportTypeMap[reportType] || 'Other'
       threadName = `Report ${displayType} - ${interaction.user.username}`
     } else if (type === 'transfer_ownership') {
-      const displayType = selectedOwnershipType === 'bot' ? 'Bot' : 'Server'
-      threadName = `Transfer ${displayType} - ${interaction.user.username}`
+      const ticketType =
+        selectedOwnershipType === 'bot' ? 'Transfer Bot' : 'Transfer Server'
+      threadName = `${ticketType} - ${interaction.user.username}`
     } else if (type === 'other' && selectedCategoryType) {
       const categoryLabels: Record<string, string> = {
         account: 'Account',
@@ -273,6 +295,10 @@ export const execute = async (
     content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
     embeds: [embed],
     components: [closeButton],
+    allowedMentions: {
+      roles: [roleIds.modNotifications],
+      users: [interaction.user.id],
+    },
   })
 
   await sendDmOnResponsesPrompt(thread, interaction.user.id)
@@ -314,20 +340,6 @@ export const execute = async (
     uploadedScreenshots = []
   }
 
-  // Ownership transferee (only for transfer ownership modal)
-  let ownershipTransfer = ''
-  if (type === 'transfer_ownership') {
-    try {
-      const raw = interaction.fields.getTextInputValue('ownershipTransfer')
-      const trimmed = raw.trim()
-      // Accept <@123>, <@!123>, or raw numeric ID
-      const match = trimmed.match(/^(?:<@!?(\d+)>|(\d+))$/)
-      ownershipTransfer = (match?.[1] || match?.[2] || '').trim()
-    } catch {
-      ownershipTransfer = ''
-    }
-  }
-
   const parts: Array<string> = []
   // For ownership transfers, always show project type explicitly
   if (type === 'transfer_ownership' && ownershipType) {
@@ -359,14 +371,8 @@ export const execute = async (
     parts.push(`${label}: ${entityID}`)
   }
 
-  if (!ownershipTransfer.trim() && userInput.trim()) {
+  if (userInput.trim()) {
     parts.push(`Reason: ${userInput}`)
-  }
-
-  if (ownershipTransfer.trim()) {
-    parts.push(
-      `User to transfer to: <@${ownershipTransfer}> (${ownershipTransfer})`
-    )
   }
 
   let messageContent = parts.join('\n\n')
