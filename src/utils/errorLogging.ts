@@ -1,14 +1,16 @@
 import {
   Client,
-  EmbedBuilder,
+  MessageFlags,
   TextBasedChannel,
   TextChannel,
+  TextDisplayBuilder,
 } from 'discord.js'
+import { createTextPanel } from './componentsV2'
 
 const ERROR_LOG_CHANNEL_ID = '396848636081733632'
 const MONGO_ERROR_MENTION = '<@884516044151083079>'
 const MAX_FIELD_VALUE = 1024
-const MAX_DESCRIPTION = 4000
+const MAX_DESCRIPTION = 3992
 const ERROR_BURST_WINDOW_MS = 30_000
 
 type ErrorMetaValue = string | number | boolean | null | undefined
@@ -16,7 +18,7 @@ type ErrorMeta = Record<string, ErrorMetaValue>
 type ErrorLogOptions = {
   content?: string
   allowedMentions?: {
-    users?: string[]
+    users?: Array<string>
   }
 }
 type ErrorBurstState = {
@@ -31,6 +33,21 @@ const errorBurstState = new Map<string, ErrorBurstState>()
 
 const truncate = (value: string, max: number): string =>
   value.length > max ? `${value.slice(0, max - 3)}...` : value
+
+const splitTextDisplayContent = (content: string): Array<string> => {
+  const chunks: Array<string> = []
+  let remaining = content
+
+  while (remaining.length > 4_000) {
+    const newlineIndex = remaining.lastIndexOf('\n', 4_000)
+    const splitIndex = newlineIndex > 2_000 ? newlineIndex : 4_000
+    chunks.push(remaining.slice(0, splitIndex))
+    remaining = remaining.slice(splitIndex).replace(/^\n/, '')
+  }
+
+  if (remaining) chunks.push(remaining)
+  return chunks
+}
 
 const safeStringify = (value: unknown): string => {
   try {
@@ -97,7 +114,10 @@ const sendErrorLogMessage = async (
   }
 
   const description = truncate(formatError(error), MAX_DESCRIPTION)
-  const burst = shouldSkipBurst(buildErrorSignature(title, description), Date.now())
+  const burst = shouldSkipBurst(
+    buildErrorSignature(title, description),
+    Date.now()
+  )
 
   if (burst.sendNotice) {
     await sendBurstNotice(channel).catch(() => void 0)
@@ -107,44 +127,58 @@ const sendErrorLogMessage = async (
     return
   }
 
-  const embed = new EmbedBuilder()
-    .setColor('#FF0000')
-    .setTitle(title)
-    .setDescription(`\`\`\`\n${description}\n\`\`\``)
-    .setTimestamp()
+  const panel = createTextPanel({
+    accentColor: 0xff0000,
+    title,
+    description: `\`\`\`\n${description}\n\`\`\``,
+  })
 
   if (meta) {
     const fields = Object.entries(meta)
       .filter(([, value]) => value !== undefined)
       .slice(0, 10)
       .map(([key, value]) => ({
-        name: key,
+        name: truncate(key, 256),
         value: truncate(String(value), MAX_FIELD_VALUE),
-        inline: true,
       }))
 
     if (fields.length > 0) {
-      embed.addFields(fields)
+      const metadata = fields
+        .map(({ name, value }) => `**${name}**\n${value}`)
+        .join('\n\n')
+
+      panel.addTextDisplayComponents(
+        splitTextDisplayContent(metadata).map((content) =>
+          new TextDisplayBuilder().setContent(content)
+        )
+      )
     }
   }
 
-  const messageOptions: {
-    embeds: [EmbedBuilder]
-    content?: string
-    allowedMentions?: { users?: string[] }
-  } = {
-    embeds: [embed],
-  }
+  panel.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# <t:${Math.floor(Date.now() / 1000)}:f>`
+    )
+  )
 
   if (options?.content) {
-    messageOptions.content = options.content
+    panel.spliceComponents(
+      0,
+      0,
+      new TextDisplayBuilder().setContent(options.content)
+    )
   }
 
-  if (options?.allowedMentions) {
-    messageOptions.allowedMentions = options.allowedMentions
-  }
-
-  await channel.send(messageOptions)
+  await channel.send({
+    components: [panel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: {
+      parse: [],
+      ...(options?.allowedMentions?.users
+        ? { users: options.allowedMentions.users }
+        : {}),
+    },
+  })
 }
 
 const isTextSendable = (
@@ -201,7 +235,9 @@ export const installConsoleErrorForwarding = (client: Client): void => {
       args.length === 1
         ? args[0]
         : args
-            .map((value) => (typeof value === 'string' ? value : safeStringify(value)))
+            .map((value) =>
+              typeof value === 'string' ? value : safeStringify(value)
+            )
             .join(' ')
 
     consoleForwardQueue = consoleForwardQueue

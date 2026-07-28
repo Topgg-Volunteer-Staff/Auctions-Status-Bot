@@ -1,4 +1,4 @@
-import { Client, BaseMessageOptions } from 'discord.js'
+import { Client, MessageCreateOptions } from 'discord.js'
 import publish from '../status/publish'
 import {
   adsNowLive,
@@ -8,7 +8,7 @@ import {
   paymentReminder,
 } from '../embeds/auctions'
 
-type Builder = () => BaseMessageOptions | Promise<BaseMessageOptions>
+type Builder = () => MessageCreateOptions | Promise<MessageCreateOptions>
 
 export type AuctionsMessageKey =
   | 'bid-reminder'

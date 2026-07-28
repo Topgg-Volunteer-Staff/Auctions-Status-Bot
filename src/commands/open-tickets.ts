@@ -9,7 +9,12 @@ import {
   ThreadChannel,
 } from 'discord.js'
 import { roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
 import {
   getOpenUnclaimedTickets,
@@ -38,20 +43,28 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        createErrorPanel(
+          'Server only',
+          'This command can only be used in a server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Missing permissions', 'Only staff members can use this command.'),
+      components: [
+        createErrorPanel(
+          'Missing permissions',
+          'Only staff members can use this command.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
@@ -92,12 +105,14 @@ export const execute = async (
   } catch (error) {
     console.error('Error while loading open tickets:', error)
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Open tickets failed',
           'I could not load the current open tickets. Please try again.'
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
   }
 }
@@ -133,18 +148,22 @@ async function replyWithModPlusView(
   const totalTickets = tickets.length
   if (totalTickets === 0) {
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'No open tickets',
           'I could not find any open mod, reviewer, or auctions tickets that still need a first staff reply.'
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   const description = [
-    `Found ${totalTickets} open ticket${totalTickets === 1 ? '' : 's'} with no staff owner yet.`,
+    `Found ${totalTickets} open ticket${
+      totalTickets === 1 ? '' : 's'
+    } with no staff owner yet.`,
     '',
     buildTicketSection('Mod Tickets', modTickets),
     buildTicketSection('Auctions Tickets', auctionsTickets),
@@ -152,7 +171,9 @@ async function replyWithModPlusView(
   ].join('\n')
 
   await interaction.editReply({
-    embeds: [successEmbed('Open tickets', description)],
+    components: [createSuccessPanel('Open tickets', description)],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }
 
@@ -193,18 +214,22 @@ async function replyWithReviewerView(
 ): Promise<void> {
   if (tickets.length === 0) {
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'No reviewer tickets',
           'I could not find any open reviewer tickets with no staff replies that mentioned you or pinged the reviewer role.'
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   const lines = tickets.slice(0, maxTicketsPerSection).map((ticket) => {
-    return `- <#${ticket.thread.id}> (${ticket.thread.name}) - ${ticket.reason} - ${formatOpened(ticket.thread)}`
+    return `- <#${ticket.thread.id}> (${ticket.thread.name}) - ${
+      ticket.reason
+    } - ${formatOpened(ticket.thread)}`
   })
 
   const moreLine =
@@ -213,17 +238,21 @@ async function replyWithReviewerView(
       : ''
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Open reviewer tickets',
         [
-          `Found ${tickets.length} open reviewer ticket${tickets.length === 1 ? '' : 's'} with no staff owner that either mentioned you or pinged the reviewer role.`,
+          `Found ${tickets.length} open reviewer ticket${
+            tickets.length === 1 ? '' : 's'
+          } with no staff owner that either mentioned you or pinged the reviewer role.`,
           '',
           `**Reviewer Tickets (${tickets.length}):**`,
           lines.join('\n') + moreLine,
         ].join('\n')
       ),
     ],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }
 
@@ -236,7 +265,9 @@ function buildTicketSection(
   }
 
   const lines = tickets.slice(0, maxTicketsPerSection).map((ticket) => {
-    return `- <#${ticket.thread.id}> (${ticket.thread.name}) - ${formatOpened(ticket.thread)}`
+    return `- <#${ticket.thread.id}> (${ticket.thread.name}) - ${formatOpened(
+      ticket.thread
+    )}`
   })
 
   const moreLine =
@@ -295,9 +326,10 @@ function isDirectReviewerTicketMessage(
   message: Message,
   directMention: RegExp
 ): boolean {
+  const messageText = getMessageText(message)
   return (
-    message.content.includes('please take a look') &&
-    directMention.test(message.content)
+    messageText.includes('please take a look') &&
+    directMention.test(messageText)
   )
 }
 
@@ -305,11 +337,50 @@ function isReviewerBroadcastTicketMessage(
   message: Message,
   reviewerRoleMention: string
 ): boolean {
+  const messageText = getMessageText(message)
   return (
-    message.content.includes(reviewerRoleMention) ||
-    message.content.includes('no valid reviewer - please investigate') ||
-    message.content.includes('no decline log found for this bot - please investigate')
+    messageText.includes(reviewerRoleMention) ||
+    messageText.includes('no valid reviewer - please investigate') ||
+    messageText.includes(
+      'no decline log found for this bot - please investigate'
+    )
   )
+}
+
+function getMessageText(message: Message): string {
+  return [
+    message.content,
+    ...getComponentTextDisplayContent(message.components),
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
+function getComponentTextDisplayContent(
+  components: ReadonlyArray<unknown>
+): Array<string> {
+  const content: Array<string> = []
+
+  for (const component of components) {
+    if (typeof component !== 'object' || component === null) {
+      continue
+    }
+
+    const node = component as {
+      components?: ReadonlyArray<unknown>
+      content?: unknown
+    }
+
+    if (typeof node.content === 'string') {
+      content.push(node.content)
+    }
+
+    if (Array.isArray(node.components)) {
+      content.push(...getComponentTextDisplayContent(node.components))
+    }
+  }
+
+  return content
 }
 
 function formatOpened(thread: ThreadChannel): string {

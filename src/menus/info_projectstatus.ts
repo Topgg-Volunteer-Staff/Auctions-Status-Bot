@@ -1,9 +1,8 @@
+import { Client, StringSelectMenuInteraction } from 'discord.js'
 import {
-  Client,
-  StringSelectMenuInteraction,
-  EmbedBuilder,
-  MessageFlags,
-} from 'discord.js'
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createTextPanel,
+} from '../utils/componentsV2'
 
 export const menu = {
   name: 'info_projectstatus',
@@ -17,12 +16,15 @@ export const execute = async (
 
   await interaction.update({})
 
-  const embed = new EmbedBuilder()
-    .setColor('#E91E63')
-    .setTitle("How do I check my project's position in the queue?")
-    .setDescription(
-      '**There is no way to check the position in the queue right now.**\n\nThis is planned for the future and there is no ETA for when it will be implemented.\n\nIf you just want to verify that your project was submitted, you can check your project\'s page and see "Your project is currently in review" in a red banner.'
-    )
+  const panel = createTextPanel({
+    accentColor: 0xe91e63,
+    title: "How do I check my project's position in the queue?",
+    description:
+      '**There is no way to check the position in the queue right now.**\n\nThis is planned for the future and there is no ETA for when it will be implemented.\n\nIf you just want to verify that your project was submitted, you can check your project\'s page and see "Your project is currently in review" in a red banner.',
+  })
 
-  await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral })
+  await interaction.followUp({
+    components: [panel],
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+  })
 }

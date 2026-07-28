@@ -3,16 +3,20 @@ import {
   Client,
   TextChannel,
   ThreadAutoArchiveDuration,
-  EmbedBuilder,
   DiscordAPIError,
   MessageFlags,
   MessageType,
+  TextDisplayBuilder,
   type Collection,
   type Attachment,
 } from 'discord.js'
 import { channelIds } from '../globals'
-import { errorEmbed } from '../utils/embeds/errorEmbed'
-import { successEmbed } from '../utils/embeds/successEmbed'
+import {
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+  createTextPanel,
+} from '../utils/componentsV2'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 const EXPECTED_DM_ERROR_CODES = new Set([50007, 50278])
@@ -48,7 +52,8 @@ export const execute = async (
 
   if (!modTickets) {
     await interaction.editReply({
-      embeds: [errorEmbed('Error', 'Mod tickets channel not found.')],
+      components: [createErrorPanel('Error', 'Mod tickets channel not found.')],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -79,9 +84,13 @@ export const execute = async (
 
   if (!userId) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed('Invalid User', 'Could not determine the user to contact.'),
+      components: [
+        createErrorPanel(
+          'Invalid User',
+          'Could not determine the user to contact.'
+        ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -100,33 +109,51 @@ export const execute = async (
 
     await sendDmOnResponsesPrompt(thread, userId)
 
-    const embed = new EmbedBuilder()
-      .setTitle(`Contact ${username}`)
-      .setColor('#E91E63')
-      .setDescription(
-        botId
-          ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
-          : `**Reason:** ${reason}`
+    const ticketPanel = createTextPanel({
+      accentColor: 0xe91e63,
+      title: `Contact ${username}`,
+      description: botId
+        ? `**Bot ID:** ${botId}\n**Reason:** ${reason}`
+        : `**Reason:** ${reason}`,
+    })
+      .spliceComponents(
+        0,
+        0,
+        new TextDisplayBuilder().setContent(
+          `<@${userId}>, ${interaction.user} would like to talk to you!`
+        )
       )
-      .setTimestamp()
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `-# <t:${Math.floor(Date.now() / 1000)}:f>`
+        )
+      )
 
     const sentMessage = await thread.send({
-      content: `<@${userId}>, ${interaction.user} would like to talk to you!`,
-      embeds: [embed],
+      components: [ticketPanel],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: {
+        parse: [],
+        users: [userId, interaction.user.id],
+      },
     })
 
     let dmFailureMessage: string | null = null
     try {
+      const dmPanel = createTextPanel({
+        accentColor: 0xe91e63,
+        title: 'A staff member opened a ticket for you',
+        description: `${interaction.user} opened a ticket for you in ${interaction.guild.name}.\n\n[Open Ticket](${sentMessage.url})`,
+      }).addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `-# <t:${Math.floor(Date.now() / 1000)}:f>`
+        )
+      )
+
       await user.send({
-        embeds: [
-          new EmbedBuilder()
-            .setTitle('A staff member opened a ticket for you')
-            .setColor('#E91E63')
-            .setDescription(
-              `${interaction.user} opened a ticket for you in ${interaction.guild.name}.\n\n[Open Ticket](${sentMessage.url})`
-            )
-            .setTimestamp(),
-        ],
+        components: [dmPanel],
+        flags: COMPONENTS_V2_FLAGS,
+        allowedMentions: { parse: [] },
       })
     } catch (dmError) {
       dmFailureMessage = isExpectedDmError(dmError)
@@ -134,7 +161,10 @@ export const execute = async (
         : 'The ticket was created, but I could not DM the user about it.'
 
       if (!isExpectedDmError(dmError)) {
-        console.error('Failed to DM contacted user about ticket creation:', dmError)
+        console.error(
+          'Failed to DM contacted user about ticket creation:',
+          dmError
+        )
       }
     }
 
@@ -166,21 +196,26 @@ export const execute = async (
     }
 
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Ticket opened!',
           dmFailureMessage
             ? `Your ticket has been created at <#${thread.id}>.\n\n${dmFailureMessage}`
             : `Your ticket has been created at <#${thread.id}>.`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
   } catch (error) {
     console.error('Error creating contact ticket:', error)
     await interaction.editReply({
-      embeds: [
-        errorEmbed('Error', 'Failed to create user ticket. Please try again.'),
+      components: [
+        createErrorPanel(
+          'Error',
+          'Failed to create user ticket. Please try again.'
+        ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
   }
 }

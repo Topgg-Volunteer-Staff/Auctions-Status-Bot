@@ -6,13 +6,15 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   Client,
-  EmbedBuilder,
   InteractionContextType,
-  InteractionReplyOptions,
-  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js'
-import { errorEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createTextPanel,
+} from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
 
 type SupportArticle = {
@@ -127,8 +129,10 @@ export const execute = async (
 ): Promise<void> => {
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [errorEmbed('Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('Only staff members can use this command.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -138,24 +142,18 @@ export const execute = async (
 
   if (!article) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'That support article was not found. Pick one from the autocomplete list.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   const targetUser = interaction.options.getUser('user')
   const isEphemeral = interaction.options.getBoolean('ephemeral') ?? false
-
-  const embed = new EmbedBuilder()
-    .setTitle(article.name)
-    .setDescription(article.description)
-    .setColor('#3BA55D')
-    .addFields({ name: 'Article', value: article.link })
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -164,19 +162,19 @@ export const execute = async (
       .setURL(article.link)
   )
 
-  const replyOptions: InteractionReplyOptions = {
-    embeds: [embed],
-    components: [row],
-    allowedMentions: targetUser ? { users: [targetUser.id] } : { parse: [] },
-  }
+  const panel = createTextPanel({
+    accentColor: 0x3ba55d,
+    title: article.name,
+    description: `${targetUser ? `${targetUser}\n\n` : ''}${
+      article.description
+    }\n\n### Article\n${article.link}`,
+  }).addActionRowComponents(row)
 
-  if (targetUser) {
-    replyOptions.content = `${targetUser}`
-  }
-
-  if (isEphemeral) {
-    replyOptions.flags = MessageFlags.Ephemeral
-  }
-
-  await interaction.reply(replyOptions)
+  await interaction.reply({
+    components: [panel],
+    allowedMentions: targetUser
+      ? { parse: [], users: [targetUser.id] }
+      : { parse: [] },
+    flags: isEphemeral ? COMPONENTS_V2_EPHEMERAL_FLAGS : COMPONENTS_V2_FLAGS,
+  })
 }

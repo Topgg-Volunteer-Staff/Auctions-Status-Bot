@@ -1,16 +1,43 @@
 import {
   ActionRowBuilder,
-  StringSelectMenuBuilder,
   Client,
   CommandInteraction,
-  EmbedBuilder,
+  ContainerBuilder,
   InteractionContextType,
-  SlashCommandBuilder,
-  TextChannel,
   MessageFlags,
+  SlashCommandBuilder,
+  StringSelectMenuBuilder,
+  TextChannel,
+  TextDisplayBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
+
+const ticketMenuCustomIds = new Set([
+  'mod_ticket_select',
+  'reviewer_ticket_select',
+])
+
+const containsTicketMenu = (component: unknown): boolean => {
+  if (typeof component !== 'object' || component === null) return false
+
+  const data = component as {
+    custom_id?: unknown
+    components?: unknown
+  }
+
+  if (
+    typeof data.custom_id === 'string' &&
+    ticketMenuCustomIds.has(data.custom_id)
+  ) {
+    return true
+  }
+
+  return (
+    Array.isArray(data.components) &&
+    data.components.some((child) => containsTicketMenu(child))
+  )
+}
 
 export const command = new SlashCommandBuilder()
   .setName('createmodticket')
@@ -26,19 +53,21 @@ export const execute = async (
 
   const channel = interaction.channel as TextChannel
 
-  // Delete existing mod ticket messages
+  // Delete both legacy embed panels and the current Components V2 panel.
   try {
     const messages = await channel.messages.fetch({ limit: 100 })
     for (const [, message] of messages) {
-      if (message.embeds.length > 0) {
-        const embed = message.embeds[0]
-        if (
-          embed &&
-          ((embed.title && embed.title.includes('Contact a Moderator')) ||
-            (embed.title && embed.title.includes('Contact a Reviewer')))
-        ) {
-          await message.delete()
-        }
+      const hasLegacyTicketEmbed = message.embeds.some(
+        (embed) =>
+          embed.title?.includes('Contact a Moderator') === true ||
+          embed.title?.includes('Contact a Reviewer') === true
+      )
+      const hasTicketMenu = message.components.some((component) =>
+        containsTicketMenu(component.toJSON())
+      )
+
+      if (hasLegacyTicketEmbed || hasTicketMenu) {
+        await message.delete()
       }
     }
   } catch (error) {
@@ -107,40 +136,46 @@ export const execute = async (
       },
     ])
 
-  const embed = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a Moderator`)
-    .setColor('#E91E63')
-    .setDescription(
-      `Need help or want to report something? Use the menu below to open a private ticket with our <@&${roleIds.moderator}> team.`
+  const moderatorPanel = new ContainerBuilder()
+    .setAccentColor(0xe91e63)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${emoji.sunglasses} Contact a Moderator\nNeed help or want to report something? Use the menu below to open a private ticket with our <@&${roleIds.moderator}> team.`
+      )
     )
-
-  const embedReview = new EmbedBuilder()
-    .setTitle(`${emoji.sunglasses} Contact a Reviewer`)
-    .setDescription(
-      `Need help with a bot, server, or roblox game dispute? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
-    )
-    .setColor('#ff6b00')
-
-  await channel.send({
-    embeds: [embed],
-    components: [
+    .addActionRowComponents(
       new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
         modSelectMenu
-      ),
-    ],
+      )
+    )
+
+  const reviewerPanel = new ContainerBuilder()
+    .setAccentColor(0xff6b00)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## ${emoji.sunglasses} Contact a Reviewer\nNeed help with a bot, server, or roblox game dispute? Use the menu below to open a private ticket with our <@&${roleIds.reviewer}> team.`
+      )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        reviewerSelectMenu
+      )
+    )
+
+  await channel.send({
+    components: [moderatorPanel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   })
 
   await channel.send({
-    embeds: [embedReview],
-    components: [
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-        reviewerSelectMenu
-      ),
-    ],
+    components: [reviewerPanel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   })
 
   await interaction.reply({
-    content: 'Moderator ticket message sent.',
+    content: 'Moderator and reviewer ticket panels sent.',
     flags: MessageFlags.Ephemeral,
   })
 }

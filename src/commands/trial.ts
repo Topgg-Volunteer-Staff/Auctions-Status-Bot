@@ -3,7 +3,7 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
   InteractionContextType,
-  MessageFlags,
+  TextDisplayBuilder,
 } from 'discord.js'
 
 import {
@@ -12,7 +12,31 @@ import {
   setMentorForTrialReviewer,
 } from '../utils/trialReviewerMentors'
 
-import { errorEmbed, infoEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createTextPanel,
+} from '../utils/componentsV2'
+import { emoji } from '../utils/emojis'
+
+const errorPanel = (title: string, description: string) =>
+  createTextPanel({
+    accentColor: 0xff3366,
+    title: `${emoji.error} ${title}`,
+    description,
+  })
+
+const infoPanel = (message: string) =>
+  createTextPanel({
+    accentColor: 0x00bbff,
+    description: `${emoji.blueinfo} ${message}`,
+  })
+
+const successPanel = (title: string, description: string) =>
+  createTextPanel({
+    accentColor: 0x00cc88,
+    title: `${emoji.online} ${title}`,
+    description,
+  })
 
 export const command = new SlashCommandBuilder()
   .setName('trial')
@@ -21,7 +45,9 @@ export const command = new SlashCommandBuilder()
   .addSubcommand((sub) =>
     sub
       .setName('add')
-      .setDescription('Link a trial reviewer to their mentor (for dispute pings)')
+      .setDescription(
+        'Link a trial reviewer to their mentor (for dispute pings)'
+      )
       .addUserOption((option) =>
         option
           .setName('trial')
@@ -53,29 +79,27 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        errorPanel('Server only', 'This command can only be used in a server.'),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   const allowedRoleIds = ['774710870185869342', '742408262648987748'] as const
   const member = interaction.member
-  const hasAllowedRole = allowedRoleIds.some((id) =>
-    member.roles.cache.has(id)
-  )
+  const hasAllowedRole = allowedRoleIds.some((id) => member.roles.cache.has(id))
 
   if (!hasAllowedRole) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        errorPanel(
           'No permission',
           'You do not have permission to use this command.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -88,13 +112,13 @@ export const execute = async (
 
     if (trialUser.id === mentorUser.id) {
       await interaction.reply({
-        embeds: [
-          errorEmbed(
+        components: [
+          errorPanel(
             'Invalid users',
             'Trial reviewer and mentor cannot be the same user.'
           ),
         ],
-        flags: MessageFlags.Ephemeral,
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
       return
     }
@@ -105,24 +129,24 @@ export const execute = async (
       const suffix = res.created
         ? ''
         : res.previousMentorId
-          ? ` (was <@${res.previousMentorId}>)`
-          : ''
+        ? ` (was <@${res.previousMentorId}>)`
+        : ''
 
       await interaction.reply({
-        embeds: [
-          successEmbed(
+        components: [
+          successPanel(
             'Mentor linked',
             `<@${trialUser.id}> → <@${mentorUser.id}>${suffix}`
           ),
         ],
-        flags: MessageFlags.Ephemeral,
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to set trial reviewer mentor:', err)
       await interaction.reply({
-        embeds: [errorEmbed('Save failed', 'Please try again.')],
-        flags: MessageFlags.Ephemeral,
+        components: [errorPanel('Save failed', 'Please try again.')],
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
     }
 
@@ -137,32 +161,32 @@ export const execute = async (
 
       if (!res.removed) {
         await interaction.reply({
-          embeds: [
-            infoEmbed(`No mentor link found for <@${trialUser.id}>.`),
+          components: [
+            infoPanel(`No mentor link found for <@${trialUser.id}>.`),
           ],
-          flags: MessageFlags.Ephemeral,
+          flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
           allowedMentions: { users: [] },
         })
         return
       }
 
       await interaction.reply({
-        embeds: [
-          successEmbed(
+        components: [
+          successPanel(
             'Mentor link removed',
             `Removed for <@${trialUser.id}>${
               res.previousMentorId ? ` (was <@${res.previousMentorId}>)` : ''
             }.`
           ),
         ],
-        flags: MessageFlags.Ephemeral,
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to remove trial reviewer mentor:', err)
       await interaction.reply({
-        embeds: [errorEmbed('Save failed', 'Please try again.')],
-        flags: MessageFlags.Ephemeral,
+        components: [errorPanel('Save failed', 'Please try again.')],
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
     }
 
@@ -175,8 +199,8 @@ export const execute = async (
 
       if (pairs.length === 0) {
         await interaction.reply({
-          embeds: [infoEmbed('No trial reviewer mentor links configured.')],
-          flags: MessageFlags.Ephemeral,
+          components: [infoPanel('No trial reviewer mentor links configured.')],
+          flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
         })
         return
       }
@@ -195,21 +219,24 @@ export const execute = async (
           ? `\n\n...and ${pairs.length - shown.length} more`
           : '')
 
-      const embed = infoEmbed('')
-        .setTitle('Trial reviewer mentor links')
-        .setDescription(description)
-        .setFooter({ text: `${pairs.length} link(s)` })
+      const panel = createTextPanel({
+        accentColor: 0x00bbff,
+        title: 'Trial reviewer mentor links',
+        description,
+      }).addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(`-# ${pairs.length} link(s)`)
+      )
 
       await interaction.reply({
-        embeds: [embed],
-        flags: MessageFlags.Ephemeral,
+        components: [panel],
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
         allowedMentions: { users: [] },
       })
     } catch (err) {
       console.error('Failed to list trial reviewer mentors:', err)
       await interaction.reply({
-        embeds: [errorEmbed('Load failed', 'Please try again.')],
-        flags: MessageFlags.Ephemeral,
+        components: [errorPanel('Load failed', 'Please try again.')],
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
     }
 
@@ -217,12 +244,12 @@ export const execute = async (
   }
 
   await interaction.reply({
-    embeds: [
-      errorEmbed(
+    components: [
+      errorPanel(
         'Unknown subcommand',
         'Please choose one of: add, list, remove.'
       ),
     ],
-    flags: MessageFlags.Ephemeral,
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
   })
 }

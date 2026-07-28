@@ -5,21 +5,29 @@ import {
   ChannelType,
   ChatInputCommandInteraction,
   Client,
-  EmbedBuilder,
+  ContainerBuilder,
   Guild,
   GuildMember,
   InteractionContextType,
   Message,
   MessageFlags,
   PermissionsBitField,
+  SectionBuilder,
   SlashCommandBuilder,
   TextChannel,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
   ThreadAutoArchiveDuration,
   ThreadChannel,
   User,
 } from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import {
   removeTicketDmPreference,
   sendDmOnResponsesPrompt,
@@ -77,8 +85,12 @@ export const execute = async (
   const channel = interaction.channel
   if (!channel || channel.type !== ChannelType.PrivateThread) {
     await interaction.reply({
-      embeds: [errorEmbed('This command can only be used inside a ticket thread.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel(
+          'This command can only be used inside a ticket thread.'
+        ),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -89,32 +101,42 @@ export const execute = async (
     sourceThread.parentId !== channelIds.modTickets
   ) {
     await interaction.reply({
-      embeds: [errorEmbed('This thread is not a supported ticket thread.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('This thread is not a supported ticket thread.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (sourceThread.name.startsWith(resolvedFlag)) {
     await interaction.reply({
-      embeds: [errorEmbed('Resolved tickets cannot be migrated.')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('Resolved tickets cannot be migrated.')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
-  const hasAccess = await hasMigrationAccess(interaction.member, interaction.guild)
+  const hasAccess = await hasMigrationAccess(
+    interaction.member,
+    interaction.guild
+  )
   if (!hasAccess) {
     await interaction.reply({
-      embeds: [errorEmbed('Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('Only staff members can use this command.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
-  const target = interaction.options.getString('target', true) as MigrationTarget
+  const target = interaction.options.getString(
+    'target',
+    true
+  ) as MigrationTarget
   const note = interaction.options.getString('note')?.trim() || ''
 
   const opener =
@@ -123,29 +145,31 @@ export const execute = async (
 
   if (!opener) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Could not identify ticket opener',
           'Run the command again with the optional user field so the bot knows who should be added to the new ticket.'
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
 
   const destinationChannelId = getTargetParentChannelId(target)
   const destinationParent =
-    ((interaction.guild.channels.cache.get(destinationChannelId) as
+    (interaction.guild.channels.cache.get(destinationChannelId) as
       | TextChannel
       | undefined) ??
-      ((await interaction.guild.channels
-        .fetch(destinationChannelId)
-        .catch(() => null)) as TextChannel | null) ??
-      undefined)
+    ((await interaction.guild.channels
+      .fetch(destinationChannelId)
+      .catch(() => null)) as TextChannel | null) ??
+    undefined
 
   if (!destinationParent) {
     await interaction.editReply({
-      embeds: [errorEmbed('Destination channel not found.')],
+      components: [createErrorPanel('Destination channel not found.')],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -155,6 +179,7 @@ export const execute = async (
     opener,
     target,
   })
+  const targetColor = Number.parseInt(targetConfig.color.slice(1), 16)
 
   const activeThreads = await destinationParent.threads.fetchActive()
   const existingThread = activeThreads.threads.find(
@@ -165,16 +190,16 @@ export const execute = async (
 
   if (existingThread) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'A matching ticket already exists',
           `An active ticket already exists in the target queue: <#${existingThread.id}>`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
-
 
   const destinationThread = await destinationParent.threads.create({
     autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
@@ -195,39 +220,53 @@ export const execute = async (
       ]
     : []
 
-  const migrationEmbed = new EmbedBuilder()
-    .setColor(targetConfig.color)
-    .setTitle(`${targetConfig.queueLabel} Ticket`)
-    .setDescription(
-      'This ticket has been moved into the correct queue so the right team can pick it up without losing context.'
+  const migrationPanel = new ContainerBuilder()
+    .setAccentColor(targetColor)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `${targetConfig.notifyRoleMention} <@${opener.id}>`
+      )
     )
-    .setThumbnail(opener.displayAvatarURL())
-    .addFields(
-      {
-        inline: true,
-        name: 'Ticket for',
-        value: `<@${opener.id}>`,
-      },
-      {
-        inline: true,
-        name: 'Moved by',
-        value: `<@${interaction.user.id}>`,
-      },
-      {
-        name: 'Moved from',
-        value: formatSourceThreadLabel(sourceThread),
-      },
-      {
-        name: 'What to include',
-        value: targetConfig.intakePrompt,
-      },
-      {
-        name: 'What happens next',
-        value: targetConfig.responseExpectation,
-      }
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `## ${targetConfig.queueLabel} Ticket\nThis ticket has been moved into the correct queue so the right team can pick it up without losing context.`
+          )
+        )
+        .setThumbnailAccessory(
+          new ThumbnailBuilder().setURL(opener.displayAvatarURL())
+        )
     )
-    .setFooter({ text: 'Keep any follow-up details in this thread.' })
-    .setTimestamp()
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        [
+          '**Ticket for**',
+          `<@${opener.id}>`,
+          '',
+          '**Moved by**',
+          `<@${interaction.user.id}>`,
+          '',
+          '**Moved from**',
+          formatSourceThreadLabel(sourceThread),
+          '',
+          '**What to include**',
+          targetConfig.intakePrompt,
+          '',
+          '**What happens next**',
+          targetConfig.responseExpectation,
+        ].join('\n')
+      ),
+      new TextDisplayBuilder().setContent(
+        `-# Keep any follow-up details in this thread. • <t:${Math.floor(
+          Date.now() / 1000
+        )}:f>`
+      )
+    )
+
+  if (headerComponents.length > 0) {
+    migrationPanel.addActionRowComponents(...headerComponents)
+  }
 
   await destinationThread.send({
     allowedMentions: {
@@ -235,9 +274,8 @@ export const execute = async (
       roles: [targetConfig.notifyRoleId],
       users: [opener.id],
     },
-    components: headerComponents,
-    content: `${targetConfig.notifyRoleMention} <@${opener.id}>`,
-    embeds: [migrationEmbed],
+    components: [migrationPanel],
+    flags: COMPONENTS_V2_FLAGS,
   })
 
   if (note) {
@@ -252,39 +290,37 @@ export const execute = async (
 
   await sendDmOnResponsesPrompt(destinationThread, opener.id)
 
+  const moveNoticeFields = [
+    '**Moved by**',
+    `<@${interaction.user.id}>`,
+    '',
+    '**New queue**',
+    targetConfig.queueLabel,
+    ...(note
+      ? [
+          '',
+          '**Staff note**',
+          'Posted in the new thread as a separate follow-up.',
+        ]
+      : []),
+  ].join('\n')
 
-
-  const moveNotice = new EmbedBuilder()
-    .setColor(targetConfig.color)
-    .setTitle('Ticket moved')
-    .setDescription(
-      `Please continue in <#${destinationThread.id}>.`
+  const moveNoticePanel = new ContainerBuilder()
+    .setAccentColor(targetColor)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `## Ticket moved\nPlease continue in <#${destinationThread.id}>.`
+      ),
+      new TextDisplayBuilder().setContent(moveNoticeFields),
+      new TextDisplayBuilder().setContent(
+        `-# <t:${Math.floor(Date.now() / 1000)}:f>`
+      )
     )
-    .addFields(
-      {
-        inline: true,
-        name: 'Moved by',
-        value: `<@${interaction.user.id}>`,
-      },
-      {
-        inline: true,
-        name: 'New queue',
-        value: targetConfig.queueLabel,
-      },
-      ...(note
-        ? [
-            {
-              name: 'Staff note',
-              value: 'Posted in the new thread as a separate follow-up.',
-            },
-          ]
-        : [])
-    )
-    .setTimestamp()
 
   await sourceThread.send({
-    allowedMentions: { parse: [], users: [interaction.user.id] },
-    embeds: [moveNotice],
+    allowedMentions: { parse: [] },
+    components: [moveNoticePanel],
+    flags: COMPONENTS_V2_FLAGS,
   })
 
   if (sourceThread.parentId === channelIds.modTickets) {
@@ -293,16 +329,23 @@ export const execute = async (
 
   await removeTicketDmPreference(sourceThread.id).catch(() => void 0)
 
-  await sourceThread.setLocked(true, `Ticket migrated by ${interaction.user.tag}`)
-  await sourceThread.setArchived(true, `Ticket migrated to ${destinationThread.id}`)
+  await sourceThread.setLocked(
+    true,
+    `Ticket migrated by ${interaction.user.tag}`
+  )
+  await sourceThread.setArchived(
+    true,
+    `Ticket migrated to ${destinationThread.id}`
+  )
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Ticket migrated',
         `The new ticket is available in <#${destinationThread.id}> and the original thread has been locked.`
       ),
     ],
+    flags: COMPONENTS_V2_FLAGS,
   })
 }
 
@@ -365,7 +408,9 @@ function getTargetConfig(args: {
   }
 
   if (args.target === 'reviewer') {
-    const reviewerPingRoleId = args.guild.roles.cache.has(roleIds.reviewerNotifications)
+    const reviewerPingRoleId = args.guild.roles.cache.has(
+      roleIds.reviewerNotifications
+    )
       ? roleIds.reviewerNotifications
       : roleIds.reviewer
 
@@ -450,11 +495,13 @@ async function resolveTicketOpener(
 
   if (threadMembers) {
     for (const threadMember of threadMembers.values()) {
-      if (threadMember.id === guild.client.user?.id) {
+      if (threadMember.id === guild.client.user.id) {
         continue
       }
 
-      const guildMember = await guild.members.fetch(threadMember.id).catch(() => null)
+      const guildMember = await guild.members
+        .fetch(threadMember.id)
+        .catch(() => null)
       if (!guildMember || guildMember.user.bot) {
         continue
       }
@@ -468,15 +515,16 @@ async function resolveTicketOpener(
   const messages = await fetchRecentMessages(thread, 10)
 
   for (const message of messages) {
-    const userIdFromButton = findOpenerIdInComponents(message)
-    if (userIdFromButton) {
-      const fetchedUser = await guild.client.users.fetch(userIdFromButton).catch(() => null)
-      if (fetchedUser) return fetchedUser
-    }
+    const openerId =
+      findOpenerIdInComponents(message) ??
+      findOpenerIdInV2Text(message) ??
+      findFirstUserMention(message.content) ??
+      findOpenerIdInLegacyEmbeds(message)
 
-    const userIdFromContent = findFirstUserMention(message.content)
-    if (userIdFromContent) {
-      const fetchedUser = await guild.client.users.fetch(userIdFromContent).catch(() => null)
+    if (openerId) {
+      const fetchedUser = await guild.client.users
+        .fetch(openerId)
+        .catch(() => null)
       if (fetchedUser) return fetchedUser
     }
   }
@@ -493,19 +541,141 @@ function memberHasStaffRole(member: GuildMember): boolean {
   ].some((roleId) => member.roles.cache.has(roleId))
 }
 
-function findOpenerIdInComponents(message: Message): string | null {
-  for (const row of message.components) {
-    if (!('components' in row) || !Array.isArray(row.components)) {
+type ComponentTreeNode = {
+  accessory?: unknown
+  components?: ReadonlyArray<unknown>
+  content?: unknown
+  customId?: unknown
+  custom_id?: unknown
+  data?: {
+    accessory?: unknown
+    components?: unknown
+    content?: unknown
+    custom_id?: unknown
+  }
+}
+
+function* walkComponentTree(
+  components: ReadonlyArray<unknown>
+): Generator<ComponentTreeNode> {
+  for (const component of components) {
+    if (typeof component !== 'object' || component === null) {
       continue
     }
 
-    for (const component of row.components) {
-      if ('customId' in component && typeof component.customId === 'string') {
-        const match = component.customId.match(/^closeModTicket_(\d+)$/)
-        if (match?.[1]) {
-          return match[1]
-        }
-      }
+    const node = component as ComponentTreeNode
+    yield node
+
+    const dataComponents = node.data?.components
+    const childComponents = Array.isArray(node.components)
+      ? node.components
+      : Array.isArray(dataComponents)
+      ? dataComponents
+      : []
+
+    if (childComponents.length > 0) {
+      yield* walkComponentTree(childComponents)
+    }
+
+    const accessory = node.accessory ?? node.data?.accessory
+    if (accessory) {
+      yield* walkComponentTree([accessory])
+    }
+  }
+}
+
+function getComponentCustomId(component: ComponentTreeNode): string | null {
+  const customId =
+    component.customId ?? component.custom_id ?? component.data?.custom_id
+  return typeof customId === 'string' ? customId : null
+}
+
+function getComponentText(component: ComponentTreeNode): string | null {
+  const content = component.content ?? component.data?.content
+  return typeof content === 'string' ? content : null
+}
+
+function findOpenerIdInComponents(message: Message): string | null {
+  for (const component of walkComponentTree(message.components)) {
+    const customId = getComponentCustomId(component)
+    if (!customId) continue
+
+    const directMatch = customId.match(
+      /^(?:closeModTicket|dmOnResponses)_(\d+)$/
+    )
+    if (directMatch?.[1]) {
+      return directMatch[1]
+    }
+
+    const scopedMatch = customId.match(
+      /^dmOnResponses(?:Ticket|Global)_(?:enable|disable)_(\d+)$/
+    )
+    if (scopedMatch?.[1]) {
+      return scopedMatch[1]
+    }
+  }
+
+  return null
+}
+
+const ticketNotificationPhrases = [
+  'has created a ticket',
+  'has created an Auctions ticket',
+  'has opened a dispute',
+  'would like to talk to you',
+]
+
+function getV2TextDisplayContent(message: Message): string {
+  return Array.from(walkComponentTree(message.components))
+    .map((component) => getComponentText(component))
+    .filter((content): content is string => content !== null)
+    .join('\n')
+}
+
+function findOpenerIdInV2Text(message: Message): string | null {
+  const content = getV2TextDisplayContent(message)
+  if (!content) return null
+
+  const migrationNotification = content.match(/^<@&\d+>\s+<@!?(\d+)>$/m)
+  if (migrationNotification?.[1]) {
+    return migrationNotification[1]
+  }
+
+  const ticketForSection = content.match(/\*\*Ticket for\*\*\s*\n<@!?(\d+)>/)
+  if (ticketForSection?.[1]) {
+    return ticketForSection[1]
+  }
+
+  if (
+    content.includes('Ticket Response Notifications') ||
+    ticketNotificationPhrases.some((phrase) => content.includes(phrase))
+  ) {
+    return findFirstUserMention(content)
+  }
+
+  return null
+}
+
+function findOpenerIdInLegacyEmbeds(message: Message): string | null {
+  for (const embed of message.embeds) {
+    const ticketForField = embed.fields.find(
+      (field) => field.name === 'Ticket for'
+    )
+    if (ticketForField) {
+      const openerId = findFirstUserMention(ticketForField.value)
+      if (openerId) return openerId
+    }
+
+    const embedText = [embed.title, embed.description]
+      .filter((value): value is string => typeof value === 'string')
+      .join('\n')
+
+    if (
+      embed.title === 'Ticket Response Notifications' ||
+      ticketNotificationPhrases.some((phrase) => embedText.includes(phrase))
+    ) {
+      const openerId = findFirstUserMention(embedText)
+      if (openerId) return openerId
     }
   }
 

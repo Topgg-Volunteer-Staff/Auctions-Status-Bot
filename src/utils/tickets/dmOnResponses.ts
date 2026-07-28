@@ -3,11 +3,15 @@
   ButtonBuilder,
   ButtonStyle,
   Client,
+  ContainerBuilder,
   EmbedBuilder,
   Message,
+  MessageFlags,
+  TextDisplayBuilder,
   ThreadChannel,
 } from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
+import { COMPONENTS_V2_FLAGS, createTextPanel } from '../componentsV2'
 import { getMongoDatabase } from '../db/mongo'
 import {
   loadMongoBackedJson,
@@ -100,11 +104,14 @@ function isSupportedTicketThread(message: Message): message is Message & {
 
   const parentId = channel.parentId
   return (
-    parentId === channelIds.modTickets || parentId === channelIds.auctionsTickets
+    parentId === channelIds.modTickets ||
+    parentId === channelIds.auctionsTickets
   )
 }
 
-function isValidPendingReminder(value: unknown): value is TicketPendingReminder {
+function isValidPendingReminder(
+  value: unknown
+): value is TicketPendingReminder {
   if (!isObject(value)) return false
 
   return (
@@ -122,7 +129,9 @@ function normalizeDueAt(value: number): number {
   return value < 1_000_000_000_000 ? value * 1000 : value
 }
 
-function normalizePendingReminder(value: unknown): TicketPendingReminder | null {
+function normalizePendingReminder(
+  value: unknown
+): TicketPendingReminder | null {
   if (!isValidPendingReminder(value)) return null
 
   return {
@@ -147,7 +156,9 @@ function normalizeStoredTicketPreference(
     return null
   }
 
-  const normalizedPendingReminder = normalizePendingReminder(pref.pendingReminder)
+  const normalizedPendingReminder = normalizePendingReminder(
+    pref.pendingReminder
+  )
   const normalizedDeliveryStatus = normalizeDeliveryStatus(
     pref.lastDmDeliveryStatus
   )
@@ -192,7 +203,9 @@ function reminderMatches(
   )
 }
 
-function isValidDeliveryStatus(value: unknown): value is TicketDmDeliveryStatus {
+function isValidDeliveryStatus(
+  value: unknown
+): value is TicketDmDeliveryStatus {
   if (!isObject(value)) return false
 
   const state = value.state
@@ -237,7 +250,7 @@ async function writeCurrentStoreToDisk(): Promise<void> {
       userDefaults,
     },
     {
-    operation: 'persist',
+      operation: 'persist',
     }
   )
 }
@@ -321,7 +334,9 @@ async function initStore(): Promise<void> {
         migrated = true
       }
 
-      for (const [threadId, pref] of Object.entries(getPersistedThreads(parsed))) {
+      for (const [threadId, pref] of Object.entries(
+        getPersistedThreads(parsed)
+      )) {
         if (typeof threadId !== 'string' || !isObject(pref)) continue
 
         const normalizedPref = normalizeStoredTicketPreference(pref)
@@ -347,7 +362,10 @@ async function initStore(): Promise<void> {
           migrated = true
         }
 
-        if (!normalizedPendingReminder && pref.pendingReminderClaimedAt !== undefined) {
+        if (
+          !normalizedPendingReminder &&
+          pref.pendingReminderClaimedAt !== undefined
+        ) {
           migrated = true
         }
 
@@ -451,7 +469,10 @@ function getErrorMessage(error: unknown): string {
 
   if (isObject(error)) {
     if (typeof error.message === 'string') return error.message
-    if (isObject(error.rawError) && typeof error.rawError.message === 'string') {
+    if (
+      isObject(error.rawError) &&
+      typeof error.rawError.message === 'string'
+    ) {
       return error.rawError.message
     }
   }
@@ -541,10 +562,30 @@ async function updateTogglePromptEmbed(threadId: string): Promise<void> {
   const channel = await client.channels.fetch(threadId).catch(() => null)
   if (!channel || !channel.isThread()) return
 
-  const targetMessage = await channel.messages.fetch(messageId).catch(() => null)
+  const targetMessage = await channel.messages
+    .fetch(messageId)
+    .catch(() => null)
   if (!targetMessage) return
 
   const inheritedDisabled = isInheritedDisabled(pref.openerId, pref.enabled)
+
+  if (targetMessage.flags.has(MessageFlags.IsComponentsV2)) {
+    await targetMessage
+      .edit({
+        components: [
+          createDmOnResponsesPanel(
+            pref.openerId,
+            pref.enabled,
+            pref.lastDmDeliveryStatus,
+            inheritedDisabled
+          ),
+        ],
+        flags: COMPONENTS_V2_FLAGS,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => void 0)
+    return
+  }
 
   await targetMessage
     .edit({
@@ -658,7 +699,9 @@ async function reportDmReminderIssue(options: {
   const client = runtimeClient
   if (!client) return
 
-  const channel = await client.channels.fetch(DM_DEBUG_CHANNEL_ID).catch(() => null)
+  const channel = await client.channels
+    .fetch(DM_DEBUG_CHANNEL_ID)
+    .catch(() => null)
   if (!channel) return
   if (!('isTextBased' in channel) || !channel.isTextBased()) return
   const sendFn = (channel as { send?: unknown }).send
@@ -699,7 +742,10 @@ async function clearPendingReminder(threadId: string): Promise<void> {
   await queuePersist().catch(() => void 0)
 }
 
-function scheduleReminder(threadId: string, reminder: TicketPendingReminder): void {
+function scheduleReminder(
+  threadId: string,
+  reminder: TicketPendingReminder
+): void {
   if (!runtimeClient) return
   if (pendingReminderTimers.has(threadId)) return
 
@@ -778,7 +824,10 @@ async function claimPendingReminderForSend(
 async function syncThreadPreferenceFromStore(
   threadId: string
 ): Promise<TicketDmPreference | undefined> {
-  const parsed = await loadMongoBackedJson<unknown>(TICKET_DM_PREFS_STORE_KEY, {})
+  const parsed = await loadMongoBackedJson<unknown>(
+    TICKET_DM_PREFS_STORE_KEY,
+    {}
+  )
   if (!isObject(parsed)) {
     clearPendingReminderTimer(threadId)
     ticketDmPreferences.delete(threadId)
@@ -827,20 +876,30 @@ async function sendPendingReminder(threadId: string): Promise<void> {
   )
 
   if (!claimed) {
-    const latestPref = await syncThreadPreferenceFromStore(threadId).catch(() => pref)
+    const latestPref = await syncThreadPreferenceFromStore(threadId).catch(
+      () => pref
+    )
     if (latestPref?.pendingReminder) {
       scheduleReminder(threadId, latestPref.pendingReminder)
     }
     return
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle('Ticket Response')
-    .setDescription(
-      `You have a new ticket response from ${reminder.responderName}. Please check it out: [Open Ticket](${reminder.messageUrl})\n\nYou can opt out of these reminders by using the toggle in your ticket: [Click here](${pref.toggleMessageUrl ?? reminder.messageUrl})`
+  const dmPanel = createTextPanel({
+    accentColor: 0xff3366,
+    title: 'Ticket Response',
+    description: `You have a new ticket response from ${
+      reminder.responderName
+    }. Please check it out: [Open Ticket](${
+      reminder.messageUrl
+    })\n\nYou can opt out of these reminders by using the toggle in your ticket: [Click here](${
+      pref.toggleMessageUrl ?? reminder.messageUrl
+    })`,
+  }).addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# <t:${Math.floor(Date.now() / 1000)}:f>`
     )
-    .setColor('#ff3366')
-    .setTimestamp()
+  )
 
   let sent = false
   let sendError: unknown = null
@@ -850,7 +909,11 @@ async function sendPendingReminder(threadId: string): Promise<void> {
       throw new Error('Failed to fetch ticket opener user for DM reminder')
     }
 
-    await user.send({ embeds: [embed] })
+    await user.send({
+      components: [dmPanel],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
+    })
     sent = true
   }).catch(async (error) => {
     sendError = error
@@ -985,7 +1048,8 @@ export async function getTicketDmResponsesState(
 
   const current = ticketDmPreferences.get(threadId)
   const resolvedOpenerId = current?.openerId ?? openerId
-  const enabled = current?.enabled ?? getDefaultDmResponsesEnabled(resolvedOpenerId)
+  const enabled =
+    current?.enabled ?? getDefaultDmResponsesEnabled(resolvedOpenerId)
 
   return {
     enabled,
@@ -1031,11 +1095,32 @@ export async function setTicketDmResponses(
   return enabled
 }
 
-export async function removeTicketDmPreference(threadId: string): Promise<void> {
+export async function removeTicketDmPreference(
+  threadId: string
+): Promise<void> {
   await initStore()
   clearPendingReminderTimer(threadId)
   ticketDmPreferences.delete(threadId)
   await queuePersist().catch(() => void 0)
+}
+
+function buildDmResponsePromptDescription(
+  openerId: string,
+  enabled: boolean,
+  status?: TicketDmDeliveryStatus,
+  inheritedDisabled = false
+): string {
+  const statusLine = enabled
+    ? `<@${openerId}> has opted in for DM responses.`
+    : inheritedDisabled
+    ? `<@${openerId}> opted out of ticket DMs last time.`
+    : `<@${openerId}> has opted out of DM responses.`
+  const deliveryStatusLine = buildDmDeliveryStatusLine(status)
+  const deliveryStatusText = deliveryStatusLine
+    ? `\n\n${deliveryStatusLine}`
+    : ''
+
+  return `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nUse the button below to change this setting.${deliveryStatusText}`
 }
 
 export function updateDmResponseEmbed(
@@ -1044,22 +1129,35 @@ export function updateDmResponseEmbed(
   status?: TicketDmDeliveryStatus,
   inheritedDisabled = false
 ): EmbedBuilder {
-  const statusLine = enabled
-    ? `<@${openerId}> has opted in for DM responses.`
-    : inheritedDisabled
-      ? `<@${openerId}> opted out of ticket DMs last time.`
-      : `<@${openerId}> has opted out of DM responses.`
-  const deliveryStatusLine = buildDmDeliveryStatusLine(status)
-  const deliveryStatusText = deliveryStatusLine
-    ? `\n\n${deliveryStatusLine}`
-    : ''
-
   return new EmbedBuilder()
     .setTitle('Ticket Response Notifications')
     .setDescription(
-      `${statusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.\nUse the button below to change this setting.${deliveryStatusText}`
+      buildDmResponsePromptDescription(
+        openerId,
+        enabled,
+        status,
+        inheritedDisabled
+      )
     )
     .setColor(enabled ? '#2ecc71' : '#95a5a6')
+}
+
+export function createDmOnResponsesPanel(
+  openerId: string,
+  enabled: boolean,
+  status?: TicketDmDeliveryStatus,
+  inheritedDisabled = false
+): ContainerBuilder {
+  return createTextPanel({
+    accentColor: enabled ? 0x2ecc71 : 0x95a5a6,
+    title: 'Ticket Response Notifications',
+    description: buildDmResponsePromptDescription(
+      openerId,
+      enabled,
+      status,
+      inheritedDisabled
+    ),
+  }).addActionRowComponents(createDmOnResponsesRow(openerId, enabled))
 }
 
 export function getTicketDmDeliveryStatus(
@@ -1080,9 +1178,11 @@ export async function sendDmOnResponsesPrompt(
   const inheritedDisabled = isInheritedDisabled(openerId, enabled)
 
   const sent = await thread.send({
-    embeds: [updateDmResponseEmbed(openerId, enabled, undefined, inheritedDisabled)],
-    components: [createDmOnResponsesRow(openerId, enabled)],
-    allowedMentions: { parse: [], users: [openerId] },
+    components: [
+      createDmOnResponsesPanel(openerId, enabled, undefined, inheritedDisabled),
+    ],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 
   ticketDmPreferences.set(thread.id, {
@@ -1092,7 +1192,9 @@ export async function sendDmOnResponsesPrompt(
   await queuePersist().catch(() => void 0)
 }
 
-export async function maybeNotifyTicketResponse(message: Message): Promise<void> {
+export async function maybeNotifyTicketResponse(
+  message: Message
+): Promise<void> {
   try {
     setRuntimeClient(message.client)
 
@@ -1138,7 +1240,8 @@ export async function maybeNotifyTicketResponse(message: Message): Promise<void>
         responderName: message.member?.displayName ?? message.author.username,
       }
 
-      const { pendingReminderClaimedAt: _previousClaimedAt, ...restPref } = latestPref
+      const { pendingReminderClaimedAt: _previousClaimedAt, ...restPref } =
+        latestPref
 
       ticketDmPreferences.set(message.channel.id, {
         ...restPref,

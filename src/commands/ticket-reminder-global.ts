@@ -2,10 +2,13 @@ import {
   ChatInputCommandInteraction,
   Client,
   InteractionContextType,
-  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import {
   getTicketReminderDelayLabel,
   getTicketReminderDelayMs,
@@ -38,8 +41,10 @@ export const execute = async (
 ): Promise<void> => {
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [errorEmbed('Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('Only staff members can use this command.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -50,8 +55,8 @@ export const execute = async (
 
   if (!delayLabel) {
     await interaction.reply({
-      embeds: [errorEmbed('That reminder delay is not valid.')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('That reminder delay is not valid.')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -59,13 +64,13 @@ export const execute = async (
   if (delayMs === null) {
     await removeGlobalStaffTicketReminderPreference(interaction.user.id)
     await interaction.reply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Global ticket reminder disabled',
           'You will no longer receive automatic DMs for tickets where you are the primary staff handler.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -73,12 +78,12 @@ export const execute = async (
   await setGlobalStaffTicketReminderPreference(interaction.user.id, delayMs)
 
   await interaction.reply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Global ticket reminder updated',
         `You will receive a DM ${delayLabel.toLowerCase()} after the latest user message in tickets where you are the primary staff handler unless you reply before then.`
       ),
     ],
-    flags: MessageFlags.Ephemeral,
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
   })
 }

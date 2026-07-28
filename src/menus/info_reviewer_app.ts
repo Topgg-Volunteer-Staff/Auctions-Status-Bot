@@ -1,10 +1,9 @@
-import {
-  Client,
-  StringSelectMenuInteraction,
-  EmbedBuilder,
-  MessageFlags,
-} from 'discord.js'
+import { Client, StringSelectMenuInteraction } from 'discord.js'
 import { emoji } from '../utils/emojis'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createTextPanel,
+} from '../utils/componentsV2'
 
 export const menu = {
   name: 'info_reviewer_app',
@@ -18,12 +17,14 @@ export const execute = async (
 
   await interaction.update({})
 
-  const embed = new EmbedBuilder()
-    .setColor('#E91E63')
-    .setTitle(`Volunteer Applications`)
-    .setDescription(
-      `Hey! It seems like you're interested in volunteering for Top.gg. We're glad for any help we can get regarding our server events, support articles, bot/server reviewing, moderation, and more!\n\n${emoji.br} Reviewers\nReviewers are Top.gg staff and must be 18 or older. Reviewers review the discord bots and servers submitted to the site before they are listed to make sure they follow our rules.\n\n${emoji.mod} Moderators\nReviewer is a stepping stone to Moderator - if you wish to be a Moderator you must first apply and be accepted as a Reviewer.\n\n${emoji.dotred} Applications are currently: **CLOSED**`
-    )
+  const panel = createTextPanel({
+    accentColor: 0xe91e63,
+    title: 'Volunteer Applications',
+    description: `Hey! It seems like you're interested in volunteering for Top.gg. We're glad for any help we can get regarding our server events, support articles, bot/server reviewing, moderation, and more!\n\n${emoji.br} Reviewers\nReviewers are Top.gg staff and must be 18 or older. Reviewers review the discord bots and servers submitted to the site before they are listed to make sure they follow our rules.\n\n${emoji.mod} Moderators\nReviewer is a stepping stone to Moderator - if you wish to be a Moderator you must first apply and be accepted as a Reviewer.\n\n${emoji.dotred} Applications are currently: **CLOSED**`,
+  })
 
-  await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral })
+  await interaction.followUp({
+    components: [panel],
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+  })
 }

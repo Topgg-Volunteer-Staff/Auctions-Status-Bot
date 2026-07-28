@@ -1,14 +1,17 @@
 import {
-  ModalSubmitInteraction,
-  Client,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  Client,
+  ModalSubmitInteraction,
   TextChannel,
-  MessageFlags,
 } from 'discord.js'
 import { channelIds } from '../globals'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createTextPanel,
+} from '../utils/componentsV2'
 
 const AMA_CHANNEL_ID = channelIds.amaChannel
 
@@ -22,12 +25,6 @@ export const execute = async (
 ) => {
   const question = interaction.fields.getTextInputValue('amaQuestion')
 
-  const embed = new EmbedBuilder()
-    .setTitle('AMA Question')
-    .setDescription(question)
-    .addFields({ name: 'Submitted by', value: `<@${interaction.user.id}>` })
-    .setColor('#ff0000') // red for pending
-
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('amaAccept')
@@ -39,20 +36,31 @@ export const execute = async (
       .setStyle(ButtonStyle.Danger)
   )
 
+  const panel = createTextPanel({
+    accentColor: 0xff0000,
+    title: 'AMA Question',
+    description: `${question}\n\n**Submitted by**\n<@${interaction.user.id}>`,
+  }).addActionRowComponents(row)
+
   const channel = (await interaction.client.channels.fetch(
     AMA_CHANNEL_ID
   )) as TextChannel
-  await channel.send({ embeds: [embed], components: [row] })
+
+  await channel.send({
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
+  })
 
   await interaction.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setTitle('✅ Question Submitted')
-        .setDescription(
-          'Your question has been submitted for review! Thanks for taking part of the Staff AMA. Feel free to submit other questions that you think of.'
-        )
-        .setColor('#00ff00'),
+    components: [
+      createTextPanel({
+        accentColor: 0x00ff00,
+        title: '✅ Question Submitted',
+        description:
+          'Your question has been submitted for review! Thanks for taking part of the Staff AMA. Feel free to submit other questions that you think of.',
+      }),
     ],
-    flags: MessageFlags.Ephemeral,
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
   })
 }

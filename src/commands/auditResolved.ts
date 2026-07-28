@@ -5,15 +5,21 @@ import {
   ButtonStyle,
   Client,
   ChatInputCommandInteraction,
-  EmbedBuilder,
+  ContainerBuilder,
   InteractionContextType,
   MessageFlags,
   SlashCommandBuilder,
+  TextDisplayBuilder,
   User,
 } from 'discord.js'
 
-import { errorEmbed } from '../utils/embeds'
 import { roleIds } from '../globals'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createTextPanel,
+} from '../utils/componentsV2'
 import {
   AuditDateRange,
   getResolvedLeaderboard,
@@ -34,6 +40,11 @@ type ParsedDate = {
 
 type DateRangeWithLabel = AuditDateRange & {
   label: string
+}
+
+export type AuditPanelPage = {
+  noResults: boolean
+  panel: ContainerBuilder
 }
 
 const parseDateInput = (input: string): ParsedDate => {
@@ -129,18 +140,28 @@ const isAmbiguousDateRange = (startInput: string, endInput: string): boolean =>
 
 const formatRangeLabel = (range: DateRangeWithLabel): string => range.label
 
-const isNoResultsEmbedSet = (embeds: Array<EmbedBuilder>): boolean => {
-  if (embeds.length !== 1) return false
+const isNoResultsPanelSet = (pages: Array<AuditPanelPage>): boolean => {
+  if (pages.length !== 1) return false
 
-  const [firstEmbed] = embeds
-  const description = firstEmbed?.data.description
-  return description?.includes('No resolved tickets were recorded') ?? false
+  return pages[0]?.noResults === true
 }
 
 const toUnixSeconds = (date: Date): number => Math.floor(date.getTime() / 1000)
 
-const buildAuditEmbed = (): EmbedBuilder =>
-  new EmbedBuilder().setColor(auditColor).setTitle('Resolved Tickets Audit').setTimestamp()
+const buildAuditPanel = (
+  description: string,
+  footer: string
+): ContainerBuilder => {
+  const timestamp = Math.floor(Date.now() / 1000)
+
+  return createTextPanel({
+    accentColor: auditColor,
+    title: 'Resolved Tickets Audit',
+    description,
+  }).addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`-# ${footer} • <t:${timestamp}:f>`)
+  )
+}
 
 const formatThreadCountLabel = (count: number): string =>
   `${count} resolved thread${count === 1 ? '' : 's'}`
@@ -162,18 +183,18 @@ const buildAuditPageCustomId = (
 ): string =>
   `${auditPageButtonName}_${userId}_${startInput}_${endInput}_${pageIndex + 1}`
 
-export const getAuditPageEmbed = (
-  embeds: Array<EmbedBuilder>,
+export const getAuditPagePanel = (
+  pages: Array<AuditPanelPage>,
   pageIndex: number
-): EmbedBuilder => {
-  const safePageIndex = clampPageIndex(pageIndex, embeds.length)
-  const embed = embeds[safePageIndex]
+): ContainerBuilder => {
+  const safePageIndex = clampPageIndex(pageIndex, pages.length)
+  const page = pages[safePageIndex]
 
-  if (!embed) {
+  if (!page) {
     throw new Error('No audit pages were available to display.')
   }
 
-  return embed
+  return page.panel
 }
 
 export const buildAuditPaginationComponents = (
@@ -243,11 +264,11 @@ const paginateThreadLines = (lines: Array<string>): Array<Array<string>> => {
   return pages
 }
 
-const buildUserEmbeds = async (
+const buildUserPanels = async (
   interaction: ChatInputCommandInteraction | ButtonInteraction,
   targetUser: User,
   range: DateRangeWithLabel
-): Promise<Array<EmbedBuilder>> => {
+): Promise<Array<AuditPanelPage>> => {
   const records = await getResolvedTicketsByUser(targetUser.id, range)
   const displayName = await resolveDisplayName(
     interaction,
@@ -257,23 +278,21 @@ const buildUserEmbeds = async (
 
   if (records.length === 0) {
     return [
-      buildAuditEmbed()
-        .setDescription(`No resolved tickets were recorded for **${displayName}** in this range.`)
-        .addFields(
-          {
-            name: 'Staff Member',
-            value: displayName,
-            inline: true,
-          },
-          {
-            name: 'Date Range',
-            value: formatRangeLabel(range),
-            inline: true,
-          }
-        )
-        .setFooter({
-          text: 'No resolved threads found',
-        }),
+      {
+        noResults: true,
+        panel: buildAuditPanel(
+          [
+            `No resolved tickets were recorded for **${displayName}** in this range.`,
+            '',
+            '**Staff Member**',
+            displayName,
+            '',
+            '**Date Range**',
+            formatRangeLabel(range),
+          ].join('\n'),
+          'No resolved threads found'
+        ),
+      },
     ]
   }
 
@@ -285,8 +304,16 @@ const buildUserEmbeds = async (
   const pages = paginateThreadLines(threadLines)
 
   return pages.map((pageLines, index) => {
-    const embed = buildAuditEmbed()
-      .setDescription(
+    const footer =
+      pages.length > 1
+        ? `Showing ${formatThreadCountLabel(records.length)} • Page ${
+            index + 1
+          }/${pages.length}`
+        : `Showing ${formatThreadCountLabel(records.length)}`
+
+    return {
+      noResults: false,
+      panel: buildAuditPanel(
         [
           `**Date Range**`,
           formatRangeLabel(range),
@@ -296,47 +323,38 @@ const buildUserEmbeds = async (
           '',
           `**Resolved Threads**`,
           pageLines.join('\n'),
-        ].join('\n')
-      )
-      .setFooter({
-        text: `Showing ${formatThreadCountLabel(records.length)}`,
-      })
-
-    if (pages.length > 1) {
-      embed.setFooter({
-        text: `Showing ${formatThreadCountLabel(records.length)} • Page ${index + 1}/${pages.length}`,
-      })
+        ].join('\n'),
+        footer
+      ),
     }
-
-    return embed
   })
 }
 
-export const getUserAuditEmbeds = async (
+export const getUserAuditPanels = async (
   interaction: ChatInputCommandInteraction | ButtonInteraction,
   targetUser: User,
   startInput: string,
   endInput: string
-): Promise<Array<EmbedBuilder>> => {
+): Promise<Array<AuditPanelPage>> => {
   const range = createDateRange(startInput, endInput)
   const hasAmbiguousInput = isAmbiguousDateRange(startInput, endInput)
 
-  let embeds = await buildUserEmbeds(interaction, targetUser, range)
+  let panels = await buildUserPanels(interaction, targetUser, range)
 
-  if (hasAmbiguousInput && isNoResultsEmbedSet(embeds)) {
+  if (hasAmbiguousInput && isNoResultsPanelSet(panels)) {
     const fallbackRange = createSwappedDateRange(startInput, endInput)
-    const fallbackEmbeds = await buildUserEmbeds(
+    const fallbackPanels = await buildUserPanels(
       interaction,
       targetUser,
       fallbackRange
     )
 
-    if (!isNoResultsEmbedSet(fallbackEmbeds)) {
-      embeds = fallbackEmbeds
+    if (!isNoResultsPanelSet(fallbackPanels)) {
+      panels = fallbackPanels
     }
   }
 
-  return embeds
+  return panels
 }
 
 export const command = new SlashCommandBuilder()
@@ -372,23 +390,28 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        createErrorPanel(
+          'Server only',
+          'This command can only be used in a server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   if (!interaction.member.roles.cache.has(roleIds.moderator)) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Missing permissions',
           'Only moderators can use this command.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
@@ -418,18 +441,20 @@ export const execute = async (
       }
 
       if (leaderboard.length === 0) {
+        const panel = buildAuditPanel(
+          [
+            'No resolved tickets were recorded in this range.',
+            '',
+            '**Date Range**',
+            formatRangeLabel(range),
+          ].join('\n'),
+          'No resolved threads found'
+        )
+
         await interaction.editReply({
-          embeds: [
-            buildAuditEmbed()
-              .setDescription('No resolved tickets were recorded in this range.')
-              .addFields({
-                name: 'Date Range',
-                value: formatRangeLabel(range),
-              })
-              .setFooter({
-                text: 'No resolved threads found',
-              }),
-          ],
+          components: [panel],
+          flags: COMPONENTS_V2_FLAGS,
+          allowedMentions: { parse: [] },
         })
         return
       }
@@ -444,44 +469,49 @@ export const execute = async (
         0
       )
 
+      const panel = buildAuditPanel(
+        [
+          '**Date Range**',
+          formatRangeLabel(resolvedRange),
+          '',
+          '**Leaderboard**',
+          lines.join('\n'),
+        ].join('\n'),
+        `${totalResolved} resolved thread(s) across ${leaderboard.length} staff member(s)`
+      )
+
       await interaction.editReply({
-        embeds: [
-          buildAuditEmbed()
-            .setDescription(
-              [
-                '**Date Range**',
-                formatRangeLabel(resolvedRange),
-                '',
-                '**Leaderboard**',
-                lines.join('\n'),
-              ].join('\n')
-            )
-            .setFooter({
-              text: `${totalResolved} resolved thread(s) across ${leaderboard.length} staff member(s)`,
-            }),
-        ],
+        components: [panel],
+        flags: COMPONENTS_V2_FLAGS,
+        allowedMentions: { parse: [] },
       })
       return
     }
 
-    const embeds = await getUserAuditEmbeds(
+    const panels = await getUserAuditPanels(
       interaction,
       targetUser,
       startInput,
       endInput
     )
     const pageIndex = 0
-    const currentEmbed = getAuditPageEmbed(embeds, pageIndex)
+    const currentPanel = getAuditPagePanel(panels, pageIndex)
+    const paginationComponents = buildAuditPaginationComponents(
+      targetUser.id,
+      startInput,
+      endInput,
+      pageIndex,
+      panels.length
+    )
+
+    if (paginationComponents.length > 0) {
+      currentPanel.addActionRowComponents(...paginationComponents)
+    }
 
     await interaction.editReply({
-      embeds: [currentEmbed],
-      components: buildAuditPaginationComponents(
-        targetUser.id,
-        startInput,
-        endInput,
-        pageIndex,
-        embeds.length
-      ),
+      components: [currentPanel],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
   } catch (error) {
     const message =
@@ -490,7 +520,9 @@ export const execute = async (
         : 'Failed to audit resolved tickets.'
 
     await interaction.editReply({
-      embeds: [errorEmbed('Audit failed', message)],
+      components: [createErrorPanel('Audit failed', message)],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
   }
 }

@@ -7,7 +7,12 @@ import {
   ThreadChannel,
 } from 'discord.js'
 import { channelIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
 import {
   getOpenThreadsForStaffMember,
@@ -30,18 +35,28 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        createErrorPanel(
+          'Server only',
+          'This command can only be used in a server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [errorEmbed('Missing permissions', 'Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel(
+          'Missing permissions',
+          'Only staff members can use this command.'
+        ),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
@@ -68,36 +83,42 @@ export const execute = async (
 
   if (openThreadDetails.length === 0) {
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'No tickets assigned',
           'I could not find any open mod, reviewer, or auctions tickets currently assigned to you.'
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   const lines = openThreadDetails.map(
     ({ thread, attentionState }) =>
-      `- [${getTicketCategory(thread)}] [${formatAttentionState(attentionState)}] <#${thread.id}> (${thread.name}) - ${formatOpened(thread)}`
+      `- [${getTicketCategory(thread)}] [${formatAttentionState(
+        attentionState
+      )}] <#${thread.id}> (${thread.name}) - ${formatOpened(thread)}`
   )
 
   const pages = chunkLines(lines, 3800)
 
   await interaction.editReply({
-    embeds: pages.map((page, index) =>
-      successEmbed(
+    components: pages.map((page, index) =>
+      createSuccessPanel(
         index === 0 ? 'Your tickets' : 'More tickets',
         `${
           index === 0
-            ? `Found ${openThreadDetails.length} open ticket${openThreadDetails.length === 1 ? '' : 's'} currently assigned to you by staff message ownership. Each ticket shows whether it needs your reply.\n\n`
+            ? `Found ${openThreadDetails.length} open ticket${
+                openThreadDetails.length === 1 ? '' : 's'
+              } currently assigned to you by staff message ownership. Each ticket shows whether it needs your reply.\n\n`
             : ''
-        }${page}`
-      ).setFooter({
-        text: `Page ${index + 1} of ${pages.length}`,
-      })
+        }${page}\n\n-# Page ${index + 1} of ${pages.length}`
+      )
     ),
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }
 

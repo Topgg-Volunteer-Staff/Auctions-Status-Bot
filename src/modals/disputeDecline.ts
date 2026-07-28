@@ -2,16 +2,21 @@ import {
   ModalSubmitInteraction,
   Client,
   ChannelType,
-  EmbedBuilder,
+  ContainerBuilder,
   TextChannel,
   MessageFlags,
   MessageType,
+  TextDisplayBuilder,
   type GuildMember,
   type Collection,
   type Attachment,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
@@ -21,6 +26,20 @@ function isSnowflake(value: unknown): value is string {
 
 function uniqueSnowflakes(values: Array<string>): Array<string> {
   return Array.from(new Set(values))
+}
+
+function createDisputeTicketPanel(
+  notificationContent: string,
+  title: string,
+  description: string
+): ContainerBuilder {
+  return new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(notificationContent),
+      new TextDisplayBuilder().setContent(`## ${title}`),
+      new TextDisplayBuilder().setContent(description)
+    )
 }
 
 function extractReviewerSearchQuery(value: string): string | null {
@@ -95,9 +114,13 @@ export const execute = async (
 
   if (!/^\d+$/.test(disputeID)) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed('Invalid ID', 'Please provide a valid numeric bot ID.'),
+      components: [
+        createErrorPanel(
+          'Invalid ID',
+          'Please provide a valid numeric bot ID.'
+        ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -107,7 +130,8 @@ export const execute = async (
   ) as TextChannel | undefined
   if (!modTickets) {
     await interaction.editReply({
-      embeds: [errorEmbed('Error', 'Mod tickets channel not found.')],
+      components: [createErrorPanel('Error', 'Mod tickets channel not found.')],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -119,12 +143,13 @@ export const execute = async (
   )
   if (existingThread) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Can’t open a new dispute!',
           `You already have an open dispute here: <#${existingThread.id}>`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -135,7 +160,8 @@ export const execute = async (
     | undefined
   if (!modLogs) {
     await interaction.editReply({
-      embeds: [errorEmbed('Error', 'Mod logs channel not found.')],
+      components: [createErrorPanel('Error', 'Mod logs channel not found.')],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -170,12 +196,13 @@ export const execute = async (
         // If the embed title is "Bot Approved", reject immediately
         if (embed.title?.toLowerCase() === 'bot approved') {
           await interaction.editReply({
-            embeds: [
-              errorEmbed(
+            components: [
+              createErrorPanel(
                 "Can't open ticket",
                 `This bot was approved. If you need help with this bot, please ask in <#714045415707770900> or create a mod ticket above.`
               ),
             ],
+            flags: COMPONENTS_V2_FLAGS,
           })
           return
         }
@@ -202,13 +229,6 @@ export const execute = async (
       ? disputeReasonLabels[selectedDisputeReason] || selectedDisputeReason
       : 'Dispute ticket'
 
-    const embed = new EmbedBuilder()
-      .setTitle(`${disputeTitle} - ${interaction.user.username}`)
-      .setDescription(
-        `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
-      )
-      .setColor('#ff3366')
-
     const thread = await modTickets.threads.create({
       name: `Dispute - ${interaction.user.username} <> unknown`,
       type: ChannelType.PrivateThread,
@@ -225,9 +245,16 @@ export const execute = async (
       ? `<@&${reviewerNotificationsRoleId}>`
       : 'reviewers'
 
+    const notificationContent = `<@${interaction.user.id}> has opened a dispute. ${reviewerNotificationsMention} no decline log found for this bot - please investigate.`
+    const ticketPanel = createDisputeTicketPanel(
+      notificationContent,
+      `${disputeTitle} - ${interaction.user.username}`,
+      `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
+    )
+
     await thread.send({
-      content: `<@${interaction.user.id}> has opened a dispute. ${reviewerNotificationsMention} no decline log found for this bot - please investigate.`,
-      embeds: [embed],
+      components: [ticketPanel],
+      flags: COMPONENTS_V2_FLAGS,
       allowedMentions: {
         parse: [],
         users: isSnowflake(interaction.user.id) ? [interaction.user.id] : [],
@@ -271,12 +298,13 @@ export const execute = async (
     await webhook.delete()
 
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Dispute opened!',
           `No decline log was found for bot ID \`${disputeID}\`, but your dispute has been created at <#${thread.id}>.`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -359,13 +387,6 @@ export const execute = async (
       ? disputeReasonLabels[selectedDisputeReason]
       : 'Dispute ticket'
 
-  const embed = new EmbedBuilder()
-    .setTitle(`${disputeTitle} - ${interaction.user.username}`)
-    .setDescription(
-      `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
-    )
-    .setColor('#ff3366')
-
   const thread = await modTickets.threads.create({
     name: `Dispute - ${interaction.user.username} <> ${reviewerName}`,
     type: ChannelType.PrivateThread,
@@ -386,15 +407,22 @@ export const execute = async (
     [interaction.user.id, reviewerId, mentorId ?? ''].filter(isSnowflake)
   )
 
+  const notificationContent = `<@${interaction.user.id}> has opened a dispute.${
+    reviewerId
+      ? ` <@${reviewerId}> please take a look.${
+          mentorId ? ` (Mentor: <@${mentorId}>)` : ''
+        }`
+      : ` ${reviewerNotificationsMention} no valid reviewer - please investigate.`
+  }`
+  const ticketPanel = createDisputeTicketPanel(
+    notificationContent,
+    `${disputeTitle} - ${interaction.user.username}`,
+    `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
+  )
+
   await thread.send({
-    content: `<@${interaction.user.id}> has opened a dispute.${
-      reviewerId
-        ? ` <@${reviewerId}> please take a look.${
-            mentorId ? ` (Mentor: <@${mentorId}>)` : ''
-          }`
-        : ` ${reviewerNotificationsMention} no valid reviewer - please investigate.`
-    }`,
-    embeds: [embed],
+    components: [ticketPanel],
+    flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
       parse: [],
       users: mentionUserIds,
@@ -460,11 +488,12 @@ export const execute = async (
   await webhook.delete()
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Dispute opened!',
         `Your dispute has been created at <#${thread.id}>. A reviewer will assist you shortly.`
       ),
     ],
+    flags: COMPONENTS_V2_FLAGS,
   })
 }

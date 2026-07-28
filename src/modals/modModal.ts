@@ -2,20 +2,59 @@ import {
   ModalSubmitInteraction,
   Client,
   ChannelType,
-  EmbedBuilder,
+  ContainerBuilder,
   TextChannel,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   MessageFlags,
   MessageType,
+  TextDisplayBuilder,
   type Collection,
   type Attachment,
 } from 'discord.js'
 import { emoji } from '../utils/emojis'
 import { channelIds, roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+
+function createModTicketPanel(options: {
+  closeButton: ActionRowBuilder<ButtonBuilder>
+  description: string
+  notificationContent: string
+  ownershipTransfer: string
+  title: string
+}): ContainerBuilder {
+  const ticketPanel = new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(options.notificationContent)
+    )
+
+  if (options.title.length > 0) {
+    ticketPanel.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(`## ${options.title}`)
+    )
+  }
+
+  ticketPanel.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(options.description)
+  )
+
+  if (options.ownershipTransfer) {
+    ticketPanel.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**User to transfer to**\n<@${options.ownershipTransfer}> (${options.ownershipTransfer})`
+      )
+    )
+  }
+
+  return ticketPanel.addActionRowComponents(options.closeButton)
+}
 
 export const modal = {
   name: 'modModal',
@@ -68,7 +107,10 @@ export const execute = async (
 
   if (!modTickets) {
     await interaction.editReply({
-      embeds: [errorEmbed('Error', 'Mod tickets channel not found .')],
+      components: [
+        createErrorPanel('Error', 'Mod tickets channel not found .'),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -80,12 +122,13 @@ export const execute = async (
 
   if (existingThread) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Can’t open a new ticket!',
           `You already have an open ticket here: <#${existingThread.id}>`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -231,20 +274,8 @@ export const execute = async (
           emoji.dotred
         } A mod will respond as soon as possible. Please don't ping individual staff.`
 
-  const embed = new EmbedBuilder()
-    .setDescription(`${baseDescription}\n\n${closeLine}`)
-    .setColor('#ff3366')
-
   const trimmedTitle = titleExtra.trim()
-  if (trimmedTitle.length > 0) {
-    embed.setTitle(trimmedTitle)
-  }
-  if (ownershipTransfer) {
-    embed.addFields({
-      name: 'User to transfer to',
-      value: `<@${ownershipTransfer}> (${ownershipTransfer})`,
-    })
-  }
+  const ticketDescription = `${baseDescription}\n\n${closeLine}`
 
   let threadName = interaction.user.username
   if (type) {
@@ -290,12 +321,21 @@ export const execute = async (
       .setStyle(ButtonStyle.Danger)
   )
 
-  // Send the initial embed together with the close button (single embed + button)
+  const notificationContent = `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`
+  const ticketPanel = createModTicketPanel({
+    closeButton,
+    description: ticketDescription,
+    notificationContent,
+    ownershipTransfer,
+    title: trimmedTitle,
+  })
+
+  // Send the initial ticket panel together with the close button.
   await thread.send({
-    content: `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`,
-    embeds: [embed],
-    components: [closeButton],
+    components: [ticketPanel],
+    flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
+      parse: [],
       roles: [roleIds.modNotifications],
       users: [interaction.user.id],
     },
@@ -403,11 +443,12 @@ export const execute = async (
   await webhook.delete()
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Ticket opened!',
         `Your ticket has been created at <#${thread.id}>. A moderator will assist you shortly.`
       ),
     ],
+    flags: COMPONENTS_V2_FLAGS,
   })
 }

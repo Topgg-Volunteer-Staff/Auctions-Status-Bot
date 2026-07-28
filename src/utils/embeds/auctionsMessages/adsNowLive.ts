@@ -2,9 +2,11 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
-  BaseMessageOptions,
+  MessageCreateOptions,
+  MessageFlags,
+  TextDisplayBuilder,
 } from 'discord.js'
+import { createTextPanel } from '../../componentsV2'
 import { emoji } from '../../emojis'
 
 /**
@@ -20,7 +22,7 @@ import { emoji } from '../../emojis'
  */
 
 // Main builder
-export const adsNowLive = async (): Promise<BaseMessageOptions> => {
+export const adsNowLive = async (): Promise<MessageCreateOptions> => {
   // Use UTC for all event times
   const now = new Date()
   const year = now.getUTCFullYear()
@@ -41,28 +43,34 @@ export const adsNowLive = async (): Promise<BaseMessageOptions> => {
   // Bidding ends next Monday: 6 days from now, 19:00 UTC
   const biddingEndUnix = getUnixUTC(6, 19, 0)
 
-  return {
-    embeds: [
-      new EmbedBuilder()
-        .setTitle(`${emoji.rocket} Ads are now live!`)
-        .setColor('#ff3366')
-        .setDescription(
-          `This week's winning auctions bids are starting to go live and will run until ` +
-            `<t:${adsEndUnix}:f> (<t:${adsEndUnix}:R>)\n\n` +
-            `[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on ` +
-            `<t:${biddingEndUnix}:f> (<t:${biddingEndUnix}:R>)!\n\n` +
-            `Thanks for using Top.gg Auctions! ${emoji.dogThumbUp}`
-        )
-        .setTimestamp(new Date()),
-    ],
-    components: [
+  const panel = createTextPanel({
+    accentColor: 0xff3366,
+    title: `${emoji.rocket} Ads are now live!`,
+    description:
+      `This week's winning auctions bids are starting to go live and will run until ` +
+      `<t:${adsEndUnix}:f> (<t:${adsEndUnix}:R>)\n\n` +
+      `[Bidding is now open](https://auctions.top.gg) for next week's auctions and will end on ` +
+      `<t:${biddingEndUnix}:f> (<t:${biddingEndUnix}:R>)!\n\n` +
+      `Thanks for using Top.gg Auctions! ${emoji.dogThumbUp}`,
+  })
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `-# <t:${Math.floor(now.getTime() / 1000)}:f>`
+      )
+    )
+    .addActionRowComponents(
       new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setURL('https://auctions.top.gg/analyze')
           .setStyle(ButtonStyle.Link)
           .setLabel('Analytics')
           .setEmoji('1062691484471660625')
-      ),
-    ],
+      )
+    )
+
+  return {
+    components: [panel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   }
 }

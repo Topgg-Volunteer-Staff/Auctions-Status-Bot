@@ -6,7 +6,11 @@ import {
   ButtonStyle,
 } from 'discord.js'
 import { getUnresolvedTickets } from '../commands/unresolved'
-import { successEmbed, errorEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 
 export const button = {
   name: 'unresolved',
@@ -48,15 +52,27 @@ export const execute = async (
   )
 
   if (result.title === 'Error') {
+    const panel = createErrorPanel(
+      'Error',
+      result.content
+    ).addActionRowComponents(row)
+
     await interaction.editReply({
-      embeds: [errorEmbed('Error', result.content)],
-      components: [row],
+      components: [panel],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
+  const panel = createSuccessPanel(
+    result.title,
+    result.content
+  ).addActionRowComponents(row)
+
   await interaction.editReply({
-    embeds: [successEmbed(result.title, result.content)],
-    components: [row],
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }

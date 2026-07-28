@@ -5,10 +5,13 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
-  MessageFlags,
 } from 'discord.js'
-import { errorEmbed, successEmbed } from '../utils/embeds'
 import { channelIds } from '../globals'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 
 // Structure: threadId -> Map<modUserId, Set<userIdToAlert>>
 export const threadAlerts = new Map<string, Map<string, Set<string>>>()
@@ -33,8 +36,10 @@ export const execute = async (
   const ch = interaction.channel
   if (!ch || ch.type !== ChannelType.PrivateThread) {
     await interaction.reply({
-      embeds: [errorEmbed('This command can only be used in a thread!')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('This command can only be used in a thread!'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -44,10 +49,12 @@ export const execute = async (
   const parent = thread.parent
   if (!parent || parent.id !== channelIds.modTickets) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('This command can only be used in mod ticket threads!'),
+      components: [
+        createErrorPanel(
+          'This command can only be used in mod ticket threads!'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -76,19 +83,19 @@ export const execute = async (
     }
 
     await interaction.reply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Alert set',
           `You will receive a DM when **${targetUser.username}** sends a message in this thread. The alert will be removed after you are notified.`
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
   } catch (error) {
     console.error('Error setting alert:', error)
     await interaction.reply({
-      embeds: [errorEmbed('Failed to set alert. Please try again.')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('Failed to set alert. Please try again.')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
   }
 }

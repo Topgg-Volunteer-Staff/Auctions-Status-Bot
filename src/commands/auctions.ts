@@ -3,6 +3,7 @@ import {
   Client,
   CommandInteraction,
   InteractionContextType,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js'
 import {
@@ -28,13 +29,15 @@ export const execute = async (
   const locked = bidRemovalsLocked()
   const payReminder = await paymentReminder()
 
-  interaction.reply({
-    embeds: [
-      ...live.embeds!,
-      ...ended.embeds!,
-      ...reminder.embeds!,
-      ...locked.embeds!,
-      ...payReminder.embeds!,
+  await interaction.reply({
+    components: [
+      ...(live.components ?? []),
+      ...(ended.components ?? []),
+      ...(reminder.components ?? []),
+      ...(locked.components ?? []),
+      ...(payReminder.components ?? []),
     ],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   })
 }

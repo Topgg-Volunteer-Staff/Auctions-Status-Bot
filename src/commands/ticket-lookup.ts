@@ -6,13 +6,19 @@ import {
   MessageFlags,
   SlashCommandBuilder,
   TextChannel,
+  TextDisplayBuilder,
   ThreadChannel,
   type Guild,
   type GuildMember,
   type User,
 } from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
 
 type TicketCategory = 'Mod' | 'Reviewer' | 'Auctions'
@@ -49,18 +55,28 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        createErrorPanel(
+          'Server only',
+          'This command can only be used in a server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [errorEmbed('Missing permissions', 'Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel(
+          'Missing permissions',
+          'Only staff members can use this command.'
+        ),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
@@ -68,22 +84,29 @@ export const execute = async (
   await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   const targetUser = interaction.options.getUser('user', true)
-  const tickets = await findTicketsOpenedByUser(interaction.guild, targetUser.id)
+  const tickets = await findTicketsOpenedByUser(
+    interaction.guild,
+    targetUser.id
+  )
 
   if (tickets.length === 0) {
     await interaction.editReply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'No tickets found',
           `I could not find any mod, reviewer, or auctions tickets opened by ${targetUser}.`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
   await interaction.editReply({
-    embeds: buildLookupEmbeds(targetUser, tickets),
+    components: buildLookupPanels(targetUser, tickets),
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }
 
@@ -290,23 +313,47 @@ async function findExplicitOpenerId(
   return null
 }
 
-function findOpenerIdInComponents(message: Message): string | null {
-  for (const row of message.components) {
-    if (!('components' in row) || !Array.isArray(row.components)) {
+type ComponentTreeNode = {
+  components?: ReadonlyArray<unknown>
+  content?: unknown
+  customId?: unknown
+}
+
+function* walkComponentTree(
+  components: ReadonlyArray<unknown>
+): Generator<ComponentTreeNode> {
+  for (const component of components) {
+    if (typeof component !== 'object' || component === null) {
       continue
     }
 
-    for (const component of row.components) {
-      if (!('customId' in component) || typeof component.customId !== 'string') {
-        continue
-      }
+    const node = component as ComponentTreeNode
+    yield node
 
-      const match = component.customId.match(
-        /^(?:closeModTicket|dmOnResponses)_(\d+)$/
-      )
-      if (match?.[1]) {
-        return match[1]
-      }
+    if (Array.isArray(node.components)) {
+      yield* walkComponentTree(node.components)
+    }
+  }
+}
+
+function getTextDisplayContent(message: Message): string {
+  return Array.from(walkComponentTree(message.components))
+    .map((component) => component.content)
+    .filter((content): content is string => typeof content === 'string')
+    .join('\n')
+}
+
+function findOpenerIdInComponents(message: Message): string | null {
+  for (const component of walkComponentTree(message.components)) {
+    if (typeof component.customId !== 'string') {
+      continue
+    }
+
+    const match = component.customId.match(
+      /^(?:closeModTicket|dmOnResponses)_(\d+)$/
+    )
+    if (match?.[1]) {
+      return match[1]
     }
   }
 
@@ -321,15 +368,20 @@ function findOpenerIdInTicketNotification(
     return null
   }
 
+  const notificationContent = [message.content, getTextDisplayContent(message)]
+    .filter(Boolean)
+    .join('\n')
+
   if (
-    !message.content.includes('has created a ticket') &&
-    !message.content.includes('has created an Auctions ticket') &&
-    !message.content.includes('would like to talk to you')
+    !notificationContent.includes('has created a ticket') &&
+    !notificationContent.includes('has created an Auctions ticket') &&
+    !notificationContent.includes('has opened a dispute') &&
+    !notificationContent.includes('would like to talk to you')
   ) {
     return null
   }
 
-  return findFirstUserMention(message.content)
+  return findFirstUserMention(notificationContent)
 }
 
 function findOpenerIdInDmPrompt(
@@ -351,7 +403,13 @@ function findOpenerIdInDmPrompt(
     }
   }
 
-  return null
+  const textDisplayContent = getTextDisplayContent(message)
+
+  if (!textDisplayContent.includes('Ticket Response Notifications')) {
+    return null
+  }
+
+  return findFirstUserMention(textDisplayContent)
 }
 
 function findFirstUserMention(content: string): string | null {
@@ -378,13 +436,15 @@ function normalizeName(name: string): string {
     .toLowerCase()
 }
 
-function buildLookupEmbeds(
+function buildLookupPanels(
   targetUser: User,
   tickets: Array<TicketLookupMatch>
 ) {
   const lines = tickets.map(
     ({ category, thread }) =>
-      `- [${category}] <#${thread.id}> (${thread.name}) - ${formatOpened(thread)}`
+      `- [${category}] <#${thread.id}> (${thread.name}) - ${formatOpened(
+        thread
+      )}`
   )
 
   const descriptionPages = chunkLines(lines, 3800)
@@ -392,15 +452,19 @@ function buildLookupEmbeds(
   return descriptionPages.map((description, index) => {
     const prefix =
       index === 0
-        ? `Found ${tickets.length} ticket${tickets.length === 1 ? '' : 's'} for ${targetUser}.\n\n`
+        ? `Found ${tickets.length} ticket${
+            tickets.length === 1 ? '' : 's'
+          } for ${targetUser}.\n\n`
         : ''
 
-    return successEmbed(
+    return createSuccessPanel(
       index === 0 ? `Tickets for ${targetUser.username}` : 'More tickets',
       `${prefix}${description}`
-    ).setFooter({
-      text: `Page ${index + 1} of ${descriptionPages.length}`,
-    })
+    ).addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `-# Page ${index + 1} of ${descriptionPages.length}`
+      )
+    )
   })
 }
 

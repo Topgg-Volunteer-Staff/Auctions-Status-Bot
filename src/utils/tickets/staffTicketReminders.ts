@@ -1,10 +1,18 @@
-import { ChatInputCommandInteraction, Client, EmbedBuilder, Guild, Message, TextChannel, ThreadChannel } from 'discord.js'
+import {
+  ChatInputCommandInteraction,
+  Client,
+  Guild,
+  Message,
+  TextChannel,
+  TextDisplayBuilder,
+  ThreadChannel,
+} from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
+import { COMPONENTS_V2_FLAGS, createTextPanel } from '../componentsV2'
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
-
 
 type ReminderPreferenceSource = 'thread' | 'global'
 
@@ -178,7 +186,8 @@ async function writeCurrentStore(): Promise<void> {
   for (const [threadId, threadPrefs] of reminderPreferences.entries()) {
     if (threadPrefs.size === 0) continue
 
-    const serializedThreadPrefs: Record<string, StaffTicketReminderPreference> = {}
+    const serializedThreadPrefs: Record<string, StaffTicketReminderPreference> =
+      {}
     for (const [userId, pref] of threadPrefs.entries()) {
       serializedThreadPrefs[userId] = pref
     }
@@ -193,9 +202,13 @@ async function writeCurrentStore(): Promise<void> {
     operation: 'persist',
   })
 
-  await saveMongoBackedJson(STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY, globalData, {
-    operation: 'persist-global',
-  })
+  await saveMongoBackedJson(
+    STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY,
+    globalData,
+    {
+      operation: 'persist-global',
+    }
+  )
 }
 
 async function initStore(): Promise<void> {
@@ -211,7 +224,9 @@ async function initStore(): Promise<void> {
     globalReminderPreferences.clear()
 
     if (isObject(parsedThreadPrefs)) {
-      for (const [threadId, rawThreadPrefs] of Object.entries(parsedThreadPrefs)) {
+      for (const [threadId, rawThreadPrefs] of Object.entries(
+        parsedThreadPrefs
+      )) {
         if (typeof threadId !== 'string' || !isObject(rawThreadPrefs)) continue
 
         const threadPrefs = new Map<string, StaffTicketReminderPreference>()
@@ -226,7 +241,9 @@ async function initStore(): Promise<void> {
             continue
           }
 
-          const pendingReminder = normalizePendingReminder(rawPref.pendingReminder)
+          const pendingReminder = normalizePendingReminder(
+            rawPref.pendingReminder
+          )
 
           threadPrefs.set(userId, {
             source: normalizeReminderSource(rawPref.source),
@@ -413,7 +430,8 @@ export async function resolveThreadOwnerUserId(
   for (const [userId, summary] of staffMessageCounts.entries()) {
     if (
       summary.count > highestCount ||
-      (summary.count === highestCount && summary.latestMessageAt > latestMessageAt)
+      (summary.count === highestCount &&
+        summary.latestMessageAt > latestMessageAt)
     ) {
       ownerId = userId
       highestCount = summary.count
@@ -538,13 +556,15 @@ async function sendPendingReminder(
   const reminder = pref?.pendingReminder
   if (!threadPrefs || !pref || !reminder) return
 
-  const embed = new EmbedBuilder()
-    .setTitle('Ticket Reminder')
-    .setDescription(
-      `${reminder.responderName} sent a new message in your ticket thread: [Open Ticket](${reminder.messageUrl})`
+  const panel = createTextPanel({
+    accentColor: 0xff3366,
+    title: 'Ticket Reminder',
+    description: `${reminder.responderName} sent a new message in your ticket thread: [Open Ticket](${reminder.messageUrl})`,
+  }).addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(
+      `-# <t:${Math.floor(Date.now() / 1000)}:f>`
     )
-    .setColor('#ff3366')
-    .setTimestamp()
+  )
 
   try {
     await queueDm(async () => {
@@ -553,7 +573,11 @@ async function sendPendingReminder(
         throw new Error('Failed to fetch staff member for ticket reminder DM')
       }
 
-      await user.send({ embeds: [embed] })
+      await user.send({
+        components: [panel],
+        flags: COMPONENTS_V2_FLAGS,
+        allowedMentions: { parse: [] },
+      })
     })
   } catch (error) {
     console.error(
@@ -561,12 +585,7 @@ async function sendPendingReminder(
       error
     )
 
-    await notifyReminderDmFailure(
-      client,
-      threadId,
-      userId,
-      reminder.messageUrl
-    )
+    await notifyReminderDmFailure(client, threadId, userId, reminder.messageUrl)
   }
 
   await clearPendingReminder(threadId, userId)
@@ -710,7 +729,10 @@ export async function maybeHandleStaffTicketReminder(
 
   await initStore()
 
-  const isStaffAuthor = await isStaffUserInGuild(message.guild, message.author.id)
+  const isStaffAuthor = await isStaffUserInGuild(
+    message.guild,
+    message.author.id
+  )
 
   if (isStaffAuthor) {
     clearThreadOwnerCache(message.channel.id)

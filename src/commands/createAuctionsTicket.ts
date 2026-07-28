@@ -4,11 +4,12 @@ import {
   ButtonStyle,
   Client,
   CommandInteraction,
-  EmbedBuilder,
   InteractionContextType,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js'
 import { roleIds } from '../globals'
+import { createTextPanel } from '../utils/componentsV2'
 
 export const command = new SlashCommandBuilder()
   .setName('createauctionsticket')
@@ -33,15 +34,15 @@ export const execute = async (
       .setCustomId(`auctionsTicket_${interaction.id}`)
   )
 
-  const embed = new EmbedBuilder()
-    .setTitle('Private Auctions Support')
-    .setDescription(
-      `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.supportTeam}>, official employees of Top.gg.\n\nFeel free to open a private ticket for any reason, but especially for any issue that may contain confidential information, such as order IDs or email addresses.`
-    )
-    .setColor('#ff3366')
+  const panel = createTextPanel({
+    accentColor: 0xff3366,
+    title: 'Private Auctions Support',
+    description: `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.supportTeam}>, official employees of Top.gg.\n\nFeel free to open a private ticket for any reason, but especially for any issue that may contain confidential information, such as order IDs or email addresses.`,
+  }).addActionRowComponents(embedButtons)
 
   interaction.reply({
-    embeds: [embed],
-    components: [embedButtons],
+    components: [panel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   })
 }

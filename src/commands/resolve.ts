@@ -5,11 +5,15 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
-  MessageFlags,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { emoji } from '../utils/emojis'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { recordResolvedTicketCredit } from '../utils/tickets/resolvedTicketCredit'
@@ -29,8 +33,8 @@ export const execute = async (
   const ch = interaction.channel
   if (!ch || ch.type !== ChannelType.PrivateThread) {
     await interaction.reply({
-      embeds: [errorEmbed('This is not a thread!')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('This is not a thread!')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -40,8 +44,8 @@ export const execute = async (
 
   if (thread.name.startsWith(resolvedFlag)) {
     await interaction.reply({
-      embeds: [errorEmbed(`This ticket is already resolved!`)],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel(`This ticket is already resolved!`)],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -53,8 +57,8 @@ export const execute = async (
       parent.id !== channelIds.modTickets)
   ) {
     await interaction.reply({
-      embeds: [errorEmbed(`This thread is not resolvable!`)],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel(`This thread is not resolvable!`)],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -73,7 +77,9 @@ export const execute = async (
     }
 
     await interaction.reply({
-      embeds: [successEmbed(`Ticket resolved!`, `${resolveString}`)],
+      components: [createSuccessPanel(`Ticket resolved!`, `${resolveString}`)],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
 
     await removeTicketDmPreference(thread.id).catch((error) => {
@@ -143,17 +149,17 @@ export const execute = async (
     // If you already replied, use followUp else reply
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        embeds: [
-          errorEmbed(`Failed to resolve ticket. Please try again later.`),
+        components: [
+          createErrorPanel(`Failed to resolve ticket. Please try again later.`),
         ],
-        flags: MessageFlags.Ephemeral,
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
     } else {
       await interaction.reply({
-        embeds: [
-          errorEmbed(`Failed to resolve ticket. Please try again later.`),
+        components: [
+          createErrorPanel(`Failed to resolve ticket. Please try again later.`),
         ],
-        flags: MessageFlags.Ephemeral,
+        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       })
     }
   }

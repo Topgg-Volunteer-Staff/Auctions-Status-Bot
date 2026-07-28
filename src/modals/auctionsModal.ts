@@ -2,14 +2,33 @@ import {
   ModalSubmitInteraction,
   Client,
   ChannelType,
-  EmbedBuilder,
+  ContainerBuilder,
   TextChannel,
   MessageFlags,
+  TextDisplayBuilder,
 } from 'discord.js'
 import { channelIds, roleIds } from '../globals'
 import { emoji } from '../utils/emojis'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+
+function createAuctionsTicketPanel(
+  notificationContent: string,
+  title: string,
+  description: string
+): ContainerBuilder {
+  return new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(notificationContent),
+      new TextDisplayBuilder().setContent(`## ${title}`),
+      new TextDisplayBuilder().setContent(description)
+    )
+}
 
 export const modal = {
   name: 'auctionsModal',
@@ -33,12 +52,13 @@ export const execute = async (
 
   if (existing) {
     await interaction.editReply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           `Can't open a new ticket!`,
           `You already have an open Auctions support ticket. Please go to <#${existing.id}> for support.`
         ),
       ],
+      flags: COMPONENTS_V2_FLAGS,
     })
     return
   }
@@ -52,7 +72,7 @@ export const execute = async (
     type: ChannelType.PrivateThread,
   })
 
-  // Prepare embed notification
+  // Prepare ticket notification
   let description = `${emoji.dotred} If your issue is related to payments you have made, please include your FastSpring order ID starting with \`DBOTSBV••••\`.`
   if (date.getDay() === 6 || date.getDay() === 0) {
     description += `\n\n${emoji.warning} Please note that weekend support is limited. A Support Team member will be with you as soon as possible on Monday morning!`
@@ -60,17 +80,22 @@ export const execute = async (
     description += `\n\nA Support Team member will be with you as soon as possible!`
   }
 
-  const embed = new EmbedBuilder()
-    .setTitle(
-      `This is your Private Top.gg Auctions Support Thread, ${interaction.user.username}!`
-    )
-    .setDescription(description)
-    .setColor('#ff3366')
+  const notificationContent = `<@&${roleIds.supportTeam}>, <@${interaction.user.id}> has created an Auctions ticket.`
+  const ticketPanel = createAuctionsTicketPanel(
+    notificationContent,
+    `This is your Private Top.gg Auctions Support Thread, ${interaction.user.username}!`,
+    description
+  )
 
-  // Send embed notification first
+  // Send ticket notification first
   await thread.send({
-    content: `<@&${roleIds.supportTeam}>, <@${interaction.user.id}> has created an Auctions ticket.`,
-    embeds: [embed],
+    components: [ticketPanel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: {
+      parse: [],
+      roles: [roleIds.supportTeam],
+      users: [interaction.user.id],
+    },
   })
 
   await sendDmOnResponsesPrompt(thread, interaction.user.id)
@@ -91,12 +116,13 @@ export const execute = async (
   await webhook.delete()
 
   await interaction.editReply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         `Ticket opened!`,
         `Your ticket has been created at <#${thread.id}>, please head there for assistance!`
       ),
     ],
+    flags: COMPONENTS_V2_FLAGS,
   })
 
   return

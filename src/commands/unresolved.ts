@@ -14,7 +14,12 @@ import {
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 
 const discordEpochMs = 1420070400000
 
@@ -66,8 +71,8 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.guild) {
     await interaction.reply({
-      embeds: [errorEmbed('Guild not available')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('Guild not available')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -97,16 +102,28 @@ export const execute = async (
   )
 
   if (result.title === 'Error') {
+    const panel = createErrorPanel(
+      'Error',
+      result.content
+    ).addActionRowComponents(row)
+
     await interaction.editReply({
-      embeds: [errorEmbed('Error', result.content)],
-      components: [row],
+      components: [panel],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
     })
     return
   }
 
+  const panel = createSuccessPanel(
+    result.title,
+    result.content
+  ).addActionRowComponents(row)
+
   await interaction.editReply({
-    embeds: [successEmbed(result.title, result.content)],
-    components: [row],
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
   })
 }
 

@@ -3,12 +3,15 @@ import {
   ChatInputCommandInteraction,
   Client,
   InteractionContextType,
-  MessageFlags,
   SlashCommandBuilder,
   ThreadChannel,
 } from 'discord.js'
 import { channelIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import {
   getTicketReminderDelayLabel,
   getTicketReminderDelayMs,
@@ -21,7 +24,9 @@ import {
 
 export const command = new SlashCommandBuilder()
   .setName('ticket-reminder')
-  .setDescription('Get a DM when the ticket user replies after your chosen delay')
+  .setDescription(
+    'Get a DM when the ticket user replies after your chosen delay'
+  )
   .addStringOption((option) => {
     option
       .setName('delay')
@@ -43,8 +48,10 @@ export const execute = async (
   const channel = interaction.channel
   if (!channel || channel.type !== ChannelType.PrivateThread) {
     await interaction.reply({
-      embeds: [errorEmbed('This command can only be used in a ticket thread.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('This command can only be used in a ticket thread.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -55,18 +62,22 @@ export const execute = async (
     thread.parentId !== channelIds.auctionsTickets
   ) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('This command can only be used in mod or auctions tickets.'),
+      components: [
+        createErrorPanel(
+          'This command can only be used in mod or auctions tickets.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
     await interaction.reply({
-      embeds: [errorEmbed('Only staff members can use this command.')],
-      flags: MessageFlags.Ephemeral,
+      components: [
+        createErrorPanel('Only staff members can use this command.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -77,8 +88,8 @@ export const execute = async (
 
   if (!delayLabel) {
     await interaction.reply({
-      embeds: [errorEmbed('That reminder delay is not valid.')],
-      flags: MessageFlags.Ephemeral,
+      components: [createErrorPanel('That reminder delay is not valid.')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -86,25 +97,25 @@ export const execute = async (
   if (delayMs === null) {
     await removeStaffTicketReminderPreference(thread.id, interaction.user.id)
     await interaction.reply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Ticket reminder disabled',
           'You will no longer receive DMs for new user replies in this ticket.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (await hasGlobalStaffTicketReminderPreference(interaction.user.id)) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'You already have global ticket reminders enabled. Use /ticket-reminder-global instead of opting into individual tickets.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -116,12 +127,12 @@ export const execute = async (
   )
 
   await interaction.reply({
-    embeds: [
-      successEmbed(
+    components: [
+      createSuccessPanel(
         'Ticket reminder updated',
         `You will receive a DM ${delayLabel.toLowerCase()} after the latest user message in this ticket unless you reply before then.`
       ),
     ],
-    flags: MessageFlags.Ephemeral,
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
   })
 }

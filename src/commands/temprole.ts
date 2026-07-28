@@ -2,13 +2,16 @@ import {
   ChatInputCommandInteraction,
   Client,
   InteractionContextType,
-  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js'
 
 import { roleIds } from '../globals'
-import { errorEmbed, successEmbed } from '../utils/embeds'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  createErrorPanel,
+  createSuccessPanel,
+} from '../utils/componentsV2'
 import {
   createOrReplaceTempRole,
   parseTempRoleDuration,
@@ -53,10 +56,13 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Server only', 'This command can only be used in a server.'),
+      components: [
+        createErrorPanel(
+          'Server only',
+          'This command can only be used in a server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -68,13 +74,13 @@ export const execute = async (
 
   if (!hasModeratorRole && !canManageRoles) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'No permission',
           'You need the moderator role or Manage Roles permission to use this command.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -87,83 +93,97 @@ export const execute = async (
 
   if (!durationMs) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Invalid length',
           'Use a duration like 30m, 12h, 7d, 2w, or 1mo. You can combine them, for example 1d12h.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (durationMs > MAX_TEMP_ROLE_MS) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Length too long',
           'Temporary roles are limited to 180 days.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   const guild = interaction.guild
   const me = interaction.guild.members.me
-  const targetMember = await guild.members.fetch(targetUser.id).catch(() => null)
+  const targetMember = await guild.members
+    .fetch(targetUser.id)
+    .catch(() => null)
 
   if (!targetMember) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Member not found', 'That user is not in this server.'),
+      components: [
+        createErrorPanel(
+          'Member not found',
+          'That user is not in this server.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (!me) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Bot unavailable', 'The bot could not verify its server permissions.'),
+      components: [
+        createErrorPanel(
+          'Bot unavailable',
+          'The bot could not verify its server permissions.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (targetRole.id === guild.id) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Invalid role', 'The @everyone role cannot be assigned.'),
+      components: [
+        createErrorPanel(
+          'Invalid role',
+          'The @everyone role cannot be assigned.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (targetRole.managed) {
     await interaction.reply({
-      embeds: [
-        errorEmbed('Invalid role', 'Managed roles cannot be assigned with this command.'),
+      components: [
+        createErrorPanel(
+          'Invalid role',
+          'Managed roles cannot be assigned with this command.'
+        ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
 
   if (targetRole.position >= me.roles.highest.position) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Role too high',
-          'That role is above the bot\'s highest role, so I cannot assign or remove it later.'
+          "That role is above the bot's highest role, so I cannot assign or remove it later."
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -173,13 +193,13 @@ export const execute = async (
     targetRole.position >= interaction.member.roles.highest.position
   ) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Role too high',
           'You can only assign roles lower than your highest role.'
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
     return
   }
@@ -213,24 +233,28 @@ export const execute = async (
     const expiryUnix = Math.floor(expiresAt / 1000)
 
     await interaction.reply({
-      embeds: [
-        successEmbed(
+      components: [
+        createSuccessPanel(
           'Temporary role assigned',
-          [`Assigned <@&${targetRole.id}> to <@${targetMember.id}>.`, `Expires <t:${expiryUnix}:R> on <t:${expiryUnix}:F>.`, `Reason: ${reason}`].join('\n')
+          [
+            `Assigned <@&${targetRole.id}> to <@${targetMember.id}>.`,
+            `Expires <t:${expiryUnix}:R> on <t:${expiryUnix}:F>.`,
+            `Reason: ${reason}`,
+          ].join('\n')
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       allowedMentions: { users: [], roles: [] },
     })
   } catch (error) {
     await interaction.reply({
-      embeds: [
-        errorEmbed(
+      components: [
+        createErrorPanel(
           'Failed to assign role',
-          'Discord rejected the role update. Check the bot\'s role position and permissions.'
+          "Discord rejected the role update. Check the bot's role position and permissions."
         ),
       ],
-      flags: MessageFlags.Ephemeral,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
     })
   }
 }

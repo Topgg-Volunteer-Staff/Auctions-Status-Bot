@@ -2,12 +2,13 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  EmbedBuilder,
-  BaseMessageOptions,
+  MessageCreateOptions,
+  MessageFlags,
 } from 'discord.js'
+import { createTextPanel } from '../../componentsV2'
 import { emoji } from '../../emojis'
 
-export const bidReminder = (): BaseMessageOptions => {
+export const bidReminder = (): MessageCreateOptions => {
   // always 19:00 utc
   const auctionEndTime = getAuctionsEndDate()
 
@@ -17,26 +18,27 @@ export const bidReminder = (): BaseMessageOptions => {
   // full date
   const endFull = `<t:${unix}:F>`
 
+  const panel = createTextPanel({
+    accentColor: 0xff3366,
+    title: `${emoji.hammer} It's time to bid!`,
+    description:
+      `Auctions is ending ${endRelative}!\n\n` +
+      `Remember to [place your bid](https://auctions.top.gg/) before ${endFull}!\n\n` +
+      `:warning: If you have open payment requests from past auctions, please remember to pay them before placing a new bid!`,
+  }).addActionRowComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setURL('https://auctions.top.gg/')
+        .setStyle(ButtonStyle.Link)
+        .setLabel('Bid now!')
+        .setEmoji('1026873993011138660')
+    )
+  )
+
   return {
-    embeds: [
-      new EmbedBuilder()
-        .setTitle(`${emoji.hammer} It's time to bid!`)
-        .setColor('#ff3366')
-        .setDescription(
-          `Auctions is ending ${endRelative}!\n\n` +
-            `Remember to [place your bid](https://auctions.top.gg/) before ${endFull}!\n\n` +
-            `:warning: If you have open payment requests from past auctions, please remember to pay them before placing a new bid!`
-        ),
-    ],
-    components: [
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setURL('https://auctions.top.gg/')
-          .setStyle(ButtonStyle.Link)
-          .setLabel('Bid now!')
-          .setEmoji('1026873993011138660')
-      ),
-    ],
+    components: [panel],
+    flags: MessageFlags.IsComponentsV2,
+    allowedMentions: { parse: [] },
   }
 }
 
