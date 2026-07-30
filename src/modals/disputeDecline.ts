@@ -7,7 +7,6 @@ import {
   MessageFlags,
   MessageType,
   TextDisplayBuilder,
-  type GuildMember,
   type Collection,
   type Attachment,
 } from 'discord.js'
@@ -17,8 +16,11 @@ import {
   createErrorPanel,
   createSuccessPanel,
 } from '../utils/componentsV2'
-import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+import {
+  findRecentBotReviewLog,
+  resolveDisputeReviewer,
+} from '../utils/tickets/disputeReviewLogs'
 
 function isSnowflake(value: unknown): value is string {
   return typeof value === 'string' && /^\d{10,30}$/.test(value)
@@ -26,6 +28,10 @@ function isSnowflake(value: unknown): value is string {
 
 function uniqueSnowflakes(values: Array<string>): Array<string> {
   return Array.from(new Set(values))
+}
+
+export function extractDisputeOwnerId(content: string): string | null {
+  return content.match(/<@!?(\d{10,30})>/)?.[1] ?? null
 }
 
 function createDisputeTicketPanel(
@@ -40,24 +46,6 @@ function createDisputeTicketPanel(
       new TextDisplayBuilder().setContent(`## ${title}`),
       new TextDisplayBuilder().setContent(description)
     )
-}
-
-function extractReviewerSearchQuery(value: string): string | null {
-  // Typical formats seen in modlogs vary; aim for a short, searchable name.
-  // Examples:
-  // - "<@123> (top.gg profile)"
-  // - "@SomeName (top.gg profile)"
-  // - "SomeName (top.gg profile)"
-  const cleaned = value
-    .replace(/<@!?\d+>/g, '')
-    .replace(/\(.*?\)/g, '')
-    .replace(/top\.gg profile/gi, '')
-    .replace(/^@/g, '')
-    .trim()
-
-  if (cleaned.length < 2) return null
-  // Keep query reasonably small for Discord member search.
-  return cleaned.slice(0, 32)
 }
 
 export const modal = {
@@ -166,62 +154,22 @@ export const execute = async (
     return
   }
 
-  let matchingMessage = null
-  let lastId: string | undefined
-  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000 // 14 days ago
-
-  while (!matchingMessage) {
-    const fetched = await modLogs.messages.fetch({
-      limit: 100,
-      ...(lastId ? { before: lastId } : {}),
+  const reviewLogResult = await findRecentBotReviewLog(modLogs, disputeID)
+  if (reviewLogResult.kind === 'approved') {
+    await interaction.editReply({
+      components: [
+        createErrorPanel(
+          "Can't open ticket",
+          `This bot was approved. If you need help with this bot, please ask in <#714045415707770900> or create a mod ticket above.`
+        ),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
     })
-
-    if (fetched.size === 0) break
-
-    for (const msg of fetched.values()) {
-      // Stop if older than cutoff
-      if (msg.createdTimestamp < cutoff) {
-        matchingMessage = null
-        break
-      }
-
-      const embed = msg.embeds[0]
-      if (!embed) continue
-
-      const botField = embed.fields.find((f) => f.name.toLowerCase() === 'bot')
-      if (!botField) continue
-
-      const match = botField.value.match(/\((\d+)\)/)
-      if (match && match[1] === disputeID) {
-        // If the embed title is "Bot Approved", reject immediately
-        if (embed.title?.toLowerCase() === 'bot approved') {
-          await interaction.editReply({
-            components: [
-              createErrorPanel(
-                "Can't open ticket",
-                `This bot was approved. If you need help with this bot, please ask in <#714045415707770900> or create a mod ticket above.`
-              ),
-            ],
-            flags: COMPONENTS_V2_FLAGS,
-          })
-          return
-        }
-
-        matchingMessage = msg
-        break
-      }
-    }
-
-    const lastFetched = fetched.last()
-    if (
-      lastFetched?.createdTimestamp &&
-      lastFetched.createdTimestamp < cutoff
-    ) {
-      break
-    }
-
-    lastId = lastFetched?.id
+    return
   }
+
+  const matchingMessage =
+    reviewLogResult.kind === 'declined' ? reviewLogResult.message : null
 
   // If not found in last 2 weeks
   if (!matchingMessage) {
@@ -309,76 +257,25 @@ export const execute = async (
     return
   }
 
-  // Extract reviewer information
-  let reviewerId = ''
-  let reviewerName = 'Unknown'
-  let mentorId: string | null = null
-
-  try {
-    const logEmbed = matchingMessage.embeds[0]
-    if (logEmbed) {
-      const reviewerField = logEmbed.fields.find(
-        (f) => f.name.toLowerCase() === 'reviewer'
-      )
-      if (reviewerField) {
-        const mentionMatch = reviewerField.value.match(/<@!?(\d+)>/)
-        const idMatch = reviewerField.value.match(/\b(\d{15,22})\b/)
-
-        let reviewerMember: GuildMember | null = null
-
-        const potentialReviewerId = mentionMatch?.[1] ?? idMatch?.[1] ?? null
-        if (potentialReviewerId) {
-          reviewerMember = await interaction.guild.members
-            .fetch(potentialReviewerId)
-            .catch(() => null)
-        }
-
-        // Fallback: if modlogs doesn't include a mention/id, search by the value text.
-        if (!reviewerMember) {
-          const query = extractReviewerSearchQuery(reviewerField.value)
-          if (query) {
-            const matches = (await interaction.guild.members
-              // discord.js v14: guild.members.search
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .search({ query, limit: 10 } as any)
-              .catch(() => null)) as Collection<string, GuildMember> | null
-
-            if (matches?.size) {
-              const candidates = Array.from(matches.values()).filter(
-                (m) =>
-                  m.roles.cache.has(roleIds.reviewer) ||
-                  m.roles.cache.has(roleIds.trialReviewer)
-              )
-              reviewerMember = candidates[0] ?? null
-            }
-          }
-        }
-
-        if (reviewerMember) {
-          const isReviewer = reviewerMember.roles.cache.has(roleIds.reviewer)
-          const isTrialReviewer = reviewerMember.roles.cache.has(
-            roleIds.trialReviewer
-          )
-
-          // Treat either role as a valid "reviewer" for dispute routing.
-          if (isReviewer || isTrialReviewer) {
-            reviewerId = reviewerMember.id
-            reviewerName = reviewerMember.user.username
-
-            // If a mentor mapping exists, ping mentor as well.
-            // (Some reviewers may have changed roles; the mapping is authoritative.)
-            const mappedMentorId = await getMentorIdForTrialReviewer(reviewerId)
-            mentorId =
-              mappedMentorId && mappedMentorId !== reviewerId
-                ? mappedMentorId
-                : null
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching reviewer information:', error)
+  const ownerId = extractDisputeOwnerId(matchingMessage.content)
+  if (ownerId !== interaction.user.id) {
+    await interaction.editReply({
+      components: [
+        createErrorPanel(
+          "Can't open ticket",
+          'Only the owner can open tickets'
+        ),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
+    })
+    return
   }
+
+  // Extract reviewer information
+  const { reviewerId, reviewerName, mentorId } = await resolveDisputeReviewer(
+    interaction.guild,
+    matchingMessage
+  )
 
   // Create ticket when matching message found
   // Create title based on dispute reason

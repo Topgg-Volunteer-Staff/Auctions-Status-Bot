@@ -22,6 +22,30 @@ import {
 } from '../utils/componentsV2'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
+const MAX_MESSAGE_CONTENT_LENGTH = 2_000
+
+export function splitWebhookMessageContent(
+  content: string
+): [string, ...Array<string>] {
+  const chunks: Array<string> = []
+  let remaining = content
+
+  while (remaining.length > MAX_MESSAGE_CONTENT_LENGTH) {
+    const newlineIndex = remaining.lastIndexOf('\n', MAX_MESSAGE_CONTENT_LENGTH)
+    const splitIndex =
+      newlineIndex > MAX_MESSAGE_CONTENT_LENGTH / 2
+        ? newlineIndex
+        : MAX_MESSAGE_CONTENT_LENGTH
+
+    chunks.push(remaining.slice(0, splitIndex))
+    remaining = remaining.slice(splitIndex).replace(/^\n/, '')
+  }
+
+  if (remaining) chunks.push(remaining)
+
+  return [chunks[0] ?? '[No details provided]', ...chunks.slice(1)]
+}
+
 function createModTicketPanel(options: {
   closeButton: ActionRowBuilder<ButtonBuilder>
   description: string
@@ -421,12 +445,24 @@ export const execute = async (
     messageContent = '[No details provided]'
   }
 
+  const [firstMessageContent, ...remainingMessageContent] =
+    splitWebhookMessageContent(messageContent)
+
   const sentMessage = await webhook.send({
-    content: messageContent,
+    content: firstMessageContent,
     threadId: thread.id,
     allowedMentions: { users: [] },
     ...(uploadedScreenshots.length > 0 && { files: uploadedScreenshots }),
   })
+
+  for (const content of remainingMessageContent) {
+    await webhook.send({
+      content,
+      threadId: thread.id,
+      allowedMentions: { users: [] },
+    })
+  }
+
   await sentMessage.pin()
   // Delete the auto-generated system "pinned a message" notice
   try {
