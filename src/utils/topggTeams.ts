@@ -274,6 +274,23 @@ export async function fetchTopggUserTeams(
   return teams
 }
 
+export async function isTopggUserOnBotTeam(
+  discordUserId: string,
+  discordBotId: string
+): Promise<boolean> {
+  const botId = validateDiscordId(discordBotId)
+  const teams = await fetchTopggUserTeams(discordUserId)
+
+  return teams.some((team) =>
+    team.entities.some(
+      (entity) =>
+        entity.id === botId &&
+        entity.platform.toUpperCase() === 'DISCORD' &&
+        entity.type.toUpperCase() === 'BOT'
+    )
+  )
+}
+
 export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   owners: Array<TopggBotOwner>
   team: TopggBotTeam | null

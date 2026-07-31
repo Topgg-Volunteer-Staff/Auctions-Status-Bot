@@ -7,6 +7,7 @@ const {
   fetchTopggBotOwnership,
   fetchTopggTeamsForDiscordId,
   fetchTopggUserTeams,
+  isTopggUserOnBotTeam,
   topggGraphql,
   validateDiscordId,
 } = require('../dist/utils/topggTeams')
@@ -64,6 +65,58 @@ describe('Top.gg team lookups', () => {
     )
 
     expect(await fetchTopggUserTeams(USER_ID)).toEqual([])
+  })
+
+  it('authorizes a user when one of their teams contains the disputed bot', async () => {
+    global.fetch.and.resolveTo(
+      graphqlResponse({
+        data: {
+          user: {
+            teams: [
+              {
+                members: [{ userId: 'topgg-user-id', role: 'VIEWER' }],
+                entities: [
+                  {
+                    id: BOT_ID,
+                    name: 'Example Bot',
+                    platform: 'DISCORD',
+                    type: 'BOT',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      })
+    )
+
+    expect(await isTopggUserOnBotTeam(USER_ID, BOT_ID)).toBeTrue()
+  })
+
+  it("does not authorize a user whose teams don't contain the disputed bot", async () => {
+    global.fetch.and.resolveTo(
+      graphqlResponse({
+        data: {
+          user: {
+            teams: [
+              {
+                members: [],
+                entities: [
+                  {
+                    id: '323456789012345678',
+                    name: 'Another Bot',
+                    platform: 'DISCORD',
+                    type: 'BOT',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      })
+    )
+
+    expect(await isTopggUserOnBotTeam(USER_ID, BOT_ID)).toBeFalse()
   })
 
   it('returns the owning team and its members for a listed bot', async () => {

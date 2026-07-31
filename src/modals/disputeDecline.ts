@@ -25,6 +25,7 @@ import { sendErrorLog } from '../utils/errorLogging'
 import {
   fetchTopggBotOwnership,
   getTopggBotUrl,
+  isTopggUserOnBotTeam,
   validateDiscordId,
   type TopggBotTeam,
 } from '../utils/topggTeams'
@@ -268,11 +269,27 @@ export const execute = async (
 
   const ownerId = extractDisputeOwnerId(matchingMessage.content)
   const openedByOwner = ownerId === interaction.user.id
+  let openedByTeamMember = false
   let topggTeam: TopggBotTeam | null = null
 
   try {
     const topggOwnership = await fetchTopggBotOwnership(disputeID)
     topggTeam = topggOwnership.team
+
+    if (!openedByOwner) {
+      openedByTeamMember = Boolean(
+        topggTeam?.members.some(
+          (member) => member.user.id === interaction.user.id
+        )
+      )
+
+      if (!openedByTeamMember) {
+        openedByTeamMember = await isTopggUserOnBotTeam(
+          interaction.user.id,
+          disputeID
+        )
+      }
+    }
   } catch (error) {
     void sendErrorLog(
       interaction.client,
@@ -297,14 +314,6 @@ export const execute = async (
       return
     }
   }
-
-  const openedByTeamMember =
-    !openedByOwner &&
-    Boolean(
-      topggTeam?.members.some(
-        (member) => member.user.id === interaction.user.id
-      )
-    )
 
   if (!openedByOwner && !openedByTeamMember) {
     await interaction.editReply({
