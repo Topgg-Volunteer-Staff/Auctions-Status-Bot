@@ -170,6 +170,11 @@ export async function topggGraphql<T>(
     'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
   }
 
+  const graphqlToken = process.env.GRAPHQL_API_TOKEN?.trim()
+  if (graphqlToken) {
+    headers.Authorization = `Bearer ${graphqlToken}`
+  }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TOPGG_REQUEST_TIMEOUT_MS)
 

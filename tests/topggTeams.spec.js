@@ -23,6 +23,7 @@ function graphqlResponse(data, status = 200) {
 
 describe('Top.gg team lookups', () => {
   const originalFetch = global.fetch
+  const originalGraphqlToken = process.env.GRAPHQL_API_TOKEN
 
   beforeEach(() => {
     clearTopggTeamCache()
@@ -31,6 +32,11 @@ describe('Top.gg team lookups', () => {
 
   afterEach(() => {
     global.fetch = originalFetch
+    if (originalGraphqlToken === undefined) {
+      delete process.env.GRAPHQL_API_TOKEN
+    } else {
+      process.env.GRAPHQL_API_TOKEN = originalGraphqlToken
+    }
   })
 
   it('returns all teams for a normal Discord user', async () => {
@@ -75,6 +81,23 @@ describe('Top.gg team lookups', () => {
     expect(global.fetch.calls.mostRecent().args[1].headers).toEqual(
       jasmine.objectContaining({
         'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
+      })
+    )
+  })
+
+  it('sends a configured GraphQL token as a Bearer token', async () => {
+    process.env.GRAPHQL_API_TOKEN = 'test-graphql-token'
+    global.fetch.and.resolveTo(
+      graphqlResponse({
+        data: { discordBot: { owners: [], team: null } },
+      })
+    )
+
+    await fetchTopggBotOwnership(BOT_ID)
+
+    expect(global.fetch.calls.mostRecent().args[1].headers).toEqual(
+      jasmine.objectContaining({
+        Authorization: 'Bearer test-graphql-token',
       })
     )
   })
