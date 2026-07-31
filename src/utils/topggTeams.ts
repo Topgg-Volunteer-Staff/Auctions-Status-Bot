@@ -276,12 +276,13 @@ export async function fetchTopggUserTeams(
 
 export async function isTopggUserOnBotTeam(
   discordUserId: string,
-  discordBotId: string
+  discordBotId: string,
+  botTeam: TopggBotTeam | null = null
 ): Promise<boolean> {
   const botId = validateDiscordId(discordBotId)
   const teams = await fetchTopggUserTeams(discordUserId)
 
-  return teams.some((team) =>
+  const teamContainsDiscordBot = teams.some((team) =>
     team.entities.some(
       (entity) =>
         entity.id === botId &&
@@ -289,6 +290,23 @@ export async function isTopggUserOnBotTeam(
         entity.type.toUpperCase() === 'BOT'
     )
   )
+  if (teamContainsDiscordBot) return true
+
+  const botTeamMemberIds = new Set(
+    botTeam?.members.map((member) => member.user.id) ?? []
+  )
+  if (botTeamMemberIds.size === 0) return false
+
+  return teams.some((team) => {
+    const userTeamMemberIds = new Set(
+      team.members.map((member) => member.userId)
+    )
+
+    return (
+      userTeamMemberIds.size === botTeamMemberIds.size &&
+      Array.from(botTeamMemberIds).every((id) => userTeamMemberIds.has(id))
+    )
+  })
 }
 
 export async function fetchTopggBotOwnership(discordBotId: string): Promise<{

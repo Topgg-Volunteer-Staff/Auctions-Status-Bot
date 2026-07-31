@@ -286,7 +286,8 @@ export const execute = async (
       if (!openedByTeamMember) {
         openedByTeamMember = await isTopggUserOnBotTeam(
           interaction.user.id,
-          disputeID
+          disputeID,
+          topggTeam
         )
       }
     }

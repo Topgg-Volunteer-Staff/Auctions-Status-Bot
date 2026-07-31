@@ -119,6 +119,69 @@ describe('Top.gg team lookups', () => {
     expect(await isTopggUserOnBotTeam(USER_ID, BOT_ID)).toBeFalse()
   })
 
+  it('correlates bot and user teams through their internal member IDs', async () => {
+    global.fetch.and.resolveTo(
+      graphqlResponse({
+        data: {
+          user: {
+            teams: [
+              {
+                members: [
+                  { userId: 'internal-owner-id', role: 'OWNER' },
+                  { userId: 'internal-member-id', role: 'VIEWER' },
+                ],
+                entities: [
+                  {
+                    id: 'internal-project-id',
+                    name: 'Example Bot',
+                    platform: 'DISCORD',
+                    type: 'BOT',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      })
+    )
+    const botTeam = {
+      members: [
+        { user: { id: 'internal-member-id', username: 'member' } },
+        { user: { id: 'internal-owner-id', username: 'owner' } },
+      ],
+    }
+
+    expect(await isTopggUserOnBotTeam(USER_ID, BOT_ID, botTeam)).toBeTrue()
+  })
+
+  it('does not authorize teams with only a partial member overlap', async () => {
+    global.fetch.and.resolveTo(
+      graphqlResponse({
+        data: {
+          user: {
+            teams: [
+              {
+                members: [
+                  { userId: 'internal-member-id', role: 'VIEWER' },
+                  { userId: 'different-member-id', role: 'VIEWER' },
+                ],
+                entities: [],
+              },
+            ],
+          },
+        },
+      })
+    )
+    const botTeam = {
+      members: [
+        { user: { id: 'internal-owner-id', username: 'owner' } },
+        { user: { id: 'internal-member-id', username: 'member' } },
+      ],
+    }
+
+    expect(await isTopggUserOnBotTeam(USER_ID, BOT_ID, botTeam)).toBeFalse()
+  })
+
   it('returns the owning team and its members for a listed bot', async () => {
     const ownership = {
       owners: [{ id: USER_ID, username: 'owner' }],
