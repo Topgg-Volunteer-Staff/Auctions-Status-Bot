@@ -167,6 +167,7 @@ export async function topggGraphql<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
+    'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
   }
 
   const controller = new AbortController()

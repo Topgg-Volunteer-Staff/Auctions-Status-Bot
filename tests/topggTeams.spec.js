@@ -72,6 +72,11 @@ describe('Top.gg team lookups', () => {
     )
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual(ownership)
+    expect(global.fetch.calls.mostRecent().args[1].headers).toEqual(
+      jasmine.objectContaining({
+        'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
+      })
+    )
   })
 
   it('returns direct owners and a null team for a directly owned bot', async () => {
