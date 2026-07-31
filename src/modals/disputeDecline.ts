@@ -21,6 +21,13 @@ import {
   findRecentBotReviewLog,
   resolveDisputeReviewer,
 } from '../utils/tickets/disputeReviewLogs'
+import { sendErrorLog } from '../utils/errorLogging'
+import {
+  fetchTopggBotOwnership,
+  getTopggBotUrl,
+  validateDiscordId,
+  type TopggBotTeam,
+} from '../utils/topggTeams'
 
 function isSnowflake(value: unknown): value is string {
   return typeof value === 'string' && /^\d{10,30}$/.test(value)
@@ -100,12 +107,14 @@ export const execute = async (
     other: 'Other',
   }
 
-  if (!/^\d+$/.test(disputeID)) {
+  try {
+    disputeID = validateDiscordId(disputeID)
+  } catch {
     await interaction.editReply({
       components: [
         createErrorPanel(
           'Invalid ID',
-          'Please provide a valid numeric bot ID.'
+          'Please provide a valid Discord bot ID.'
         ),
       ],
       flags: COMPONENTS_V2_FLAGS,
@@ -258,12 +267,51 @@ export const execute = async (
   }
 
   const ownerId = extractDisputeOwnerId(matchingMessage.content)
-  if (ownerId !== interaction.user.id) {
+  const openedByOwner = ownerId === interaction.user.id
+  let topggTeam: TopggBotTeam | null = null
+
+  try {
+    const topggOwnership = await fetchTopggBotOwnership(disputeID)
+    topggTeam = topggOwnership.team
+  } catch (error) {
+    void sendErrorLog(
+      interaction.client,
+      'dispute.topggTeamLookup.failed',
+      error,
+      {
+        botId: disputeID,
+        requesterId: interaction.user.id,
+      }
+    )
+
+    if (!openedByOwner) {
+      await interaction.editReply({
+        components: [
+          createErrorPanel(
+            "Can't verify team membership",
+            'Top.gg team membership could not be verified right now. Please try again shortly.'
+          ),
+        ],
+        flags: COMPONENTS_V2_FLAGS,
+      })
+      return
+    }
+  }
+
+  const openedByTeamMember =
+    !openedByOwner &&
+    Boolean(
+      topggTeam?.members.some(
+        (member) => member.user.id === interaction.user.id
+      )
+    )
+
+  if (!openedByOwner && !openedByTeamMember) {
     await interaction.editReply({
       components: [
         createErrorPanel(
           "Can't open ticket",
-          'Only the owner can open tickets'
+          "Only the bot's owner or a member of its Top.gg team can open a dispute."
         ),
       ],
       flags: COMPONENTS_V2_FLAGS,
@@ -311,10 +359,18 @@ export const execute = async (
         }`
       : ` ${reviewerNotificationsMention} no valid reviewer - please investigate.`
   }`
+  const openerRelationship = openedByOwner
+    ? 'Owner (from the decline log)'
+    : 'Top.gg team member'
+  const topggTeamDetails = topggTeam
+    ? `\n**Top.gg team:** [View the owning team through the bot listing](${getTopggBotUrl(
+        disputeID
+      )})`
+    : ''
   const ticketPanel = createDisputeTicketPanel(
     notificationContent,
     `${disputeTitle} - ${interaction.user.username}`,
-    `**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
+    `**Bot ID:** ${disputeID}\n**Opened as:** ${openerRelationship}${topggTeamDetails}\n\n**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
   )
 
   await thread.send({
