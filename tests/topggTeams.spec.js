@@ -7,6 +7,7 @@ const {
   fetchTopggBotOwnership,
   fetchTopggTeamsForDiscordId,
   fetchTopggUserTeams,
+  getTopggTeamUrl,
   isTopggUserOnBotTeam,
   topggGraphql,
   validateDiscordId,
@@ -14,6 +15,7 @@ const {
 
 const USER_ID = '123456789012345678'
 const BOT_ID = '223456789012345678'
+const TEAM_ID = '01HZXTEAMINTERNALID'
 
 function graphqlResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -145,6 +147,7 @@ describe('Top.gg team lookups', () => {
       })
     )
     const botTeam = {
+      id: TEAM_ID,
       members: [
         { user: { id: 'internal-member-id', username: 'member' } },
         { user: { id: 'internal-owner-id', username: 'owner' } },
@@ -173,6 +176,7 @@ describe('Top.gg team lookups', () => {
       })
     )
     const botTeam = {
+      id: TEAM_ID,
       members: [
         { user: { id: 'internal-owner-id', username: 'owner' } },
         { user: { id: 'internal-member-id', username: 'member' } },
@@ -186,6 +190,7 @@ describe('Top.gg team lookups', () => {
     const ownership = {
       owners: [{ id: USER_ID, username: 'owner' }],
       team: {
+        id: TEAM_ID,
         members: [{ user: { id: USER_ID, username: 'owner' } }],
       },
     }
@@ -194,6 +199,8 @@ describe('Top.gg team lookups', () => {
     )
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual(ownership)
+    const requestBody = JSON.parse(global.fetch.calls.mostRecent().args[1].body)
+    expect(requestBody.query).toMatch(/team\s*{\s*id\s+members/)
     expect(global.fetch.calls.mostRecent().args[1].headers).toEqual(
       jasmine.objectContaining({
         'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
@@ -234,6 +241,16 @@ describe('Top.gg team lookups', () => {
       owners: [{ id: USER_ID, username: 'owner' }],
       team: null,
     })
+  })
+
+  it('builds a direct team URL from the internal GraphQL ID', () => {
+    expect(getTopggTeamUrl(`  ${TEAM_ID}  `)).toBe(
+      `https://top.gg/team/${TEAM_ID}`
+    )
+    expect(getTopggTeamUrl('team/id')).toBe('https://top.gg/team/team%2Fid')
+    expect(() => getTopggTeamUrl('   ')).toThrowError(
+      'The supplied Top.gg team ID is empty'
+    )
   })
 
   it('returns an empty ownership result when a valid bot is not on Top.gg', async () => {

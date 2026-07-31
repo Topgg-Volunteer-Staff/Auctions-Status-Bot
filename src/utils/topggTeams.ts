@@ -28,6 +28,7 @@ export interface TopggUserTeam {
 }
 
 export interface TopggBotTeam {
+  id: string
   members: Array<{
     user: {
       id: string
@@ -100,6 +101,7 @@ const BOT_TEAM_QUERY = `
         username
       }
       team {
+        id
         members {
           user {
             id
@@ -158,6 +160,13 @@ export function validateDiscordId(input: string): string {
 
 export function getTopggBotUrl(discordBotId: string): string {
   return `https://top.gg/bot/${validateDiscordId(discordBotId)}`
+}
+
+export function getTopggTeamUrl(teamId: string): string {
+  const normalizedId = teamId.trim()
+  if (!normalizedId) throw new Error('The supplied Top.gg team ID is empty')
+
+  return `https://top.gg/team/${encodeURIComponent(normalizedId)}`
 }
 
 export async function topggGraphql<T>(

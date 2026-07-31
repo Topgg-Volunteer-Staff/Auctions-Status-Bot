@@ -24,7 +24,7 @@ import {
 import { sendErrorLog } from '../utils/errorLogging'
 import {
   fetchTopggBotOwnership,
-  getTopggBotUrl,
+  getTopggTeamUrl,
   isTopggUserOnBotTeam,
   validateDiscordId,
   type TopggBotTeam,
@@ -373,8 +373,8 @@ export const execute = async (
     ? 'Owner (from the decline log)'
     : 'Top.gg team member'
   const topggTeamDetails = topggTeam
-    ? `\n**Top.gg team:** [View the owning team through the bot listing](${getTopggBotUrl(
-        disputeID
+    ? `\n**Top.gg team:** [View the owning team](${getTopggTeamUrl(
+        topggTeam.id
       )})`
     : ''
   const ticketPanel = createDisputeTicketPanel(
