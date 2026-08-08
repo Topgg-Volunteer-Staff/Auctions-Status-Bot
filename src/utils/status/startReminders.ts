@@ -1,20 +1,28 @@
 // src/scheduler/startReminders.ts
-import { Client } from 'discord.js'
+import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import { runAuctionsMessage } from '../auctions/auctionsMessages'
 import { checkInactiveThreads } from '../tickets/checkInactiveThreads'
 import { initializeThreadActivity } from '../tickets/trackActivity'
 import { channelIds } from '../../globals'
+import { getAllOpenTicketThreads } from '../tickets/staffOwnedThreads'
 
 export default function startReminders(client: Client) {
   setTimeout(async () => {
     try {
-      const modTicketsChannel = client.channels.cache.get(channelIds.modTickets)
-      if (modTicketsChannel && 'threads' in modTicketsChannel) {
-        const activeThreads = await modTicketsChannel.threads.fetchActive()
-        for (const thread of activeThreads.threads.values()) {
-          await initializeThreadActivity(thread).catch(console.error)
-        }
+      const parentChannels = await Promise.all(
+        [channelIds.modTickets, channelIds.auctionsTickets].map((parentId) =>
+          client.channels.fetch(parentId).catch(() => null)
+        )
+      )
+      const ticketParent = parentChannels.find(
+        (channel): channel is TextChannel => channel instanceof TextChannel
+      )
+      if (!ticketParent) return
+
+      const openTickets = await getAllOpenTicketThreads(ticketParent.guild)
+      for (const { thread } of openTickets) {
+        await initializeThreadActivity(thread).catch(console.error)
       }
     } catch (error) {
       console.error('Error initializing thread activity tracking:', error)

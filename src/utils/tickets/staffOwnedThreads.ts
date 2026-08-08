@@ -21,6 +21,7 @@ export type TicketThreadMatch = {
 
 const THREAD_ATTENTION_PAGE_SIZE = 25
 const THREAD_ATTENTION_SCAN_PAGE_LIMIT = 3
+const ARCHIVED_THREAD_PAGE_SIZE = 100
 const STAFF_TICKET_ROLE_IDS = [
   roleIds.moderator,
   roleIds.reviewer,
@@ -31,27 +32,51 @@ const STAFF_TICKET_ROLE_IDS = [
 async function fetchTicketThreadsFromParent(
   channel: TextChannel
 ): Promise<Array<ThreadChannel>> {
+  const threadMap = new Map<string, ThreadChannel>()
   const active = await channel.threads.fetchActive().catch(() => null)
-  const archived = await channel.threads.fetchArchived({ limit: 100 }).catch(() => null)
-
-  const threads: Array<ThreadChannel> = []
 
   if (active) {
     for (const thread of active.threads.values()) {
-      threads.push(thread)
+      threadMap.set(thread.id, thread)
     }
   }
 
-  if (archived) {
-    for (const thread of archived.threads.values()) {
-      threads.push(thread)
+  let before: string | undefined
+  let hasMoreArchivedThreads = true
+
+  while (hasMoreArchivedThreads) {
+    const archived = await channel.threads
+      .fetchArchived({
+        type: 'private',
+        fetchAll: true,
+        limit: ARCHIVED_THREAD_PAGE_SIZE,
+        ...(before ? { before } : {}),
+      })
+      .catch(() => null)
+
+    if (!archived || archived.threads.size === 0) break
+
+    const pageThreads = [...archived.threads.values()]
+    let addedCount = 0
+
+    for (const thread of pageThreads) {
+      if (!threadMap.has(thread.id)) addedCount += 1
+      threadMap.set(thread.id, thread)
     }
+
+    before = pageThreads[pageThreads.length - 1]?.id
+    hasMoreArchivedThreads =
+      pageThreads.length === ARCHIVED_THREAD_PAGE_SIZE &&
+      addedCount > 0 &&
+      typeof before === 'string'
   }
 
-  return threads
+  return [...threadMap.values()]
 }
 
-async function fetchTicketParentChannels(guild: Guild): Promise<Array<TextChannel>> {
+async function fetchTicketParentChannels(
+  guild: Guild
+): Promise<Array<TextChannel>> {
   const parentChannels = await Promise.all([
     guild.channels.fetch(channelIds.modTickets),
     guild.channels.fetch(channelIds.auctionsTickets),
@@ -74,7 +99,7 @@ function normalizeName(name: string): string {
 function isOpenTicketThread(thread: ThreadChannel): boolean {
   return (
     thread.type === ChannelType.PrivateThread &&
-    !thread.name.startsWith(resolvedFlag)
+    !normalizeName(thread.name).startsWith(normalizeName(resolvedFlag))
   )
 }
 
@@ -97,7 +122,9 @@ async function isStaffMember(
   return isStaff
 }
 
-async function getLatestRelevantMessage(thread: ThreadChannel): Promise<Message | null> {
+async function getLatestRelevantMessage(
+  thread: ThreadChannel
+): Promise<Message | null> {
   let before: string | undefined
 
   for (let page = 0; page < THREAD_ATTENTION_SCAN_PAGE_LIMIT; page++) {
@@ -167,6 +194,24 @@ export async function getOpenUnclaimedTickets(
   guild: Guild
 ): Promise<Array<TicketThreadMatch>> {
   const matches: Array<TicketThreadMatch> = []
+  const openTickets = await getAllOpenTicketThreads(guild)
+
+  for (const ticket of openTickets) {
+    const ownerId = await resolveThreadOwnerUserId(ticket.thread).catch(
+      () => null
+    )
+    if (ownerId === null) {
+      matches.push(ticket)
+    }
+  }
+
+  return matches
+}
+
+export async function getAllOpenTicketThreads(
+  guild: Guild
+): Promise<Array<TicketThreadMatch>> {
+  const matches: Array<TicketThreadMatch> = []
   const ticketParents = await fetchTicketParentChannels(guild)
 
   for (const parent of ticketParents) {
@@ -174,11 +219,6 @@ export async function getOpenUnclaimedTickets(
 
     for (const thread of threads) {
       if (!isOpenTicketThread(thread)) {
-        continue
-      }
-
-      const ownerId = await resolveThreadOwnerUserId(thread).catch(() => null)
-      if (ownerId !== null) {
         continue
       }
 
@@ -197,20 +237,14 @@ export async function getOpenThreadsForStaffMember(
   guild: Guild
 ): Promise<Array<ThreadChannel>> {
   const matchingThreads: Array<ThreadChannel> = []
-  const ticketParents = await fetchTicketParentChannels(guild)
+  const openTickets = await getAllOpenTicketThreads(guild)
 
-  for (const parent of ticketParents) {
-    const threads = await fetchTicketThreadsFromParent(parent)
-
-    for (const thread of threads) {
-      if (!isOpenTicketThread(thread)) {
-        continue
-      }
-
-      const ownerId = await resolveThreadOwnerUserId(thread).catch(() => null)
-      if (ownerId === memberId) {
-        matchingThreads.push(thread)
-      }
+  for (const ticket of openTickets) {
+    const ownerId = await resolveThreadOwnerUserId(ticket.thread).catch(
+      () => null
+    )
+    if (ownerId === memberId) {
+      matchingThreads.push(ticket.thread)
     }
   }
 

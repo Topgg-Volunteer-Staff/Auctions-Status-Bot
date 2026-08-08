@@ -106,7 +106,7 @@ function isSupportedTicketThread(thread: ThreadChannel): boolean {
   )
 }
 
-async function isStaffUserInGuild(
+export async function isStaffUserInGuild(
   guild: Guild | null,
   userId: string
 ): Promise<boolean> {

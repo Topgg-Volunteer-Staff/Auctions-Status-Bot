@@ -2,14 +2,40 @@ import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../../globals'
 import {
   getThreadLastMessage,
-  hasAlertBeenSent,
+  getThreadLastStaffMessage,
+  getLast7DayAlertInterval,
+  has14DayStaffAlertBeenSent,
+  has48HourAlertBeenSent,
   initializeInactiveAlertStore,
-  markAlertSent,
+  mark14DayStaffAlertSent,
+  mark48HourAlertSent,
+  mark7DayAlertSent,
   getAllTrackedThreads,
 } from './trackActivity'
 
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
+
+export function getDue7DayAlertInterval(
+  timeSinceLastMessage: number,
+  lastSentInterval: number
+): number | null {
+  const currentInterval = Math.floor(timeSinceLastMessage / SEVEN_DAYS)
+  return currentInterval >= 1 && currentInterval > lastSentInterval
+    ? currentInterval
+    : null
+}
+
+export function is14DayStaffResponseAlertDue(
+  now: number,
+  lastStaffActivityAt: number,
+  alreadyAlertedForActivity: boolean
+): boolean {
+  return (
+    now - lastStaffActivityAt >= FOURTEEN_DAYS && !alreadyAlertedForActivity
+  )
+}
 
 // Role -> alert channel routing.
 // If a member has multiple roles across routes and it's ambiguous, default to the main alerts channel.
@@ -82,28 +108,59 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
           .fetch(threadId)
           .catch(() => null)) as ThreadChannel | null
 
+        const isModTicket = thread?.parent?.id === channelIds.modTickets
+        const isAuctionsTicket =
+          thread?.parent?.id === channelIds.auctionsTickets
+
         if (
           !thread ||
-          thread.archived ||
-          thread.parent?.id !== channelIds.modTickets ||
+          (!isModTicket && !isAuctionsTicket) ||
           thread.type !== ChannelType.PrivateThread ||
           thread.name.startsWith(resolvedFlag)
         ) {
           continue
         }
 
-        const shouldSend48h =
-          timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
-          !hasAlertBeenSent(threadId, '48h')
-        const shouldSend7d =
-          timeSinceLastMessage >= SEVEN_DAYS &&
-          !hasAlertBeenSent(threadId, '7d')
+        const lastStaffMessageTime = getThreadLastStaffMessage(threadId)
+        const staffActivityBaseline =
+          lastStaffMessageTime ?? thread.createdTimestamp
 
-        const alertToSend: '2d' | '7d' | null = shouldSend7d
-          ? '7d'
-          : shouldSend48h
-          ? '2d'
+        if (
+          staffActivityBaseline &&
+          is14DayStaffResponseAlertDue(
+            now,
+            staffActivityBaseline,
+            has14DayStaffAlertBeenSent(threadId, staffActivityBaseline)
+          )
+        ) {
+          const sent = await sendMissingStaffResponseAlert(
+            defaultAlertChannel,
+            thread,
+            lastStaffMessageTime
+          )
+
+          if (sent) {
+            await mark14DayStaffAlertSent(threadId, staffActivityBaseline)
+          }
+        }
+
+        const shouldSend48h =
+          isModTicket &&
+          timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
+          !has48HourAlertBeenSent(threadId)
+        const due7DayInterval = isModTicket
+          ? getDue7DayAlertInterval(
+              timeSinceLastMessage,
+              getLast7DayAlertInterval(threadId)
+            )
           : null
+
+        const alertToSend: string | null =
+          due7DayInterval !== null
+            ? `${due7DayInterval * 7}d`
+            : shouldSend48h
+            ? '2d'
+            : null
 
         const lastRoutedStaff = alertToSend
           ? await getMostActiveRoutedStaffSpeaker(thread)
@@ -135,12 +192,10 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
             )
           }
 
-          if (alertToSend === '7d') {
-            await markAlertSent(threadId, '7d')
-            // If it's been inactive for 7 days, also suppress any pending 48h alert.
-            await markAlertSent(threadId, '48h')
+          if (due7DayInterval !== null) {
+            await mark7DayAlertSent(threadId, due7DayInterval)
           } else {
-            await markAlertSent(threadId, '48h')
+            await mark48HourAlertSent(threadId)
           }
         }
       } catch (error) {
@@ -149,6 +204,37 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
     }
   } catch (error) {
     console.error('Error in checkInactiveThreads:', error)
+  }
+}
+
+async function sendMissingStaffResponseAlert(
+  alertChannel: TextChannel,
+  thread: ThreadChannel,
+  lastStaffMessageTime: number | null
+): Promise<boolean> {
+  const activityDescription = lastStaffMessageTime
+    ? `The last staff response was <t:${Math.floor(
+        lastStaffMessageTime / 1000
+      )}:R>.`
+    : `No staff member has responded since the ticket was opened <t:${Math.floor(
+        (thread.createdTimestamp ?? Date.now()) / 1000
+      )}:R>.`
+
+  try {
+    await alertChannel.send({
+      content:
+        `<@&${roleIds.moderator}> :warning: <#${thread.id}> has not received a staff response in 14 days. ` +
+        activityDescription,
+      allowedMentions: {
+        roles: [roleIds.moderator],
+        users: [],
+        parse: [],
+      },
+    })
+    return true
+  } catch (error) {
+    console.error('Failed to send 14-day staff response alert:', error)
+    return false
   }
 }
 
@@ -272,13 +358,11 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
       if (!messages || messages.size === 0) return null
 
       for (const message of messages.values()) {
-        if (message.author.id === thread.client.user?.id) {
-          let lastMentionedStaff:
-            | {
-                id: string
-                roles: { cache: { has: (roleId: string) => boolean } }
-              }
-            | null = null
+        if (message.author.id === thread.client.user.id) {
+          let lastMentionedStaff: {
+            id: string
+            roles: { cache: { has: (roleId: string) => boolean } }
+          } | null = null
 
           for (const mentionedUserId of getMentionedUserIds(message.content)) {
             const mentionedMember = await getAlertEligibleMember(

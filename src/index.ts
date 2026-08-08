@@ -23,6 +23,7 @@ import {
   initializeInactiveAlertStore,
   initializeThreadActivity,
   updateThreadActivity,
+  updateThreadStaffActivity,
 } from './utils/tickets/trackActivity'
 import {
   initializeTicketDmStore,
@@ -30,6 +31,7 @@ import {
 } from './utils/tickets/dmOnResponses'
 import {
   initializeStaffTicketReminderStore,
+  isStaffUserInGuild,
   maybeHandleStaffTicketReminder,
 } from './utils/tickets/staffTicketReminders'
 import { initializeTempRoleStore } from './utils/tempRoles'
@@ -1055,7 +1057,8 @@ commandHandler(client)
 
 client.on('threadCreate', async (thread) => {
   if (
-    thread.parent?.id !== channelIds.modTickets ||
+    (thread.parent?.id !== channelIds.modTickets &&
+      thread.parent?.id !== channelIds.auctionsTickets) ||
     thread.type !== ChannelType.PrivateThread ||
     thread.name.startsWith(resolvedFlag)
   ) {
@@ -1090,11 +1093,16 @@ client.on('messageCreate', async (message) => {
   const thread = message.channel as ThreadChannel
 
   if (
-    thread.parent?.id === channelIds.modTickets &&
+    (thread.parent?.id === channelIds.modTickets ||
+      thread.parent?.id === channelIds.auctionsTickets) &&
     thread.type === ChannelType.PrivateThread &&
     !message.author.bot
   ) {
     await updateThreadActivity(thread.id)
+
+    if (await isStaffUserInGuild(message.guild, message.author.id)) {
+      updateThreadStaffActivity(thread.id, message.createdTimestamp)
+    }
   }
 
   if (
