@@ -6,7 +6,6 @@ import {
   Client,
   ContainerBuilder,
   InteractionContextType,
-  MessageFlags,
   SlashCommandBuilder,
   TextDisplayBuilder,
   type Guild,
@@ -37,6 +36,11 @@ export type OpenTicketAuditEntry = {
   ownerId: string | null
   threadId: string
 }
+
+type AuditTicketProgressCallback = (
+  processedTickets: number,
+  totalTickets: number
+) => Promise<void> | void
 
 function categoryRank(category: TicketCategory): number {
   return CATEGORY_ORDER.indexOf(category)
@@ -93,11 +97,47 @@ export function paginateAuditTicketEntries(
   return pages
 }
 
+export function formatAuditTicketLoadingProgress(
+  processedTickets: number,
+  totalTickets: number
+): string {
+  if (totalTickets <= 0) {
+    return 'No open tickets were found. Preparing the audit result...'
+  }
+
+  const safeProcessed = Math.max(0, Math.min(processedTickets, totalTickets))
+  const ratio = safeProcessed / totalTickets
+  const filledSegments = Math.round(ratio * 10)
+  const progressBar = `${'#'.repeat(filledSegments)}${'-'.repeat(
+    10 - filledSegments
+  )}`
+
+  return [
+    `Found **${totalTickets}** open ticket${totalTickets === 1 ? '' : 's'}.`,
+    'Checking staff handlers and latest message times...',
+    `\`[${progressBar}]\` **${safeProcessed}/${totalTickets}** (${Math.round(
+      ratio * 100
+    )}%)`,
+    '',
+    '-# This can take a little while when there are many archived tickets.',
+  ].join('\n')
+}
+
+function buildAuditTicketsLoadingPanel(description: string): ContainerBuilder {
+  return createTextPanel({
+    accentColor: 0x00bbff,
+    title: 'Loading Ticket Audit',
+    description,
+  })
+}
+
 export async function getOpenTicketAuditEntries(
-  guild: Guild
+  guild: Guild,
+  onProgress?: AuditTicketProgressCallback
 ): Promise<Array<OpenTicketAuditEntry>> {
   const tickets = await getAllOpenTicketThreads(guild)
   const entries: Array<OpenTicketAuditEntry> = []
+  await onProgress?.(0, tickets.length)
 
   for (let index = 0; index < tickets.length; index += LOOKUP_BATCH_SIZE) {
     const batch = tickets.slice(index, index + LOOKUP_BATCH_SIZE)
@@ -122,6 +162,7 @@ export async function getOpenTicketAuditEntries(
     )
 
     entries.push(...batchEntries)
+    await onProgress?.(entries.length, tickets.length)
   }
 
   return entries.sort(
@@ -229,10 +270,47 @@ export const execute = async (
     return
   }
 
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
+  await interaction.reply({
+    components: [
+      buildAuditTicketsLoadingPanel(
+        'Finding all open Mod, Auction, and Reviewer tickets, including archived tickets...'
+      ),
+    ],
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    allowedMentions: { parse: [] },
+  })
 
   try {
-    const entries = await getOpenTicketAuditEntries(interaction.guild)
+    let lastProgressUpdateAt = 0
+    const entries = await getOpenTicketAuditEntries(
+      interaction.guild,
+      async (processedTickets, totalTickets) => {
+        const now = Date.now()
+        const isComplete = processedTickets >= totalTickets
+        if (
+          processedTickets > 0 &&
+          !isComplete &&
+          now - lastProgressUpdateAt < 1_500
+        ) {
+          return
+        }
+
+        lastProgressUpdateAt = now
+        await interaction
+          .editReply({
+            components: [
+              buildAuditTicketsLoadingPanel(
+                formatAuditTicketLoadingProgress(processedTickets, totalTickets)
+              ),
+            ],
+            flags: COMPONENTS_V2_FLAGS,
+            allowedMentions: { parse: [] },
+          })
+          .catch((error) => {
+            console.warn('Failed to update ticket audit progress:', error)
+          })
+      }
+    )
     const pages = paginateAuditTicketEntries(entries)
     const pageIndex = 0
     const panel = buildAuditTicketsPanel(

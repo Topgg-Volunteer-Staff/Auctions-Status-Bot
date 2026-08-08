@@ -3,6 +3,7 @@ require('./jasmine/reporter')
 
 const {
   buildAuditTicketPageDescription,
+  formatAuditTicketLoadingProgress,
   paginateAuditTicketEntries,
 } = require('../dist/commands/audit-tickets')
 
@@ -14,6 +15,14 @@ const createEntry = (category, index) => ({
 })
 
 describe('/audit-tickets pages', () => {
+  it('shows useful progress while ticket details are checked', () => {
+    const progress = formatAuditTicketLoadingProgress(10, 25)
+
+    expect(progress).toContain('Found **25** open tickets')
+    expect(progress).toContain('`[####------]` **10/25** (40%)')
+    expect(progress).toContain('staff handlers and latest message times')
+  })
+
   it('adds pages when more than eight tickets are open', () => {
     const entries = Array.from({ length: 9 }, (_, index) =>
       createEntry('Mod', index)
