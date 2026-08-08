@@ -2,8 +2,11 @@
 require('./jasmine/reporter')
 
 const {
+  buildAuditTicketsPaginationComponents,
   buildAuditTicketPageDescription,
+  command,
   formatAuditTicketLoadingProgress,
+  matchesAuditTicketCategory,
   paginateAuditTicketEntries,
 } = require('../dist/commands/audit-tickets')
 
@@ -18,9 +21,37 @@ describe('/audit-tickets pages', () => {
   it('shows useful progress while ticket details are checked', () => {
     const progress = formatAuditTicketLoadingProgress(10, 25)
 
-    expect(progress).toContain('Found **25** open tickets')
+    expect(progress).toContain('Checking **25** candidate tickets')
     expect(progress).toContain('`[####------]` **10/25** (40%)')
     expect(progress).toContain('staff handlers and latest message times')
+  })
+
+  it('registers optional category and staff filters', () => {
+    const options = command.toJSON().options
+
+    expect(options.map((option) => option.name)).toEqual(['category', 'staff'])
+    expect(options[0].choices.map((choice) => choice.value)).toEqual([
+      'all',
+      'mod',
+      'auctions',
+      'reviewer',
+    ])
+  })
+
+  it('matches ticket categories and preserves filters in page buttons', () => {
+    expect(matchesAuditTicketCategory('Mod', 'mod')).toBeTrue()
+    expect(matchesAuditTicketCategory('Reviewer', 'mod')).toBeFalse()
+    expect(matchesAuditTicketCategory('Auctions', 'all')).toBeTrue()
+
+    const rows = buildAuditTicketsPaginationComponents('requester', 0, 2, {
+      category: 'reviewer',
+      staffUserId: '12345',
+    })
+    const previousButton = rows[0].toJSON().components[0]
+
+    expect(previousButton.custom_id).toBe(
+      'auditTicketsPage_requester_reviewer_12345_0'
+    )
   })
 
   it('adds pages when more than eight tickets are open', () => {

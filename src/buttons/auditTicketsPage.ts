@@ -1,9 +1,11 @@
 import { ButtonInteraction, Client } from 'discord.js'
 import {
+  type AuditTicketFilters,
   auditTicketsPageButtonName,
   buildAuditTicketsPaginationComponents,
   buildAuditTicketsPanel,
   getOpenTicketAuditEntries,
+  isAuditTicketCategoryFilter,
   paginateAuditTicketEntries,
 } from '../commands/audit-tickets'
 import {
@@ -22,7 +24,8 @@ export const execute = async (
 ): Promise<void> => {
   if (!interaction.inCachedGuild()) return
 
-  const [, requestingUserId, rawPage] = interaction.customId.split('_')
+  const [, requestingUserId, rawCategory, rawStaffUserId, rawPage] =
+    interaction.customId.split('_')
   if (!requestingUserId || requestingUserId !== interaction.user.id) {
     await interaction.reply({
       components: [
@@ -37,11 +40,36 @@ export const execute = async (
     return
   }
 
+  if (
+    !rawCategory ||
+    !isAuditTicketCategoryFilter(rawCategory) ||
+    !rawStaffUserId ||
+    (rawStaffUserId !== 'all' && !/^\d+$/.test(rawStaffUserId))
+  ) {
+    await interaction.reply({
+      components: [
+        createErrorPanel('Ticket audit failed', 'Invalid filter state.'),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      allowedMentions: { parse: [] },
+    })
+    return
+  }
+
+  const filters: AuditTicketFilters = {
+    category: rawCategory,
+    staffUserId: rawStaffUserId === 'all' ? null : rawStaffUserId,
+  }
+
   await interaction.deferUpdate()
 
   try {
     const requestedPage = Number(rawPage) - 1
-    const entries = await getOpenTicketAuditEntries(interaction.guild)
+    const entries = await getOpenTicketAuditEntries(
+      interaction.guild,
+      undefined,
+      filters
+    )
     const pages = paginateAuditTicketEntries(entries)
     const pageIndex = Number.isInteger(requestedPage)
       ? Math.max(0, Math.min(requestedPage, pages.length - 1))
@@ -51,12 +79,14 @@ export const execute = async (
       interaction.guildId,
       entries.length,
       pageIndex,
-      pages.length
+      pages.length,
+      filters
     )
     const pagination = buildAuditTicketsPaginationComponents(
       interaction.user.id,
       pageIndex,
-      pages.length
+      pages.length,
+      filters
     )
     if (pagination.length > 0) panel.addActionRowComponents(...pagination)
 

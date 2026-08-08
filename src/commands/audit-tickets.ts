@@ -30,6 +30,18 @@ const TICKETS_PER_PAGE = 8
 const LOOKUP_BATCH_SIZE = 5
 const CATEGORY_ORDER: Array<TicketCategory> = ['Mod', 'Auctions', 'Reviewer']
 
+export type AuditTicketCategoryFilter = 'all' | 'mod' | 'auctions' | 'reviewer'
+
+export type AuditTicketFilters = {
+  category: AuditTicketCategoryFilter
+  staffUserId: string | null
+}
+
+const DEFAULT_AUDIT_TICKET_FILTERS: AuditTicketFilters = {
+  category: 'all',
+  staffUserId: null,
+}
+
 export type OpenTicketAuditEntry = {
   category: TicketCategory
   lastMessageAt: number
@@ -44,6 +56,38 @@ type AuditTicketProgressCallback = (
 
 function categoryRank(category: TicketCategory): number {
   return CATEGORY_ORDER.indexOf(category)
+}
+
+export function isAuditTicketCategoryFilter(
+  value: string
+): value is AuditTicketCategoryFilter {
+  return ['all', 'mod', 'auctions', 'reviewer'].includes(value)
+}
+
+export function matchesAuditTicketCategory(
+  category: TicketCategory,
+  filter: AuditTicketCategoryFilter
+): boolean {
+  if (filter === 'all') return true
+  if (filter === 'mod') return category === 'Mod'
+  if (filter === 'auctions') return category === 'Auctions'
+  return category === 'Reviewer'
+}
+
+function formatAuditTicketFilters(filters: AuditTicketFilters): string {
+  const categoryLabels: Record<AuditTicketCategoryFilter, string> = {
+    all: 'All',
+    mod: 'Mod',
+    auctions: 'Auction',
+    reviewer: 'Reviewer',
+  }
+  const staffLabel = filters.staffUserId
+    ? `<@${filters.staffUserId}>`
+    : 'All staff'
+
+  return `**Filters:** Category: **${
+    categoryLabels[filters.category]
+  }** - Staff: ${staffLabel}`
 }
 
 function clampPageIndex(pageIndex: number, pageCount: number): number {
@@ -113,7 +157,9 @@ export function formatAuditTicketLoadingProgress(
   )}`
 
   return [
-    `Found **${totalTickets}** open ticket${totalTickets === 1 ? '' : 's'}.`,
+    `Checking **${totalTickets}** candidate ticket${
+      totalTickets === 1 ? '' : 's'
+    }.`,
     'Checking staff handlers and latest message times...',
     `\`[${progressBar}]\` **${safeProcessed}/${totalTickets}** (${Math.round(
       ratio * 100
@@ -133,12 +179,18 @@ function buildAuditTicketsLoadingPanel(description: string): ContainerBuilder {
 
 export async function getOpenTicketAuditEntries(
   guild: Guild,
-  onProgress?: AuditTicketProgressCallback
+  onProgress?: AuditTicketProgressCallback,
+  filters: AuditTicketFilters = DEFAULT_AUDIT_TICKET_FILTERS
 ): Promise<Array<OpenTicketAuditEntry>> {
-  const tickets = await getAllOpenTicketThreads(guild, {
-    includeArchived: false,
-  })
+  const tickets = (
+    await getAllOpenTicketThreads(guild, {
+      includeArchived: false,
+    })
+  ).filter((ticket) =>
+    matchesAuditTicketCategory(ticket.category, filters.category)
+  )
   const entries: Array<OpenTicketAuditEntry> = []
+  let processedTickets = 0
   await onProgress?.(0, tickets.length)
 
   for (let index = 0; index < tickets.length; index += LOOKUP_BATCH_SIZE) {
@@ -163,8 +215,13 @@ export async function getOpenTicketAuditEntries(
       })
     )
 
-    entries.push(...batchEntries)
-    await onProgress?.(entries.length, tickets.length)
+    entries.push(
+      ...batchEntries.filter(
+        (entry) => !filters.staffUserId || entry.ownerId === filters.staffUserId
+      )
+    )
+    processedTickets += batch.length
+    await onProgress?.(processedTickets, tickets.length)
   }
 
   return entries.sort(
@@ -177,13 +234,16 @@ export async function getOpenTicketAuditEntries(
 export function buildAuditTicketsPaginationComponents(
   requestingUserId: string,
   pageIndex: number,
-  pageCount: number
+  pageCount: number,
+  filters: AuditTicketFilters = DEFAULT_AUDIT_TICKET_FILTERS
 ): Array<ActionRowBuilder<ButtonBuilder>> {
   if (pageCount <= 1) return []
 
   const safePageIndex = clampPageIndex(pageIndex, pageCount)
   const customId = (targetPage: number): string =>
-    `${auditTicketsPageButtonName}_${requestingUserId}_${targetPage + 1}`
+    `${auditTicketsPageButtonName}_${requestingUserId}_${filters.category}_${
+      filters.staffUserId ?? 'all'
+    }_${targetPage + 1}`
 
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -211,12 +271,16 @@ export function buildAuditTicketsPanel(
   guildId: string,
   totalTickets: number,
   pageIndex: number,
-  pageCount: number
+  pageCount: number,
+  filters: AuditTicketFilters = DEFAULT_AUDIT_TICKET_FILTERS
 ): ContainerBuilder {
-  const description =
+  const ticketDescription =
     entries.length === 0
-      ? 'There are no open mod, auction, or reviewer tickets.'
+      ? 'No active, unresolved tickets matched these filters.'
       : buildAuditTicketPageDescription(entries, guildId)
+  const description = `${formatAuditTicketFilters(
+    filters
+  )}\n\n${ticketDescription}`
   const footer =
     pageCount > 1
       ? `${totalTickets} open ticket${totalTickets === 1 ? '' : 's'} - Page ${
@@ -239,6 +303,24 @@ export const command = new SlashCommandBuilder()
   .setName('audit-tickets')
   .setDescription('Audit all open tickets and their current staff handlers')
   .setContexts(InteractionContextType.Guild)
+  .addStringOption((option) =>
+    option
+      .setName('category')
+      .setDescription('Only show tickets from this category')
+      .setRequired(false)
+      .addChoices(
+        { name: 'All', value: 'all' },
+        { name: 'Mod', value: 'mod' },
+        { name: 'Auction', value: 'auctions' },
+        { name: 'Reviewer', value: 'reviewer' }
+      )
+  )
+  .addUserOption((option) =>
+    option
+      .setName('staff')
+      .setDescription('Only show tickets handled by this staff member')
+      .setRequired(false)
+  )
 
 export const execute = async (
   _client: Client,
@@ -272,10 +354,21 @@ export const execute = async (
     return
   }
 
+  const rawCategory = interaction.options.getString('category') ?? 'all'
+  const category = isAuditTicketCategoryFilter(rawCategory)
+    ? rawCategory
+    : 'all'
+  const filters: AuditTicketFilters = {
+    category,
+    staffUserId: interaction.options.getUser('staff')?.id ?? null,
+  }
+
   await interaction.reply({
     components: [
       buildAuditTicketsLoadingPanel(
-        'Finding active, unresolved Mod, Auction, and Reviewer tickets...'
+        `Finding active, unresolved tickets...\n\n${formatAuditTicketFilters(
+          filters
+        )}`
       ),
     ],
     flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
@@ -311,7 +404,8 @@ export const execute = async (
           .catch((error) => {
             console.warn('Failed to update ticket audit progress:', error)
           })
-      }
+      },
+      filters
     )
     const pages = paginateAuditTicketEntries(entries)
     const pageIndex = 0
@@ -320,12 +414,14 @@ export const execute = async (
       interaction.guildId,
       entries.length,
       pageIndex,
-      pages.length
+      pages.length,
+      filters
     )
     const pagination = buildAuditTicketsPaginationComponents(
       interaction.user.id,
       pageIndex,
-      pages.length
+      pages.length,
+      filters
     )
     if (pagination.length > 0) panel.addActionRowComponents(...pagination)
 
