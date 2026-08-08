@@ -30,7 +30,8 @@ const STAFF_TICKET_ROLE_IDS = [
 ]
 
 async function fetchTicketThreadsFromParent(
-  channel: TextChannel
+  channel: TextChannel,
+  includeArchived: boolean
 ): Promise<Array<ThreadChannel>> {
   const threadMap = new Map<string, ThreadChannel>()
   const active = await channel.threads.fetchActive().catch(() => null)
@@ -40,6 +41,8 @@ async function fetchTicketThreadsFromParent(
       threadMap.set(thread.id, thread)
     }
   }
+
+  if (!includeArchived) return [...threadMap.values()]
 
   let before: string | undefined
   let hasMoreArchivedThreads = true
@@ -209,13 +212,15 @@ export async function getOpenUnclaimedTickets(
 }
 
 export async function getAllOpenTicketThreads(
-  guild: Guild
+  guild: Guild,
+  options: { includeArchived?: boolean } = {}
 ): Promise<Array<TicketThreadMatch>> {
   const matches: Array<TicketThreadMatch> = []
   const ticketParents = await fetchTicketParentChannels(guild)
+  const includeArchived = options.includeArchived ?? true
 
   for (const parent of ticketParents) {
-    const threads = await fetchTicketThreadsFromParent(parent)
+    const threads = await fetchTicketThreadsFromParent(parent, includeArchived)
 
     for (const thread of threads) {
       if (!isOpenTicketThread(thread)) {

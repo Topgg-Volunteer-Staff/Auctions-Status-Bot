@@ -119,7 +119,7 @@ export function formatAuditTicketLoadingProgress(
       ratio * 100
     )}%)`,
     '',
-    '-# This can take a little while when there are many archived tickets.',
+    '-# This can take a little while when there are many active tickets.',
   ].join('\n')
 }
 
@@ -135,7 +135,9 @@ export async function getOpenTicketAuditEntries(
   guild: Guild,
   onProgress?: AuditTicketProgressCallback
 ): Promise<Array<OpenTicketAuditEntry>> {
-  const tickets = await getAllOpenTicketThreads(guild)
+  const tickets = await getAllOpenTicketThreads(guild, {
+    includeArchived: false,
+  })
   const entries: Array<OpenTicketAuditEntry> = []
   await onProgress?.(0, tickets.length)
 
@@ -273,7 +275,7 @@ export const execute = async (
   await interaction.reply({
     components: [
       buildAuditTicketsLoadingPanel(
-        'Finding all open Mod, Auction, and Reviewer tickets, including archived tickets...'
+        'Finding active, unresolved Mod, Auction, and Reviewer tickets...'
       ),
     ],
     flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
