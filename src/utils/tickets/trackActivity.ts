@@ -209,9 +209,19 @@ export async function mark14DayStaffAlertSent(
   threadId: string,
   staffActivityAt: number
 ): Promise<void> {
+  await mark14DayStaffAlertsSent([{ threadId, staffActivityAt }])
+}
+
+export async function mark14DayStaffAlertsSent(
+  alerts: Array<{ threadId: string; staffActivityAt: number }>
+): Promise<void> {
   await initInactiveAlertsStore()
-  getOrCreateThreadAlertState(threadId).last14dStaffActivityAlertedAt =
-    staffActivityAt
+
+  for (const { threadId, staffActivityAt } of alerts) {
+    getOrCreateThreadAlertState(threadId).last14dStaffActivityAlertedAt =
+      staffActivityAt
+  }
+
   await queuePersistInactiveAlerts().catch(() => void 0)
 }
 

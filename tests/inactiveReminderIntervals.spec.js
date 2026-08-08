@@ -4,6 +4,7 @@ require('./jasmine/reporter')
 const {
   getDue7DayAlertInterval,
   is14DayStaffResponseAlertDue,
+  buildMissingStaffResponseAlertContent,
 } = require('../dist/utils/tickets/checkInactiveThreads')
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -41,5 +42,28 @@ describe('missing staff response alerts', () => {
     expect(
       is14DayStaffResponseAlertDue(20 * DAY_MS, 6 * DAY_MS, true)
     ).toBeFalse()
+  })
+
+  it('does not backfill alerts for years-old staff activity', () => {
+    const fourYears = 4 * 365 * DAY_MS
+
+    expect(is14DayStaffResponseAlertDue(fourYears, 0, false)).toBeFalse()
+  })
+
+  it('combines a backlog without mentioning the moderator role', () => {
+    const alerts = Array.from({ length: 256 }, (_, index) => ({
+      threadId: String(1000 + index),
+      staffActivityBaseline: DAY_MS,
+      lastStaffMessageTime: DAY_MS,
+      threadCreatedTimestamp: 0,
+    }))
+
+    const content = buildMissingStaffResponseAlertContent(alerts)
+
+    expect(content).not.toMatch(/<@&\d+>/)
+    expect(content.match(/^- <#/gm)?.length).toBe(15)
+    expect(content).toContain('256 open tickets')
+    expect(content).toContain('and 241 more')
+    expect(content.length).toBeLessThanOrEqual(2000)
   })
 })

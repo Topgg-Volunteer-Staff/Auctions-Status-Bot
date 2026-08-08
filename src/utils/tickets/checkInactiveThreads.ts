@@ -7,7 +7,7 @@ import {
   has14DayStaffAlertBeenSent,
   has48HourAlertBeenSent,
   initializeInactiveAlertStore,
-  mark14DayStaffAlertSent,
+  mark14DayStaffAlertsSent,
   mark48HourAlertSent,
   mark7DayAlertSent,
   getAllTrackedThreads,
@@ -16,6 +16,17 @@ import {
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
+const STAFF_RESPONSE_ALERT_WINDOW = 24 * 60 * 60 * 1000
+const MAX_MISSING_STAFF_ALERT_DETAILS = 15
+
+type MissingStaffResponseAlert = {
+  threadId: string
+  staffActivityBaseline: number
+  lastStaffMessageTime: number | null
+  threadCreatedTimestamp: number
+}
+
+let inactiveThreadCheckInProgress = false
 
 export function getDue7DayAlertInterval(
   timeSinceLastMessage: number,
@@ -32,8 +43,12 @@ export function is14DayStaffResponseAlertDue(
   lastStaffActivityAt: number,
   alreadyAlertedForActivity: boolean
 ): boolean {
+  const timeSinceLastStaffActivity = now - lastStaffActivityAt
+
   return (
-    now - lastStaffActivityAt >= FOURTEEN_DAYS && !alreadyAlertedForActivity
+    timeSinceLastStaffActivity >= FOURTEEN_DAYS &&
+    timeSinceLastStaffActivity < FOURTEEN_DAYS + STAFF_RESPONSE_ALERT_WINDOW &&
+    !alreadyAlertedForActivity
   )
 }
 
@@ -59,6 +74,21 @@ const ALL_ALERT_ROLE_IDS = new Set([
 type AlertRoute = 'default' | 'reviewers'
 
 export async function checkInactiveThreads(client: Client): Promise<void> {
+  if (inactiveThreadCheckInProgress) {
+    console.warn('Skipping overlapping inactive thread check')
+    return
+  }
+
+  inactiveThreadCheckInProgress = true
+
+  try {
+    await runInactiveThreadCheck(client)
+  } finally {
+    inactiveThreadCheckInProgress = false
+  }
+}
+
+async function runInactiveThreadCheck(client: Client): Promise<void> {
   await initializeInactiveAlertStore()
 
   const defaultAlertChannelId = channelIds.inactiveThreadAlerts
@@ -96,6 +126,7 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
 
     const trackedThreadIds = getAllTrackedThreads()
     const now = Date.now()
+    const missingStaffResponseAlerts: Array<MissingStaffResponseAlert> = []
 
     for (const threadId of trackedThreadIds) {
       try {
@@ -133,15 +164,13 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
             has14DayStaffAlertBeenSent(threadId, staffActivityBaseline)
           )
         ) {
-          const sent = await sendMissingStaffResponseAlert(
-            defaultAlertChannel,
-            thread,
-            lastStaffMessageTime
-          )
-
-          if (sent) {
-            await mark14DayStaffAlertSent(threadId, staffActivityBaseline)
-          }
+          missingStaffResponseAlerts.push({
+            threadId,
+            staffActivityBaseline,
+            lastStaffMessageTime,
+            threadCreatedTimestamp:
+              thread.createdTimestamp ?? staffActivityBaseline,
+          })
         }
 
         const shouldSend48h =
@@ -202,38 +231,77 @@ export async function checkInactiveThreads(client: Client): Promise<void> {
         console.error(`Error checking thread ${threadId}:`, error)
       }
     }
+
+    if (missingStaffResponseAlerts.length > 0) {
+      const sent = await sendMissingStaffResponseAlerts(
+        defaultAlertChannel,
+        missingStaffResponseAlerts
+      )
+
+      if (sent) {
+        await mark14DayStaffAlertsSent(
+          missingStaffResponseAlerts.map(
+            ({ threadId, staffActivityBaseline }) => ({
+              threadId,
+              staffActivityAt: staffActivityBaseline,
+            })
+          )
+        )
+      }
+    }
   } catch (error) {
     console.error('Error in checkInactiveThreads:', error)
   }
 }
 
-async function sendMissingStaffResponseAlert(
-  alertChannel: TextChannel,
-  thread: ThreadChannel,
-  lastStaffMessageTime: number | null
-): Promise<boolean> {
-  const activityDescription = lastStaffMessageTime
-    ? `The last staff response was <t:${Math.floor(
-        lastStaffMessageTime / 1000
-      )}:R>.`
-    : `No staff member has responded since the ticket was opened <t:${Math.floor(
-        (thread.createdTimestamp ?? Date.now()) / 1000
-      )}:R>.`
+export function buildMissingStaffResponseAlertContent(
+  alerts: Array<MissingStaffResponseAlert>,
+  maxDetails = MAX_MISSING_STAFF_ALERT_DETAILS
+): string {
+  const displayedAlerts = alerts.slice(0, Math.max(0, maxDetails))
+  const ticketLabel = alerts.length === 1 ? 'ticket has' : 'tickets have'
+  const lines = [
+    `:warning: ${alerts.length} open ${ticketLabel} not received a staff response in 14 days.`,
+  ]
 
+  for (const alert of displayedAlerts) {
+    const activityDescription = alert.lastStaffMessageTime
+      ? `last staff response <t:${Math.floor(
+          alert.lastStaffMessageTime / 1000
+        )}:R>`
+      : `no staff response since opening <t:${Math.floor(
+          alert.threadCreatedTimestamp / 1000
+        )}:R>`
+
+    lines.push(`- <#${alert.threadId}> — ${activityDescription}`)
+  }
+
+  const omittedCount = alerts.length - displayedAlerts.length
+  if (omittedCount > 0) {
+    lines.push(
+      `- …and ${omittedCount} more (details omitted to avoid flooding this channel).`
+    )
+  }
+
+  return lines.join('\n')
+}
+
+async function sendMissingStaffResponseAlerts(
+  alertChannel: TextChannel,
+  alerts: Array<MissingStaffResponseAlert>
+): Promise<boolean> {
   try {
     await alertChannel.send({
-      content:
-        `<@&${roleIds.moderator}> :warning: <#${thread.id}> has not received a staff response in 14 days. ` +
-        activityDescription,
+      content: buildMissingStaffResponseAlertContent(alerts),
       allowedMentions: {
-        roles: [roleIds.moderator],
+        roles: [],
         users: [],
         parse: [],
       },
     })
     return true
   } catch (error) {
-    console.error('Failed to send 14-day staff response alert:', error)
+    console.error('Failed to send 14-day staff response alerts:', error)
     return false
   }
 }
