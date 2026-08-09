@@ -11,7 +11,12 @@ import {
   mark48HourAlertSent,
   mark7DayAlertSent,
   getAllTrackedThreads,
+  removeThread,
 } from './trackActivity'
+import {
+  enqueueLegacyMigrationCheck,
+  processLegacyMigrationCleanupBatch,
+} from './legacyMigrationCleanup'
 
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const INACTIVE_ALERT_WINDOW = 24 * 60 * 60 * 1000
@@ -165,12 +170,22 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
         const isAuctionsTicket =
           thread?.parent?.id === channelIds.auctionsTickets
 
+        if (thread?.locked) {
+          enqueueLegacyMigrationCheck(thread)
+          await removeThread(threadId)
+          continue
+        }
+
+        if (!thread) {
+          continue
+        }
+
         if (
-          !thread ||
           (!isModTicket && !isAuctionsTicket) ||
           thread.type !== ChannelType.PrivateThread ||
           thread.name.startsWith(resolvedFlag)
         ) {
+          await removeThread(threadId)
           continue
         }
 
@@ -273,6 +288,8 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
         )
       }
     }
+
+    await processLegacyMigrationCleanupBatch()
   } catch (error) {
     console.error('Error in checkInactiveThreads:', error)
   }

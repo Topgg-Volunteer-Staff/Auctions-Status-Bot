@@ -9,6 +9,8 @@ export const getResolvedThreadName = (threadName: string): string => {
     return threadName.slice(0, MAX_THREAD_NAME_LENGTH)
   }
 
-  const trimmedThreadName = threadName.slice(0, maxBaseThreadNameLength).trimEnd()
+  const trimmedThreadName = threadName
+    .slice(0, maxBaseThreadNameLength)
+    .trimEnd()
   return `${resolvedPrefix}${trimmedThreadName}`
 }

@@ -33,6 +33,7 @@ import {
   sendDmOnResponsesPrompt,
 } from '../utils/tickets/dmOnResponses'
 import { removeThread } from '../utils/tickets/trackActivity'
+import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 
 type MigrationTarget = 'auctions' | 'moderator' | 'reviewer'
 
@@ -328,6 +329,10 @@ export const execute = async (
   }
 
   await removeTicketDmPreference(sourceThread.id).catch(() => void 0)
+
+  if (!sourceThread.name.startsWith(resolvedFlag)) {
+    await sourceThread.setName(getResolvedThreadName(sourceThread.name))
+  }
 
   await sourceThread.setLocked(
     true,

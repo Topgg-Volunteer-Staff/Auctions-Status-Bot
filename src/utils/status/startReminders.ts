@@ -3,9 +3,16 @@ import { Client, TextChannel } from 'discord.js'
 import cron from 'node-cron'
 import { runAuctionsMessage } from '../auctions/auctionsMessages'
 import { checkInactiveThreads } from '../tickets/checkInactiveThreads'
-import { initializeThreadActivity } from '../tickets/trackActivity'
+import {
+  initializeThreadActivity,
+  removeThread,
+} from '../tickets/trackActivity'
 import { channelIds } from '../../globals'
 import { getAllOpenTicketThreads } from '../tickets/staffOwnedThreads'
+import {
+  enqueueLegacyMigrationCheck,
+  processLegacyMigrationCleanupBatch,
+} from '../tickets/legacyMigrationCleanup'
 
 export default function startReminders(client: Client) {
   setTimeout(async () => {
@@ -22,8 +29,16 @@ export default function startReminders(client: Client) {
 
       const openTickets = await getAllOpenTicketThreads(ticketParent.guild)
       for (const { thread } of openTickets) {
+        if (thread.locked) {
+          enqueueLegacyMigrationCheck(thread)
+          await removeThread(thread.id).catch(console.error)
+          continue
+        }
+
         await initializeThreadActivity(thread).catch(console.error)
       }
+
+      await processLegacyMigrationCleanupBatch()
     } catch (error) {
       console.error('Error initializing thread activity tracking:', error)
     }
@@ -31,6 +46,11 @@ export default function startReminders(client: Client) {
 
   cron.schedule('0 * * * *', () => {
     checkInactiveThreads(client).catch(console.error)
+  })
+
+  // Continue the rate-limited legacy migration cleanup in the background.
+  cron.schedule('*/15 * * * *', () => {
+    processLegacyMigrationCleanupBatch().catch(console.error)
   })
   // Every Monday at 18:30 UTC - Remind users to bid
   cron.schedule(
