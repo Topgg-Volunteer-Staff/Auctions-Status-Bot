@@ -14,6 +14,7 @@ import {
 } from './trackActivity'
 
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
+const INACTIVE_ALERT_WINDOW = 24 * 60 * 60 * 1000
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
 const STAFF_RESPONSE_ALERT_WINDOW = 24 * 60 * 60 * 1000
@@ -33,9 +34,30 @@ export function getDue7DayAlertInterval(
   lastSentInterval: number
 ): number | null {
   const currentInterval = Math.floor(timeSinceLastMessage / SEVEN_DAYS)
-  return currentInterval >= 1 && currentInterval > lastSentInterval
+  const currentIntervalStartedAt = currentInterval * SEVEN_DAYS
+  const enteredCurrentIntervalWithinAlertWindow =
+    timeSinceLastMessage < currentIntervalStartedAt + INACTIVE_ALERT_WINDOW
+
+  // Only advance through the reminder sequence one interval at a time. This
+  // prevents a newly discovered old ticket from being backfilled immediately.
+  const isNextExpectedInterval = currentInterval === lastSentInterval + 1
+
+  return currentInterval >= 1 &&
+    enteredCurrentIntervalWithinAlertWindow &&
+    isNextExpectedInterval
     ? currentInterval
     : null
+}
+
+export function is48HourAlertDue(
+  timeSinceLastMessage: number,
+  alreadyAlerted: boolean
+): boolean {
+  return (
+    timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
+    timeSinceLastMessage < FORTY_EIGHT_HOURS + INACTIVE_ALERT_WINDOW &&
+    !alreadyAlerted
+  )
 }
 
 export function is14DayStaffResponseAlertDue(
@@ -175,8 +197,10 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
 
         const shouldSend48h =
           isModTicket &&
-          timeSinceLastMessage >= FORTY_EIGHT_HOURS &&
-          !has48HourAlertBeenSent(threadId)
+          is48HourAlertDue(
+            timeSinceLastMessage,
+            has48HourAlertBeenSent(threadId)
+          )
         const due7DayInterval = isModTicket
           ? getDue7DayAlertInterval(
               timeSinceLastMessage,
