@@ -78,6 +78,34 @@ export function enqueueLegacyMigrationCheck(thread: ThreadChannel): void {
   queuedThreads.set(thread.id, thread)
 }
 
+export async function setResolvedNamePreservingArchiveState(
+  thread: ThreadChannel
+): Promise<void> {
+  if (thread.name.startsWith(resolvedFlag)) return
+
+  const wasArchived = thread.archived
+  if (wasArchived) {
+    await thread.setArchived(false, 'Updating legacy migrated ticket name')
+  }
+
+  let updateError: unknown
+  try {
+    await thread.setName(getResolvedThreadName(thread.name))
+  } catch (error) {
+    updateError = error
+  }
+
+  if (wasArchived) {
+    try {
+      await thread.setArchived(true, 'Legacy migrated ticket updated')
+    } catch (error) {
+      updateError ??= error
+    }
+  }
+
+  if (updateError) throw updateError
+}
+
 export async function processLegacyMigrationCleanupBatch(): Promise<void> {
   if (cleanupInProgress || queuedThreads.size === 0) return
   cleanupInProgress = true
@@ -89,11 +117,18 @@ export async function processLegacyMigrationCleanupBatch(): Promise<void> {
       queuedThreads.delete(thread.id)
 
       try {
-        if (
-          !thread.name.startsWith(resolvedFlag) &&
-          (await hasRecentMigrationNotice(thread))
-        ) {
-          await thread.setName(getResolvedThreadName(thread.name))
+        // A prior attempt may have renamed successfully but failed while
+        // restoring the archived state. Finish that cleanup without rescanning.
+        if (thread.name.startsWith(resolvedFlag)) {
+          if (thread.locked && !thread.archived) {
+            await thread.setArchived(true, 'Legacy migrated ticket updated')
+          }
+          await removeThread(thread.id)
+          continue
+        }
+
+        if (await hasRecentMigrationNotice(thread)) {
+          await setResolvedNamePreservingArchiveState(thread)
           await removeThread(thread.id)
         }
       } catch (error) {

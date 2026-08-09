@@ -6,6 +6,7 @@ const {
 } = require('../dist/utils/tickets/resolvedThreadName')
 const {
   hasTicketMovedNotice,
+  setResolvedNamePreservingArchiveState,
 } = require('../dist/utils/tickets/legacyMigrationCleanup')
 
 describe('resolved ticket thread names', () => {
@@ -41,5 +42,30 @@ describe('resolved ticket thread names', () => {
         components: [],
       })
     ).toBeFalse()
+  })
+
+  it('temporarily unarchives a migrated ticket before renaming it', async () => {
+    const operations = []
+    const thread = {
+      archived: true,
+      name: 'williamdevgg',
+      setArchived: async (archived) => {
+        operations.push(`archived:${archived}`)
+        thread.archived = archived
+      },
+      setName: async (name) => {
+        operations.push(`name:${name}`)
+        thread.name = name
+      },
+    }
+
+    await setResolvedNamePreservingArchiveState(thread)
+
+    expect(operations).toEqual([
+      'archived:false',
+      'name:[Resolved] williamdevgg',
+      'archived:true',
+    ])
+    expect(thread.archived).toBeTrue()
   })
 })
