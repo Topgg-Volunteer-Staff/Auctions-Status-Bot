@@ -22,6 +22,7 @@ import { getOpenThreadsForStaffMember } from './utils/tickets/staffOwnedThreads'
 import {
   initializeInactiveAlertStore,
   initializeThreadActivity,
+  isTrackedTicketActivity,
   updateThreadActivity,
   updateThreadStaffActivity,
 } from './utils/tickets/trackActivity'
@@ -1096,9 +1097,9 @@ client.on('messageCreate', async (message) => {
     (thread.parent?.id === channelIds.modTickets ||
       thread.parent?.id === channelIds.auctionsTickets) &&
     thread.type === ChannelType.PrivateThread &&
-    !message.author.bot
+    isTrackedTicketActivity(message)
   ) {
-    await updateThreadActivity(thread.id)
+    await updateThreadActivity(thread.id, message.createdTimestamp)
 
     if (await isStaffUserInGuild(message.guild, message.author.id)) {
       updateThreadStaffActivity(thread.id, message.createdTimestamp)

@@ -9,12 +9,14 @@ import { isStaffUserInGuild } from './staffTicketReminders'
 const threadLastMessage = new Map<string, number>()
 const threadLastStaffMessage = new Map<string, number>()
 const MESSAGE_SCAN_PAGE_SIZE = 100
+const WEEKLY_REMINDER_ENROLLMENT_WINDOW = 8 * 24 * 60 * 60 * 1000
 
 type AlertType = '48h' | '7d'
 
 type ThreadAlertState = {
   sent48h: boolean
   last7dInterval: number
+  weeklyReminderActivityAt: number | null
   last14dStaffActivityAlertedAt: number | null
 }
 
@@ -32,6 +34,23 @@ const INACTIVE_ALERTS_STORE_KEY = 'inactive-thread-alerts'
 let inactiveAlertsWriteChain: Promise<void> = Promise.resolve()
 let inactiveAlertsInitPromise: Promise<void> | null = null
 
+export function isTrackedTicketActivity(message: {
+  author: { bot: boolean }
+  webhookId: string | null
+  system: boolean
+}): boolean {
+  return !message.author.bot && !message.webhookId && !message.system
+}
+
+export function shouldEnrollWeeklyReminderCycle(
+  timeSinceLastMessage: number
+): boolean {
+  return (
+    timeSinceLastMessage >= 0 &&
+    timeSinceLastMessage < WEEKLY_REMINDER_ENROLLMENT_WINDOW
+  )
+}
+
 function isAlertType(value: unknown): value is AlertType {
   return value === '48h' || value === '7d'
 }
@@ -46,6 +65,7 @@ function normalizeThreadAlertState(value: unknown): ThreadAlertState | null {
     return {
       sent48h: alertTypes.includes('48h'),
       last7dInterval: alertTypes.includes('7d') ? 1 : 0,
+      weeklyReminderActivityAt: null,
       last14dStaffActivityAlertedAt: null,
     }
   }
@@ -65,6 +85,11 @@ function normalizeThreadAlertState(value: unknown): ThreadAlertState | null {
   return {
     sent48h: state.sent48h,
     last7dInterval: state.last7dInterval,
+    weeklyReminderActivityAt:
+      typeof state.weeklyReminderActivityAt === 'number' &&
+      Number.isFinite(state.weeklyReminderActivityAt)
+        ? state.weeklyReminderActivityAt
+        : null,
     last14dStaffActivityAlertedAt:
       typeof state.last14dStaffActivityAlertedAt === 'number' &&
       Number.isFinite(state.last14dStaffActivityAlertedAt)
@@ -124,20 +149,21 @@ export async function initializeInactiveAlertStore(): Promise<void> {
   await initInactiveAlertsStore()
 }
 
-export async function updateThreadActivity(threadId: string): Promise<void> {
+export async function updateThreadActivity(
+  threadId: string,
+  messageTimestamp = Date.now()
+): Promise<void> {
   await initInactiveAlertsStore()
-  threadLastMessage.set(threadId, Date.now())
+  threadLastMessage.set(threadId, messageTimestamp)
 
   const existing = threadAlertStates.get(threadId)
-  if (existing?.last14dStaffActivityAlertedAt) {
-    threadAlertStates.set(threadId, {
-      sent48h: false,
-      last7dInterval: 0,
-      last14dStaffActivityAlertedAt: existing.last14dStaffActivityAlertedAt,
-    })
-  } else {
-    threadAlertStates.delete(threadId)
-  }
+  threadAlertStates.set(threadId, {
+    sent48h: false,
+    last7dInterval: 0,
+    weeklyReminderActivityAt: messageTimestamp,
+    last14dStaffActivityAlertedAt:
+      existing?.last14dStaffActivityAlertedAt ?? null,
+  })
 
   await queuePersistInactiveAlerts().catch(() => void 0)
 }
@@ -165,6 +191,16 @@ export function getLast7DayAlertInterval(threadId: string): number {
   return threadAlertStates.get(threadId)?.last7dInterval ?? 0
 }
 
+export function isWeeklyReminderCycleEnrolled(
+  threadId: string,
+  lastMessageTime: number
+): boolean {
+  return (
+    threadAlertStates.get(threadId)?.weeklyReminderActivityAt ===
+    lastMessageTime
+  )
+}
+
 function getOrCreateThreadAlertState(threadId: string): ThreadAlertState {
   const existing = threadAlertStates.get(threadId)
   if (existing) return existing
@@ -172,6 +208,7 @@ function getOrCreateThreadAlertState(threadId: string): ThreadAlertState {
   const state: ThreadAlertState = {
     sent48h: false,
     last7dInterval: 0,
+    weeklyReminderActivityAt: null,
     last14dStaffActivityAlertedAt: null,
   }
   threadAlertStates.set(threadId, state)
@@ -261,10 +298,10 @@ export async function initializeThreadActivity(
         (left, right) => right.createdTimestamp - left.createdTimestamp
       )
 
-      latestMessageTimestamp ??= orderedMessages[0]?.createdTimestamp ?? null
-
       for (const message of orderedMessages) {
-        if (message.author.bot || message.webhookId || message.system) continue
+        if (!isTrackedTicketActivity(message)) continue
+
+        latestMessageTimestamp ??= message.createdTimestamp
 
         let isStaffAuthor = staffMembershipCache.get(message.author.id)
         if (typeof isStaffAuthor !== 'boolean') {
@@ -289,10 +326,23 @@ export async function initializeThreadActivity(
         messages.size === MESSAGE_SCAN_PAGE_SIZE && typeof before === 'string'
     }
 
-    threadLastMessage.set(
-      thread.id,
+    const activityTimestamp =
       latestMessageTimestamp ?? thread.createdTimestamp ?? Date.now()
-    )
+    threadLastMessage.set(thread.id, activityTimestamp)
+
+    const existingAlertState = threadAlertStates.get(thread.id)
+    if (existingAlertState?.weeklyReminderActivityAt !== activityTimestamp) {
+      const activityAge = Date.now() - activityTimestamp
+      threadAlertStates.set(thread.id, {
+        sent48h: false,
+        last7dInterval: 0,
+        weeklyReminderActivityAt: shouldEnrollWeeklyReminderCycle(activityAge)
+          ? activityTimestamp
+          : null,
+        last14dStaffActivityAlertedAt:
+          existingAlertState?.last14dStaffActivityAlertedAt ?? null,
+      })
+    }
 
     if (latestStaffMessageTimestamp !== null) {
       threadLastStaffMessage.set(thread.id, latestStaffMessageTimestamp)

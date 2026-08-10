@@ -4,6 +4,7 @@ import {
   getThreadLastMessage,
   getThreadLastStaffMessage,
   getLast7DayAlertInterval,
+  isWeeklyReminderCycleEnrolled,
   has14DayStaffAlertBeenSent,
   has48HourAlertBeenSent,
   initializeInactiveAlertStore,
@@ -17,6 +18,7 @@ import {
   enqueueLegacyMigrationCheck,
   processLegacyMigrationCleanupBatch,
 } from './legacyMigrationCleanup'
+import { getTicketCategory, type TicketCategory } from './staffOwnedThreads'
 
 const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000 // 48 hours in milliseconds
 const INACTIVE_ALERT_WINDOW = 24 * 60 * 60 * 1000
@@ -36,20 +38,18 @@ let inactiveThreadCheckInProgress = false
 
 export function getDue7DayAlertInterval(
   timeSinceLastMessage: number,
-  lastSentInterval: number
+  lastSentInterval: number,
+  cycleEnrolled: boolean
 ): number | null {
   const currentInterval = Math.floor(timeSinceLastMessage / SEVEN_DAYS)
   const currentIntervalStartedAt = currentInterval * SEVEN_DAYS
   const enteredCurrentIntervalWithinAlertWindow =
     timeSinceLastMessage < currentIntervalStartedAt + INACTIVE_ALERT_WINDOW
 
-  // Only advance through the reminder sequence one interval at a time. This
-  // prevents a newly discovered old ticket from being backfilled immediately.
-  const isNextExpectedInterval = currentInterval === lastSentInterval + 1
-
   return currentInterval >= 1 &&
+    cycleEnrolled &&
     enteredCurrentIntervalWithinAlertWindow &&
-    isNextExpectedInterval
+    currentInterval > lastSentInterval
     ? currentInterval
     : null
 }
@@ -77,6 +77,12 @@ export function is14DayStaffResponseAlertDue(
     timeSinceLastStaffActivity < FOURTEEN_DAYS + STAFF_RESPONSE_ALERT_WINDOW &&
     !alreadyAlertedForActivity
   )
+}
+
+export function shouldSend14DayStaffResponseAlertForCategory(
+  category: TicketCategory
+): boolean {
+  return category === 'Reviewer'
 }
 
 // Role -> alert channel routing.
@@ -192,8 +198,13 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
         const lastStaffMessageTime = getThreadLastStaffMessage(threadId)
         const staffActivityBaseline =
           lastStaffMessageTime ?? thread.createdTimestamp
+        const shouldCheck14DayStaffResponse =
+          shouldSend14DayStaffResponseAlertForCategory(
+            getTicketCategory(thread)
+          )
 
         if (
+          shouldCheck14DayStaffResponse &&
           staffActivityBaseline &&
           is14DayStaffResponseAlertDue(
             now,
@@ -219,7 +230,8 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
         const due7DayInterval = isModTicket
           ? getDue7DayAlertInterval(
               timeSinceLastMessage,
-              getLast7DayAlertInterval(threadId)
+              getLast7DayAlertInterval(threadId),
+              isWeeklyReminderCycleEnrolled(threadId, lastMessageTime)
             )
           : null
 
@@ -240,7 +252,7 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             : defaultAlertChannel
 
         if (alertToSend) {
-          await sendInactiveAlert(
+          let alertsSent = await sendInactiveAlert(
             targetAlertChannel,
             thread,
             alertToSend,
@@ -252,15 +264,18 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             reviewerAlertChannel &&
             reviewerAlertChannel.id !== targetAlertChannel.id
           ) {
-            await sendInactiveAlert(
+            const reviewerAlertSent = await sendInactiveAlert(
               reviewerAlertChannel,
               thread,
               alertToSend,
               lastRoutedStaff.memberId
             )
+            alertsSent = alertsSent && reviewerAlertSent
           }
 
-          if (due7DayInterval !== null) {
+          if (!alertsSent) {
+            continue
+          } else if (due7DayInterval !== null) {
             await mark7DayAlertSent(threadId, due7DayInterval)
           } else {
             await mark48HourAlertSent(threadId)
@@ -347,12 +362,12 @@ async function sendMissingStaffResponseAlerts(
   }
 }
 
-async function sendInactiveAlert(
+export async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
   timeSince: string,
   lastStaffMemberId: string | null
-): Promise<void> {
+): Promise<boolean> {
   try {
     const handlerPing = lastStaffMemberId
       ? `<@${lastStaffMemberId}> `
@@ -360,8 +375,10 @@ async function sendInactiveAlert(
     await alertChannel.send(
       `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
     )
+    return true
   } catch (error) {
     console.error('Failed to send inactive thread alert:', error)
+    return false
   }
 }
 
