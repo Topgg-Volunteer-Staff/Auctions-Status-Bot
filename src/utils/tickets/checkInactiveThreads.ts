@@ -1,7 +1,7 @@
 import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../../globals'
 import {
-  getThreadLastMessage,
+  getThreadAwaitingStaffResponseSince,
   getThreadLastStaffMessage,
   getLast7DayAlertInterval,
   isWeeklyReminderCycleEnrolled,
@@ -163,11 +163,6 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
 
     for (const threadId of trackedThreadIds) {
       try {
-        const lastMessageTime = getThreadLastMessage(threadId)
-        if (!lastMessageTime) continue
-
-        const timeSinceLastMessage = now - lastMessageTime
-
         const thread = (await client.channels
           .fetch(threadId)
           .catch(() => null)) as ThreadChannel | null
@@ -221,17 +216,25 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
           })
         }
 
+        const awaitingStaffResponseSince =
+          getThreadAwaitingStaffResponseSince(threadId)
+        if (!awaitingStaffResponseSince) continue
+
+        const timeAwaitingStaffResponse = now - awaitingStaffResponseSince
         const shouldSend48h =
           isModTicket &&
           is48HourAlertDue(
-            timeSinceLastMessage,
+            timeAwaitingStaffResponse,
             has48HourAlertBeenSent(threadId)
           )
         const due7DayInterval = isModTicket
           ? getDue7DayAlertInterval(
-              timeSinceLastMessage,
+              timeAwaitingStaffResponse,
               getLast7DayAlertInterval(threadId),
-              isWeeklyReminderCycleEnrolled(threadId, lastMessageTime)
+              isWeeklyReminderCycleEnrolled(
+                threadId,
+                awaitingStaffResponseSince
+              )
             )
           : null
 
@@ -373,7 +376,7 @@ export async function sendInactiveAlert(
       ? `<@${lastStaffMemberId}> `
       : 'Unknown Staff Member '
     await alertChannel.send(
-      `${handlerPing} -> :warning: Please check <#${thread.id}> - inactive since ${timeSince}`
+      `${handlerPing} -> :warning: Please check <#${thread.id}> - no staff response for ${timeSince}`
     )
     return true
   } catch (error) {

@@ -15,6 +15,7 @@ const {
   sendInactiveAlert,
 } = require('../dist/utils/tickets/checkInactiveThreads')
 const {
+  getAwaitingStaffResponseSinceAfterMessage,
   isTrackedTicketActivity,
   shouldEnrollWeeklyReminderCycle,
 } = require('../dist/utils/tickets/trackActivity')
@@ -74,7 +75,7 @@ describe('recurring inactive ticket reminders', () => {
     expect(shouldEnrollWeeklyReminderCycle(105 * DAY_MS)).toBeFalse()
   })
 
-  it('uses only human messages as inactivity activity', () => {
+  it('uses only human messages as tracked ticket activity', () => {
     expect(
       isTrackedTicketActivity({
         author: { bot: false },
@@ -103,6 +104,29 @@ describe('recurring inactive ticket reminders', () => {
         system: true,
       })
     ).toBeFalse()
+  })
+
+  it('resets the reminder baseline for staff replies but not user bumps', () => {
+    const firstUnansweredMessage = DAY_MS
+    const newMessage = 2 * DAY_MS
+
+    expect(
+      getAwaitingStaffResponseSinceAfterMessage(
+        firstUnansweredMessage,
+        newMessage,
+        false
+      )
+    ).toBe(firstUnansweredMessage)
+    expect(
+      getAwaitingStaffResponseSinceAfterMessage(
+        firstUnansweredMessage,
+        newMessage,
+        true
+      )
+    ).toBeNull()
+    expect(
+      getAwaitingStaffResponseSinceAfterMessage(null, newMessage, false)
+    ).toBe(newMessage)
   })
 
   it('does not report a failed Discord send as successful', async () => {
@@ -249,7 +273,7 @@ describe('recurring inactive ticket reminders', () => {
       )
     ).toBeTrue()
     expect(alertChannel.send).toHaveBeenCalledWith(
-      `<@${reviewerId}>  -> :warning: Please check <#thread-id> - inactive since 2d`
+      `<@${reviewerId}>  -> :warning: Please check <#thread-id> - no staff response for 2d`
     )
   })
 })

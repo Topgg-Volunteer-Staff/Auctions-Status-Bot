@@ -24,7 +24,6 @@ import {
   initializeThreadActivity,
   isTrackedTicketActivity,
   updateThreadActivity,
-  updateThreadStaffActivity,
 } from './utils/tickets/trackActivity'
 import {
   initializeTicketDmStore,
@@ -1099,11 +1098,15 @@ client.on('messageCreate', async (message) => {
     thread.type === ChannelType.PrivateThread &&
     isTrackedTicketActivity(message)
   ) {
-    await updateThreadActivity(thread.id, message.createdTimestamp)
-
-    if (await isStaffUserInGuild(message.guild, message.author.id)) {
-      updateThreadStaffActivity(thread.id, message.createdTimestamp)
-    }
+    const isStaffAuthor = await isStaffUserInGuild(
+      message.guild,
+      message.author.id
+    )
+    await updateThreadActivity(
+      thread.id,
+      message.createdTimestamp,
+      isStaffAuthor
+    )
   }
 
   if (

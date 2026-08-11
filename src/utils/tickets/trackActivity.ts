@@ -8,6 +8,7 @@ import { isStaffUserInGuild } from './staffTicketReminders'
 
 const threadLastMessage = new Map<string, number>()
 const threadLastStaffMessage = new Map<string, number>()
+const threadAwaitingStaffResponseSince = new Map<string, number>()
 const MESSAGE_SCAN_PAGE_SIZE = 100
 const WEEKLY_REMINDER_ENROLLMENT_WINDOW = 8 * 24 * 60 * 60 * 1000
 
@@ -16,7 +17,7 @@ type AlertType = '48h' | '7d'
 type ThreadAlertState = {
   sent48h: boolean
   last7dInterval: number
-  weeklyReminderActivityAt: number | null
+  reminderAwaitingStaffSince: number | null
   last14dStaffActivityAlertedAt: number | null
 }
 
@@ -51,6 +52,15 @@ export function shouldEnrollWeeklyReminderCycle(
   )
 }
 
+export function getAwaitingStaffResponseSinceAfterMessage(
+  currentAwaitingSince: number | null,
+  messageTimestamp: number,
+  isStaffAuthor: boolean
+): number | null {
+  if (isStaffAuthor) return null
+  return currentAwaitingSince ?? messageTimestamp
+}
+
 function isAlertType(value: unknown): value is AlertType {
   return value === '48h' || value === '7d'
 }
@@ -65,7 +75,7 @@ function normalizeThreadAlertState(value: unknown): ThreadAlertState | null {
     return {
       sent48h: alertTypes.includes('48h'),
       last7dInterval: alertTypes.includes('7d') ? 1 : 0,
-      weeklyReminderActivityAt: null,
+      reminderAwaitingStaffSince: null,
       last14dStaffActivityAlertedAt: null,
     }
   }
@@ -85,9 +95,15 @@ function normalizeThreadAlertState(value: unknown): ThreadAlertState | null {
   return {
     sent48h: state.sent48h,
     last7dInterval: state.last7dInterval,
-    weeklyReminderActivityAt:
-      typeof state.weeklyReminderActivityAt === 'number' &&
-      Number.isFinite(state.weeklyReminderActivityAt)
+    reminderAwaitingStaffSince:
+      typeof state.reminderAwaitingStaffSince === 'number' &&
+      Number.isFinite(state.reminderAwaitingStaffSince)
+        ? state.reminderAwaitingStaffSince
+        : typeof state.reminderStaffActivityAt === 'number' &&
+          Number.isFinite(state.reminderStaffActivityAt)
+        ? state.reminderStaffActivityAt
+        : typeof state.weeklyReminderActivityAt === 'number' &&
+          Number.isFinite(state.weeklyReminderActivityAt)
         ? state.weeklyReminderActivityAt
         : null,
     last14dStaffActivityAlertedAt:
@@ -151,28 +167,39 @@ export async function initializeInactiveAlertStore(): Promise<void> {
 
 export async function updateThreadActivity(
   threadId: string,
-  messageTimestamp = Date.now()
+  messageTimestamp = Date.now(),
+  isStaffAuthor = false
 ): Promise<void> {
   await initInactiveAlertsStore()
   threadLastMessage.set(threadId, messageTimestamp)
 
   const existing = threadAlertStates.get(threadId)
+  const currentAwaitingSince =
+    threadAwaitingStaffResponseSince.get(threadId) ?? null
+  const nextAwaitingSince = getAwaitingStaffResponseSinceAfterMessage(
+    currentAwaitingSince,
+    messageTimestamp,
+    isStaffAuthor
+  )
+
+  if (isStaffAuthor) {
+    threadLastStaffMessage.set(threadId, messageTimestamp)
+    threadAwaitingStaffResponseSince.delete(threadId)
+  } else if (nextAwaitingSince !== null) {
+    threadAwaitingStaffResponseSince.set(threadId, nextAwaitingSince)
+  }
+
+  if (nextAwaitingSince === currentAwaitingSince) return
+
   threadAlertStates.set(threadId, {
     sent48h: false,
     last7dInterval: 0,
-    weeklyReminderActivityAt: messageTimestamp,
+    reminderAwaitingStaffSince: nextAwaitingSince,
     last14dStaffActivityAlertedAt:
       existing?.last14dStaffActivityAlertedAt ?? null,
   })
 
   await queuePersistInactiveAlerts().catch(() => void 0)
-}
-
-export function updateThreadStaffActivity(
-  threadId: string,
-  messageTimestamp = Date.now()
-): void {
-  threadLastStaffMessage.set(threadId, messageTimestamp)
 }
 
 export function getThreadLastMessage(threadId: string): number | null {
@@ -181,6 +208,12 @@ export function getThreadLastMessage(threadId: string): number | null {
 
 export function getThreadLastStaffMessage(threadId: string): number | null {
   return threadLastStaffMessage.get(threadId) ?? null
+}
+
+export function getThreadAwaitingStaffResponseSince(
+  threadId: string
+): number | null {
+  return threadAwaitingStaffResponseSince.get(threadId) ?? null
 }
 
 export function has48HourAlertBeenSent(threadId: string): boolean {
@@ -193,11 +226,11 @@ export function getLast7DayAlertInterval(threadId: string): number {
 
 export function isWeeklyReminderCycleEnrolled(
   threadId: string,
-  lastMessageTime: number
+  awaitingStaffResponseSince: number
 ): boolean {
   return (
-    threadAlertStates.get(threadId)?.weeklyReminderActivityAt ===
-    lastMessageTime
+    threadAlertStates.get(threadId)?.reminderAwaitingStaffSince ===
+    awaitingStaffResponseSince
   )
 }
 
@@ -208,7 +241,7 @@ function getOrCreateThreadAlertState(threadId: string): ThreadAlertState {
   const state: ThreadAlertState = {
     sent48h: false,
     last7dInterval: 0,
-    weeklyReminderActivityAt: null,
+    reminderAwaitingStaffSince: null,
     last14dStaffActivityAlertedAt: null,
   }
   threadAlertStates.set(threadId, state)
@@ -270,6 +303,7 @@ export async function removeThread(threadId: string): Promise<void> {
   await initInactiveAlertsStore()
   threadLastMessage.delete(threadId)
   threadLastStaffMessage.delete(threadId)
+  threadAwaitingStaffResponseSince.delete(threadId)
   threadAlertStates.delete(threadId)
   await queuePersistInactiveAlerts().catch(() => void 0)
 }
@@ -279,11 +313,13 @@ export async function initializeThreadActivity(
 ): Promise<void> {
   await initInactiveAlertsStore()
   threadLastStaffMessage.delete(thread.id)
+  threadAwaitingStaffResponseSince.delete(thread.id)
 
   try {
     let before: string | undefined
     let latestMessageTimestamp: number | null = null
     let latestStaffMessageTimestamp: number | null = null
+    let oldestUnansweredUserMessageTimestamp: number | null = null
     let hasMoreMessages = true
     const staffMembershipCache = new Map<string, boolean>()
 
@@ -316,6 +352,8 @@ export async function initializeThreadActivity(
           latestStaffMessageTimestamp = message.createdTimestamp
           break
         }
+
+        oldestUnansweredUserMessageTimestamp = message.createdTimestamp
       }
 
       if (latestStaffMessageTimestamp !== null) break
@@ -330,18 +368,45 @@ export async function initializeThreadActivity(
       latestMessageTimestamp ?? thread.createdTimestamp ?? Date.now()
     threadLastMessage.set(thread.id, activityTimestamp)
 
+    const awaitingStaffResponseSince =
+      latestStaffMessageTimestamp === null
+        ? thread.createdTimestamp ??
+          oldestUnansweredUserMessageTimestamp ??
+          activityTimestamp
+        : oldestUnansweredUserMessageTimestamp
+
+    if (awaitingStaffResponseSince !== null) {
+      threadAwaitingStaffResponseSince.set(
+        thread.id,
+        awaitingStaffResponseSince
+      )
+    }
+
     const existingAlertState = threadAlertStates.get(thread.id)
-    if (existingAlertState?.weeklyReminderActivityAt !== activityTimestamp) {
-      const activityAge = Date.now() - activityTimestamp
+    if (
+      existingAlertState?.reminderAwaitingStaffSince !==
+      awaitingStaffResponseSince
+    ) {
+      const activityAge =
+        awaitingStaffResponseSince === null
+          ? 0
+          : Date.now() - awaitingStaffResponseSince
+      const wasAlreadyEnrolled =
+        existingAlertState?.reminderAwaitingStaffSince !== null &&
+        existingAlertState?.reminderAwaitingStaffSince !== undefined
       threadAlertStates.set(thread.id, {
         sent48h: false,
         last7dInterval: 0,
-        weeklyReminderActivityAt: shouldEnrollWeeklyReminderCycle(activityAge)
-          ? activityTimestamp
-          : null,
+        reminderAwaitingStaffSince:
+          awaitingStaffResponseSince !== null &&
+          (wasAlreadyEnrolled || shouldEnrollWeeklyReminderCycle(activityAge))
+            ? awaitingStaffResponseSince
+            : null,
         last14dStaffActivityAlertedAt:
           existingAlertState?.last14dStaffActivityAlertedAt ?? null,
       })
+
+      await queuePersistInactiveAlerts().catch(() => void 0)
     }
 
     if (latestStaffMessageTimestamp !== null) {
