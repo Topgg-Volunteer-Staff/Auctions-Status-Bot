@@ -1,12 +1,17 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 require('./jasmine/reporter')
 
+const { Collection } = require('discord.js')
+const { roleIds } = require('../dist/globals')
 const {
   getDue7DayAlertInterval,
   is48HourAlertDue,
   is14DayStaffResponseAlertDue,
   shouldSend14DayStaffResponseAlertForCategory,
   buildMissingStaffResponseAlertContent,
+  getAssignedReviewerMentionedUserId,
+  getMostActiveRoutedStaffSpeaker,
+  getTicketMetadataMentionedUserIds,
   sendInactiveAlert,
 } = require('../dist/utils/tickets/checkInactiveThreads')
 const {
@@ -111,7 +116,148 @@ describe('recurring inactive ticket reminders', () => {
       await sendInactiveAlert(alertChannel, thread, '7d', '456')
     ).toBeFalse()
   })
+
+  it('finds ticket participants mentioned in Components V2 and embeds', () => {
+    const openerId = '1526773378055147680'
+    const reviewerId = '1526773378055147681'
+    const mentorId = '1526773378055147682'
+    const message = {
+      content: '',
+      components: [
+        {
+          data: {
+            components: [
+              {
+                data: {
+                  content: `<@${openerId}> has opened a dispute. <@${reviewerId}> please take a look. (Mentor: <@${mentorId}>)`,
+                },
+              },
+            ],
+          },
+        },
+      ],
+      embeds: [
+        {
+          fields: [
+            {
+              name: 'Reviewer',
+              value: `<@${reviewerId}> (top.gg profile)`,
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(getAssignedReviewerMentionedUserId(message)).toBe(reviewerId)
+    expect(getAssignedReviewerMentionedUserId({ embeds: message.embeds })).toBe(
+      reviewerId
+    )
+    expect(getTicketMetadataMentionedUserIds(message)).toEqual([
+      openerId,
+      reviewerId,
+      mentorId,
+    ])
+    expect(
+      getTicketMetadataMentionedUserIds({
+        components: [{ content: `Unrelated evidence: <@${mentorId}>` }],
+      })
+    ).toEqual([])
+    expect(
+      getAssignedReviewerMentionedUserId({
+        components: [
+          { content: `Quoted request: <@${mentorId}> please take a look` },
+        ],
+      })
+    ).toBeNull()
+    expect(
+      getTicketMetadataMentionedUserIds({
+        embeds: [
+          {
+            fields: [
+              { name: 'Reviewer', value: `<@${reviewerId}>` },
+              { name: 'Reason', value: `Reported by <@${mentorId}>` },
+            ],
+          },
+        ],
+      })
+    ).toEqual([reviewerId])
+  })
+
+  it('pings the assigned reviewer from a dispute component instead of giving up', async () => {
+    const botId = '1526773378055147679'
+    const openerId = '1526773378055147680'
+    const reviewerId = '1526773378055147681'
+    const mentorId = '1526773378055147682'
+    const members = new Map([
+      [openerId, createMember(openerId, [])],
+      [reviewerId, createMember(reviewerId, [roleIds.reviewer])],
+      [mentorId, createMember(mentorId, ['304313580025544704'])],
+    ])
+    const messages = new Collection([
+      [
+        'newer-message-id',
+        {
+          author: { bot: true, id: botId },
+          components: [],
+          content: `<@${mentorId}> is also helping with this ticket.`,
+          createdTimestamp: 2,
+          embeds: [],
+        },
+      ],
+      [
+        'message-id',
+        {
+          author: { bot: true, id: botId },
+          components: [
+            {
+              components: [
+                {
+                  content: `<@${openerId}> has opened a dispute. <@${reviewerId}> please take a look. (Mentor: <@${mentorId}>)`,
+                },
+              ],
+            },
+          ],
+          content: '',
+          createdTimestamp: 1,
+          embeds: [],
+        },
+      ],
+    ])
+    const thread = {
+      client: { user: { id: botId } },
+      guild: {
+        members: {
+          fetch: async (memberId) => members.get(memberId) ?? null,
+        },
+      },
+      messages: { fetch: async () => messages },
+    }
+    const selectedStaff = await getMostActiveRoutedStaffSpeaker(thread)
+    const alertChannel = { send: jasmine.createSpy('send').and.resolveTo() }
+
+    expect(selectedStaff).toEqual({
+      memberId: reviewerId,
+      route: 'reviewers',
+      isTrialReviewer: false,
+    })
+    expect(
+      await sendInactiveAlert(
+        alertChannel,
+        { id: 'thread-id' },
+        '2d',
+        selectedStaff.memberId
+      )
+    ).toBeTrue()
+    expect(alertChannel.send).toHaveBeenCalledWith(
+      `<@${reviewerId}>  -> :warning: Please check <#thread-id> - inactive since 2d`
+    )
+  })
 })
+
+function createMember(id, assignedRoleIds) {
+  const roles = new Set(assignedRoleIds)
+  return { id, roles: { cache: { has: (roleId) => roles.has(roleId) } } }
+}
 
 describe('missing staff response alerts', () => {
   it('only includes reviewer tickets', () => {

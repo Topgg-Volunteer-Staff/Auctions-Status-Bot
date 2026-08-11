@@ -397,17 +397,129 @@ function getMemberAlertRoute(member: {
   return 'default'
 }
 
-function getMentionedUserIds(content: string): Array<string> {
-  const userIds: Array<string> = []
+function collectText(value: unknown, output: Array<string>): void {
+  if (typeof value === 'string') {
+    output.push(value)
+    return
+  }
 
-  for (const match of content.matchAll(/<@!?(\d+)>/g)) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectText(item, output)
+    return
+  }
+
+  if (!value || typeof value !== 'object') return
+
+  const serializable = value as { toJSON?: () => unknown }
+  if (typeof serializable.toJSON === 'function') {
+    collectText(serializable.toJSON(), output)
+    return
+  }
+
+  for (const item of Object.values(value as Record<string, unknown>)) {
+    collectText(item, output)
+  }
+}
+
+type MessageTextSource = {
+  content?: string
+  components?: ReadonlyArray<unknown>
+  embeds?: ReadonlyArray<unknown>
+}
+
+function getMessageText(message: MessageTextSource): Array<string> {
+  const messageText: Array<string> = []
+  collectText(message.content, messageText)
+  collectText(message.components, messageText)
+  collectText(message.embeds, messageText)
+  return messageText
+}
+
+function addMentionedUserIds(text: string, userIds: Set<string>): void {
+  for (const match of text.matchAll(/<@!?(\d+)>/g)) {
     const userId = match[1]
-    if (userId) {
-      userIds.push(userId)
+    if (userId) userIds.add(userId)
+  }
+}
+
+const TICKET_NOTIFICATION_PHRASES = [
+  'has created a ticket',
+  'has created an auctions ticket',
+  'has opened a dispute',
+  'has had a dispute opened by',
+  'would like to talk to you',
+]
+
+function isTicketNotificationText(text: string): boolean {
+  const normalizedText = text.toLowerCase()
+  return TICKET_NOTIFICATION_PHRASES.some((phrase) =>
+    normalizedText.includes(phrase)
+  )
+}
+
+function getReviewerFieldMentionedUserId(
+  embeds: ReadonlyArray<unknown> | undefined
+): string | null {
+  for (const embed of embeds ?? []) {
+    if (!embed || typeof embed !== 'object') continue
+
+    const fields = (embed as { fields?: unknown }).fields
+    if (!Array.isArray(fields)) continue
+
+    for (const field of fields) {
+      if (!field || typeof field !== 'object') continue
+
+      const { name, value } = field as { name?: unknown; value?: unknown }
+      if (
+        typeof name !== 'string' ||
+        name.replace(/\*/g, '').trim().toLowerCase() !== 'reviewer' ||
+        typeof value !== 'string'
+      ) {
+        continue
+      }
+
+      const reviewerId = value.match(/<@!?(\d+)>/)?.[1]
+      if (reviewerId) return reviewerId
     }
   }
 
-  return userIds
+  return null
+}
+
+export function getTicketMetadataMentionedUserIds(
+  message: MessageTextSource
+): Array<string> {
+  const userIds = new Set<string>()
+
+  // Plain content is the legacy ticket notification format.
+  if (message.content) addMentionedUserIds(message.content, userIds)
+
+  const structuredText: Array<string> = []
+  collectText(message.components, structuredText)
+  collectText(message.embeds, structuredText)
+  for (const text of structuredText) {
+    if (isTicketNotificationText(text)) {
+      addMentionedUserIds(text, userIds)
+    }
+  }
+
+  const reviewerId = getReviewerFieldMentionedUserId(message.embeds)
+  if (reviewerId) userIds.add(reviewerId)
+
+  return Array.from(userIds)
+}
+
+export function getAssignedReviewerMentionedUserId(
+  message: MessageTextSource
+): string | null {
+  for (const text of getMessageText(message)) {
+    if (!isTicketNotificationText(text)) continue
+
+    const assignment = text.match(/<@!?(\d+)>\s+please take a look\b/i)
+    if (assignment?.[1]) return assignment[1]
+  }
+
+  return getReviewerFieldMentionedUserId(message.embeds)
 }
 
 async function getAlertEligibleMember(
@@ -443,7 +555,9 @@ async function getAlertEligibleMember(
   return hasAnyAlertRole ? member : null
 }
 
-async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
+export async function getMostActiveRoutedStaffSpeaker(
+  thread: ThreadChannel
+): Promise<{
   memberId: string
   route: AlertRoute
   isTrialReviewer: boolean
@@ -466,6 +580,7 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
       } | null
     >()
     let latestMentionedStaff: {
+      explicitlyAssigned: boolean
       memberId: string
       route: AlertRoute
       isTrialReviewer: boolean
@@ -481,16 +596,23 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
       const messages = await thread.messages
         .fetch(fetchOptions)
         .catch(() => null)
-      if (!messages || messages.size === 0) return null
+      if (!messages || messages.size === 0) break
 
       for (const message of messages.values()) {
         if (message.author.id === thread.client.user.id) {
+          const assignedReviewerId = getAssignedReviewerMentionedUserId(message)
+          let assignedReviewer: {
+            id: string
+            roles: { cache: { has: (roleId: string) => boolean } }
+          } | null = null
           let lastMentionedStaff: {
             id: string
             roles: { cache: { has: (roleId: string) => boolean } }
           } | null = null
 
-          for (const mentionedUserId of getMentionedUserIds(message.content)) {
+          for (const mentionedUserId of getTicketMetadataMentionedUserIds(
+            message
+          )) {
             const mentionedMember = await getAlertEligibleMember(
               thread,
               mentionedUserId,
@@ -499,18 +621,28 @@ async function getMostActiveRoutedStaffSpeaker(thread: ThreadChannel): Promise<{
 
             if (mentionedMember) {
               lastMentionedStaff = mentionedMember
+              if (mentionedUserId === assignedReviewerId) {
+                assignedReviewer = mentionedMember
+              }
             }
           }
 
+          const mentionedStaff = assignedReviewer ?? lastMentionedStaff
+          const explicitlyAssigned = assignedReviewer !== null
+
           if (
-            lastMentionedStaff &&
+            mentionedStaff &&
             (!latestMentionedStaff ||
-              message.createdTimestamp > latestMentionedStaff.mentionedAt)
+              (explicitlyAssigned &&
+                !latestMentionedStaff.explicitlyAssigned) ||
+              (explicitlyAssigned === latestMentionedStaff.explicitlyAssigned &&
+                message.createdTimestamp > latestMentionedStaff.mentionedAt))
           ) {
             latestMentionedStaff = {
-              memberId: lastMentionedStaff.id,
-              route: getMemberAlertRoute(lastMentionedStaff),
-              isTrialReviewer: lastMentionedStaff.roles.cache.has(
+              explicitlyAssigned,
+              memberId: mentionedStaff.id,
+              route: getMemberAlertRoute(mentionedStaff),
+              isTrialReviewer: mentionedStaff.roles.cache.has(
                 roleIds.trialReviewer
               ),
               mentionedAt: message.createdTimestamp,
