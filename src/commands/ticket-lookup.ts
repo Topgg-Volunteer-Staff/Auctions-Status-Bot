@@ -3,7 +3,6 @@ import {
   Client,
   InteractionContextType,
   Message,
-  MessageFlags,
   SlashCommandBuilder,
   TextChannel,
   TextDisplayBuilder,
@@ -17,6 +16,7 @@ import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
   COMPONENTS_V2_FLAGS,
   createErrorPanel,
+  createLoadingPanel,
   createSuccessPanel,
 } from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
@@ -67,21 +67,25 @@ export const execute = async (
     return
   }
 
+  await interaction.reply({
+    components: [createLoadingPanel()],
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    allowedMentions: { parse: [] },
+  })
+
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
-    await interaction.reply({
+    await interaction.editReply({
       components: [
         createErrorPanel(
           'Missing permissions',
           'Only staff members can use this command.'
         ),
       ],
-      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      flags: COMPONENTS_V2_FLAGS,
       allowedMentions: { parse: [] },
     })
     return
   }
-
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   const targetUser = interaction.options.getUser('user', true)
   const tickets = await findTicketsOpenedByUser(
