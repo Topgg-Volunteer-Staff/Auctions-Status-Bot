@@ -22,6 +22,8 @@ export type TicketThreadMatch = {
 const THREAD_ATTENTION_PAGE_SIZE = 25
 const THREAD_ATTENTION_SCAN_PAGE_LIMIT = 3
 const ARCHIVED_THREAD_PAGE_SIZE = 100
+const RECENT_ARCHIVED_TICKET_LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000
+const OWNER_LOOKUP_BATCH_SIZE = 5
 const STAFF_TICKET_ROLE_IDS = [
   roleIds.moderator,
   roleIds.reviewer,
@@ -29,22 +31,12 @@ const STAFF_TICKET_ROLE_IDS = [
   roleIds.supportTeam,
 ]
 
-async function fetchTicketThreadsFromParent(
+async function fetchArchivedTicketThreadsFromParent(
   channel: TextChannel,
-  includeArchived: boolean
+  archivedAfter: Date
 ): Promise<Array<ThreadChannel>> {
   const threadMap = new Map<string, ThreadChannel>()
-  const active = await channel.threads.fetchActive().catch(() => null)
-
-  if (active) {
-    for (const thread of active.threads.values()) {
-      threadMap.set(thread.id, thread)
-    }
-  }
-
-  if (!includeArchived) return [...threadMap.values()]
-
-  let before: string | undefined
+  let before: Date | undefined
   let hasMoreArchivedThreads = true
 
   while (hasMoreArchivedThreads) {
@@ -60,18 +52,23 @@ async function fetchTicketThreadsFromParent(
     if (!archived || archived.threads.size === 0) break
 
     const pageThreads = [...archived.threads.values()]
-    let addedCount = 0
 
     for (const thread of pageThreads) {
-      if (!threadMap.has(thread.id)) addedCount += 1
-      threadMap.set(thread.id, thread)
+      const createdTimestamp = thread.createdTimestamp
+      if (
+        typeof createdTimestamp === 'number' &&
+        createdTimestamp >= archivedAfter.getTime()
+      ) {
+        threadMap.set(thread.id, thread)
+      }
     }
 
-    before = pageThreads[pageThreads.length - 1]?.id
+    const oldestArchivedAt = pageThreads[pageThreads.length - 1]?.archivedAt
+    before = oldestArchivedAt ?? undefined
     hasMoreArchivedThreads =
-      pageThreads.length === ARCHIVED_THREAD_PAGE_SIZE &&
-      addedCount > 0 &&
-      typeof before === 'string'
+      archived.hasMore &&
+      before instanceof Date &&
+      before.getTime() >= archivedAfter.getTime()
   }
 
   return [...threadMap.values()]
@@ -100,9 +97,12 @@ function normalizeName(name: string): string {
 }
 
 function isOpenTicketThread(thread: ThreadChannel): boolean {
+  const normalizedName = normalizeName(thread.name)
+
   return (
     thread.type === ChannelType.PrivateThread &&
-    !normalizeName(thread.name).startsWith(normalizeName(resolvedFlag))
+    !normalizedName.startsWith(normalizeName(resolvedFlag)) &&
+    !normalizedName.startsWith('[closed]')
   )
 }
 
@@ -197,14 +197,27 @@ export async function getOpenUnclaimedTickets(
   guild: Guild
 ): Promise<Array<TicketThreadMatch>> {
   const matches: Array<TicketThreadMatch> = []
-  const openTickets = await getAllOpenTicketThreads(guild)
+  const openTickets = await getAllOpenTicketThreads(guild, {
+    archivedLookbackMs: RECENT_ARCHIVED_TICKET_LOOKBACK_MS,
+  })
 
-  for (const ticket of openTickets) {
-    const ownerId = await resolveThreadOwnerUserId(ticket.thread).catch(
-      () => null
+  for (
+    let index = 0;
+    index < openTickets.length;
+    index += OWNER_LOOKUP_BATCH_SIZE
+  ) {
+    const batch = openTickets.slice(index, index + OWNER_LOOKUP_BATCH_SIZE)
+    const ownerIds = await Promise.all(
+      batch.map((ticket) =>
+        resolveThreadOwnerUserId(ticket.thread).catch(() => null)
+      )
     )
-    if (ownerId === null) {
-      matches.push(ticket)
+
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const ticket = batch[batchIndex]
+      if (ticket && ownerIds[batchIndex] === null) {
+        matches.push(ticket)
+      }
     }
   }
 
@@ -213,25 +226,50 @@ export async function getOpenUnclaimedTickets(
 
 export async function getAllOpenTicketThreads(
   guild: Guild,
-  options: { includeArchived?: boolean } = {}
+  options: { includeArchived?: boolean; archivedLookbackMs?: number } = {}
 ): Promise<Array<TicketThreadMatch>> {
   const matches: Array<TicketThreadMatch> = []
   const ticketParents = await fetchTicketParentChannels(guild)
   const includeArchived = options.includeArchived ?? true
+  const parentIds = new Set(ticketParents.map((parent) => parent.id))
+  const archivedAfter = new Date(
+    options.archivedLookbackMs === undefined
+      ? 0
+      : Date.now() - options.archivedLookbackMs
+  )
+  const [active, ...archivedByParent] = await Promise.all([
+    guild.channels.fetchActiveThreads().catch(() => null),
+    ...ticketParents.map((parent) =>
+      includeArchived
+        ? fetchArchivedTicketThreadsFromParent(parent, archivedAfter)
+        : Promise.resolve([])
+    ),
+  ])
+  const threads = new Map<string, ThreadChannel>()
 
-  for (const parent of ticketParents) {
-    const threads = await fetchTicketThreadsFromParent(parent, includeArchived)
-
-    for (const thread of threads) {
-      if (!isOpenTicketThread(thread)) {
-        continue
+  if (active) {
+    for (const thread of active.threads.values()) {
+      if (thread.parentId && parentIds.has(thread.parentId)) {
+        threads.set(thread.id, thread)
       }
-
-      matches.push({
-        category: getTicketCategory(thread),
-        thread,
-      })
     }
+  }
+
+  for (const archivedThreads of archivedByParent) {
+    for (const thread of archivedThreads) {
+      threads.set(thread.id, thread)
+    }
+  }
+
+  for (const thread of threads.values()) {
+    if (!isOpenTicketThread(thread)) {
+      continue
+    }
+
+    matches.push({
+      category: getTicketCategory(thread),
+      thread,
+    })
   }
 
   return matches
@@ -242,14 +280,27 @@ export async function getOpenThreadsForStaffMember(
   guild: Guild
 ): Promise<Array<ThreadChannel>> {
   const matchingThreads: Array<ThreadChannel> = []
-  const openTickets = await getAllOpenTicketThreads(guild)
+  const openTickets = await getAllOpenTicketThreads(guild, {
+    archivedLookbackMs: RECENT_ARCHIVED_TICKET_LOOKBACK_MS,
+  })
 
-  for (const ticket of openTickets) {
-    const ownerId = await resolveThreadOwnerUserId(ticket.thread).catch(
-      () => null
+  for (
+    let index = 0;
+    index < openTickets.length;
+    index += OWNER_LOOKUP_BATCH_SIZE
+  ) {
+    const batch = openTickets.slice(index, index + OWNER_LOOKUP_BATCH_SIZE)
+    const ownerIds = await Promise.all(
+      batch.map((ticket) =>
+        resolveThreadOwnerUserId(ticket.thread).catch(() => null)
+      )
     )
-    if (ownerId === memberId) {
-      matchingThreads.push(ticket.thread)
+
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const ticket = batch[batchIndex]
+      if (ticket && ownerIds[batchIndex] === memberId) {
+        matchingThreads.push(ticket.thread)
+      }
     }
   }
 

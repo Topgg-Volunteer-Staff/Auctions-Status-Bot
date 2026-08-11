@@ -69,3 +69,9 @@ export const createInfoPanel = (message?: string): ContainerBuilder =>
     accentColor: 0x00bbff,
     description: `${emoji.blueinfo} ${message ?? ''}`,
   })
+
+export const createLoadingPanel = (): ContainerBuilder =>
+  createTextPanel({
+    accentColor: 0x00bbff,
+    description: '<a:loading:1536805796741120182> loading...',
+  })

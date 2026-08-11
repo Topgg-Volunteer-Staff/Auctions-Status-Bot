@@ -3,7 +3,6 @@ import {
   Client,
   GuildMember,
   Message,
-  MessageFlags,
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
@@ -13,6 +12,7 @@ import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
   COMPONENTS_V2_FLAGS,
   createErrorPanel,
+  createLoadingPanel,
   createSuccessPanel,
 } from '../utils/componentsV2'
 import { isStaffReminderEligibleInteraction } from '../utils/tickets/staffTicketReminders'
@@ -31,6 +31,7 @@ const discordEpochMs = 1420070400000
 const messageScanPageLimit = 10
 const messagePageSize = 100
 const maxTicketsPerSection = 12
+const reviewerLookupBatchSize = 5
 
 export const command = new SlashCommandBuilder()
   .setName('open-tickets')
@@ -55,21 +56,25 @@ export const execute = async (
     return
   }
 
+  await interaction.reply({
+    components: [createLoadingPanel()],
+    flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    allowedMentions: { parse: [] },
+  })
+
   if (!(await isStaffReminderEligibleInteraction(interaction))) {
-    await interaction.reply({
+    await interaction.editReply({
       components: [
         createErrorPanel(
           'Missing permissions',
           'Only staff members can use this command.'
         ),
       ],
-      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+      flags: COMPONENTS_V2_FLAGS,
       allowedMentions: { parse: [] },
     })
     return
   }
-
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   try {
     const memberRoleIds = await getMemberRoleIds(interaction)
@@ -124,7 +129,7 @@ async function getMemberRoleIds(
     interaction.member instanceof GuildMember ? interaction.member : null
 
   const freshMember = await interaction.guild?.members
-    .fetch({ user: interaction.user.id, force: true })
+    .fetch(interaction.user.id)
     .catch(() => null)
 
   return new Set<string>([
@@ -183,26 +188,34 @@ async function getReviewerScopedTickets(
   reviewerPingRoleId: string
 ): Promise<Array<ReviewerTicketMatch>> {
   const scopedTickets: Array<ReviewerTicketMatch> = []
+  const reviewerTickets = tickets.filter(
+    (ticket) => ticket.category === 'Reviewer'
+  )
 
-  for (const ticket of tickets) {
-    if (ticket.category !== 'Reviewer') {
-      continue
-    }
-
-    const reason = await getReviewerTicketReason(
-      ticket.thread,
-      userId,
-      reviewerPingRoleId
+  for (
+    let index = 0;
+    index < reviewerTickets.length;
+    index += reviewerLookupBatchSize
+  ) {
+    const batch = reviewerTickets.slice(index, index + reviewerLookupBatchSize)
+    const reasons = await Promise.all(
+      batch.map((ticket) =>
+        getReviewerTicketReason(ticket.thread, userId, reviewerPingRoleId)
+      )
     )
 
-    if (!reason) {
-      continue
-    }
+    for (let batchIndex = 0; batchIndex < batch.length; batchIndex++) {
+      const ticket = batch[batchIndex]
+      const reason = reasons[batchIndex]
+      if (!ticket || !reason) {
+        continue
+      }
 
-    scopedTickets.push({
-      ...ticket,
-      reason,
-    })
+      scopedTickets.push({
+        ...ticket,
+        reason,
+      })
+    }
   }
 
   return scopedTickets
@@ -300,7 +313,7 @@ async function getReviewerTicketReason(
     }
 
     for (const message of messages.values()) {
-      if (message.author.id !== thread.client.user?.id) {
+      if (message.author.id !== thread.client.user.id) {
         continue
       }
 

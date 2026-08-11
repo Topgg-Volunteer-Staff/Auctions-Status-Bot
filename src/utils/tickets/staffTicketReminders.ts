@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   Client,
   Guild,
+  GuildMember,
   Message,
   TextChannel,
   TextDisplayBuilder,
@@ -112,7 +113,9 @@ export async function isStaffUserInGuild(
 ): Promise<boolean> {
   if (!guild) return false
 
-  const member = await guild.members.fetch(userId).catch(() => null)
+  const member =
+    guild.members.cache.get(userId) ??
+    (await guild.members.fetch(userId).catch(() => null))
   if (!member) return false
 
   return STAFF_REMINDER_ELIGIBLE_ROLE_IDS.some((roleId) =>
@@ -123,6 +126,13 @@ export async function isStaffUserInGuild(
 export async function isStaffReminderEligibleInteraction(
   interaction: ChatInputCommandInteraction
 ): Promise<boolean> {
+  const member = interaction.member
+  if (member instanceof GuildMember) {
+    return STAFF_REMINDER_ELIGIBLE_ROLE_IDS.some((roleId) =>
+      member.roles.cache.has(roleId)
+    )
+  }
+
   return isStaffUserInGuild(interaction.guild, interaction.user.id)
 }
 
