@@ -123,5 +123,15 @@
     "name": "Auctions Categories and Slots Overview",
     "description": "If you’re unsure what Auctions is, please read our support article here before continuing.",
     "link": "https://support.top.gg/hc/en-us/articles/23145828500764-Auctions-Categories-and-Slots-Overview"
+  },
+  {
+    "name": "Auto Vote",
+    "description": "An Auto Vote allows you to select a project listed on Top.gg, and your account will automatically vote for that project every 12 hours, without you needing to login and manually vote for that project.",
+    "link": "https://support.top.gg/hc/en-us/articles/29583572685212-Auto-Vote"
+  },
+  {
+    "name": "Top.gg Plus",
+    "description": "Top.gg Plus is our subscription offering, which allows you to unlock extra perks on Top.gg while also supporting us with a small monthly fee.",
+    "link": "https://support.top.gg/hc/en-us/articles/28166513726108-What-is-Top-gg-Plus"
   }
 ]
