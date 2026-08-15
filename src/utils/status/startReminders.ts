@@ -13,6 +13,7 @@ import {
   enqueueLegacyMigrationCheck,
   processLegacyMigrationCleanupBatch,
 } from '../tickets/legacyMigrationCleanup'
+import { checkVerificationCenterBotReminders } from '../verificationCenter/inactiveBotReminders'
 
 export default function startReminders(client: Client) {
   setTimeout(async () => {
@@ -44,8 +45,16 @@ export default function startReminders(client: Client) {
     }
   }, 5000)
 
+  setTimeout(() => {
+    checkVerificationCenterBotReminders(client).catch(console.error)
+  }, 10_000)
+
   cron.schedule('0 * * * *', () => {
     checkInactiveThreads(client).catch(console.error)
+  })
+
+  cron.schedule('0 * * * *', () => {
+    checkVerificationCenterBotReminders(client).catch(console.error)
   })
 
   // Continue the rate-limited legacy migration cleanup in the background.

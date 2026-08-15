@@ -13,6 +13,10 @@ type SaveOptions = {
   operation?: string
 }
 
+type LoadOptions = {
+  throwOnError?: boolean
+}
+
 const COLLECTION_NAME = 'appData'
 
 let mongoStoreErrorClient: Client | null = null
@@ -71,7 +75,8 @@ export const saveMongoBackedJson = async <T>(
 
 export const loadMongoBackedJson = async <T>(
   storeKey: string,
-  defaultValue: T
+  defaultValue: T,
+  options?: LoadOptions
 ): Promise<T> => {
   try {
     const collection = await getCollection()
@@ -82,6 +87,7 @@ export const loadMongoBackedJson = async <T>(
     }
   } catch (error) {
     console.error(`[mongo-store] Failed to read ${storeKey} from MongoDB:`, error)
+    if (options?.throwOnError) throw error
     return defaultValue
   }
 

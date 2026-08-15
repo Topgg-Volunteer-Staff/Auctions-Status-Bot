@@ -47,23 +47,18 @@ import {
   sendMongoErrorLog,
   sendErrorLog,
 } from './utils/errorLogging'
+import { getBotsForStaffMember } from './utils/verificationCenter/botMembers'
 
 // const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
 const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
-const VERIFICATION_CENTER_GUILD_ID = '333949691962195969'
 const STAFF_BREAK_NOTIFICATION_STORE_KEY = 'staff-break-notifications'
 const STAFF_BREAK_EVENT_LOG_LIMIT = 200
 const STAFF_BREAK_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
 const STAFF_BREAK_AUDIT_LOG_ATTEMPTS = 3
 const STAFF_BREAK_AUDIT_LOG_RETRY_MS = 1000
 // const fourImageFlagCounts = new Map<string, number>()
-
-interface StaffBot {
-  id: string
-  name: string
-}
 
 type StaffBreakNotificationAction =
   | 'sent'
@@ -379,112 +374,6 @@ async function hasRecentBreakRoleAddAuditLog(
   }
 
   return false
-}
-
-function normalizeName(name: string): string {
-  return name
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]/gu, '')
-}
-
-function getEditDistance(left: string, right: string): number {
-  const previousRow = Array.from(
-    { length: right.length + 1 },
-    (_, index) => index
-  )
-
-  for (let leftIndex = 1; leftIndex <= left.length; leftIndex += 1) {
-    const currentRow = [leftIndex]
-
-    for (let rightIndex = 1; rightIndex <= right.length; rightIndex += 1) {
-      const substitutionCost =
-        left[leftIndex - 1] === right[rightIndex - 1] ? 0 : 1
-
-      currentRow[rightIndex] = Math.min(
-        (currentRow[rightIndex - 1] ?? 0) + 1,
-        (previousRow[rightIndex] ?? 0) + 1,
-        (previousRow[rightIndex - 1] ?? 0) + substitutionCost
-      )
-    }
-
-    previousRow.splice(0, previousRow.length, ...currentRow)
-  }
-
-  return previousRow[right.length] ?? Math.max(left.length, right.length)
-}
-
-function namesAreSimilar(left: string, right: string): boolean {
-  const normalizedLeft = normalizeName(left)
-  const normalizedRight = normalizeName(right)
-
-  if (!normalizedLeft || !normalizedRight) return false
-  if (normalizedLeft === normalizedRight) return true
-
-  const shorterLength = Math.min(normalizedLeft.length, normalizedRight.length)
-  if (
-    shorterLength >= 3 &&
-    (normalizedLeft.includes(normalizedRight) ||
-      normalizedRight.includes(normalizedLeft))
-  ) {
-    return true
-  }
-
-  const longerLength = Math.max(normalizedLeft.length, normalizedRight.length)
-  return (
-    longerLength >= 4 && getEditDistance(normalizedLeft, normalizedRight) <= 1
-  )
-}
-
-function getStaffBot(
-  member: GuildMember,
-  staffNames: Array<string>
-): StaffBot | null {
-  if (!member.user.bot) return null
-
-  const nameParts = /^\s*(.*?)\s*\|\s*(.+?)\s*$/.exec(member.displayName)
-  const ownerUsername = nameParts?.[1]
-  const botName = nameParts?.[2]
-
-  if (
-    !ownerUsername ||
-    !botName ||
-    !staffNames.some((staffName) => namesAreSimilar(ownerUsername, staffName))
-  ) {
-    return null
-  }
-
-  return { id: member.id, name: botName }
-}
-
-async function getBotsForStaffMember(
-  member: GuildMember
-): Promise<Array<StaffBot>> {
-  const verificationCenter =
-    member.client.guilds.cache.get(VERIFICATION_CENTER_GUILD_ID) ??
-    (await member.client.guilds
-      .fetch(VERIFICATION_CENTER_GUILD_ID)
-      .catch(() => null))
-
-  if (!verificationCenter) return []
-
-  const verificationCenterMembers = await verificationCenter.members
-    .fetch()
-    .catch(() => null)
-
-  if (!verificationCenterMembers) return []
-
-  const staffNames = [
-    member.user.username,
-    member.user.globalName,
-    member.nickname,
-  ].filter((name): name is string => Boolean(name))
-
-  return verificationCenterMembers
-    .map((verificationCenterMember) =>
-      getStaffBot(verificationCenterMember, staffNames)
-    )
-    .filter((staffBot): staffBot is StaffBot => staffBot !== null)
 }
 
 async function maybeNotifyStaffBreakOpenThreads(
