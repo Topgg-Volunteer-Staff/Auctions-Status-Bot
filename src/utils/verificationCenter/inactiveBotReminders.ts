@@ -181,9 +181,9 @@ export function buildVerificationCenterBotReminderContent(
   const age =
     reminder.key === '48h' ? '48 hours' : `${reminder.minimumAgeDays} days`
 
-  return `<@${reviewerId}> -> :warning: Please check ${formatBotName(
-    bot.name
-  )} (\`${
+  return `<@${reviewerId}> -> :warning: Please check <@${
+    bot.id
+  }> (${formatBotName(bot.name)} | \`${
     bot.id
   }\`) in the VC. It has been there for at least ${age} (joined <t:${Math.floor(
     bot.joinedTimestamp / 1000
@@ -202,7 +202,7 @@ export function buildUnresolvedVerificationCenterBotReminderContent(
   const age =
     reminder.key === '48h' ? '48 hours' : `${reminder.minimumAgeDays} days`
 
-  return `:warning: Please check ${formatBotName(bot.name)} (\`${
+  return `:warning: Please check <@${bot.id}> (${formatBotName(bot.name)} | \`${
     bot.id
   }\`) in the VC. It has been there for at least ${age}, but I could not match the reviewer name ${formatBotName(
     bot.reviewerName
@@ -223,7 +223,7 @@ async function sendReviewerReminder(
         reminder
       ),
       allowedMentions: {
-        users: [reviewer.id],
+        users: [reviewer.id, bot.id],
         roles: [],
         parse: [],
       },
@@ -254,7 +254,7 @@ async function sendUnresolvedReviewerReminder(
         bot,
         reminder
       ),
-      allowedMentions: { users: [], roles: [], parse: [] },
+      allowedMentions: { users: [bot.id], roles: [], parse: [] },
     })
     return true
   } catch (error) {

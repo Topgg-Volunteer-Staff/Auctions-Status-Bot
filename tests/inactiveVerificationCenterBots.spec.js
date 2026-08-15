@@ -84,6 +84,7 @@ describe('inactive verification center bot reminders', () => {
     )
 
     expect(content).toContain('<@123456789012345678>')
+    expect(content).toContain('<@223456789012345678>')
     expect(content).toContain('`Example Bot`')
     expect(content).toContain('`223456789012345678`')
     expect(content).toContain('48 hours')
@@ -105,7 +106,7 @@ describe('inactive verification center bot reminders', () => {
     expect(content).not.toContain('48 hours')
   })
 
-  it('identifies an unresolved reviewer by nickname without mentioning them', () => {
+  it('mentions the bot but not an unresolved reviewer', () => {
     const content = buildUnresolvedVerificationCenterBotReminderContent(
       {
         id: '223456789012345678',
@@ -120,6 +121,6 @@ describe('inactive verification center bot reminders', () => {
     expect(content).toContain('`Example Bot`')
     expect(content).toContain('`223456789012345678`')
     expect(content).toContain('14 days')
-    expect(content).not.toMatch(/<@!?(?:&)?\d+>/)
+    expect(content.match(/<@!?(?:&)?\d+>/g)).toEqual(['<@223456789012345678>'])
   })
 })
