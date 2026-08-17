@@ -1,9 +1,12 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 require('./jasmine/reporter')
 
+const { ComponentType, MessageFlags } = require('discord.js')
 const {
   buildUnresolvedVerificationCenterBotReminderContent,
+  buildUnresolvedVerificationCenterBotReminderMessage,
   buildVerificationCenterBotReminderContent,
+  buildVerificationCenterBotReminderMessage,
   getDueVerificationCenterBotReminder,
 } = require('../dist/utils/verificationCenter/inactiveBotReminders')
 
@@ -72,55 +75,73 @@ describe('inactive verification center bot reminders', () => {
     ).toBeNull()
   })
 
-  it('builds a 48-hour reviewer reminder with bot and join details', () => {
+  it('builds a concise reviewer reminder with a live join timestamp', () => {
     const content = buildVerificationCenterBotReminderContent(
       '123456789012345678',
       {
         id: '223456789012345678',
-        name: 'Example Bot',
         joinedTimestamp: 1_725_000_000_999,
-      },
-      { key: '48h', minimumAgeDays: 2, weeklyInterval: null }
+      }
     )
 
-    expect(content).toContain('<@123456789012345678>')
-    expect(content).toContain('<@223456789012345678>')
-    expect(content).toContain('`Example Bot`')
-    expect(content).toContain('`223456789012345678`')
-    expect(content).toContain('48 hours')
-    expect(content).toContain('<t:1725000000:R>')
+    expect(content).toBe(
+      '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.'
+    )
   })
 
-  it('uses the weekly duration in recurring reviewer reminders', () => {
-    const content = buildVerificationCenterBotReminderContent(
+  it('sends the reviewer reminder as a compact Components V2 panel with pings enabled', () => {
+    const message = buildVerificationCenterBotReminderMessage(
       '123456789012345678',
       {
         id: '223456789012345678',
-        name: 'Example Bot',
         joinedTimestamp: 1_725_000_000_000,
-      },
-      { key: '7d:3', minimumAgeDays: 21, weeklyInterval: 3 }
+      }
     )
+    const panel = message.components[0].toJSON()
 
-    expect(content).toContain('21 days')
-    expect(content).not.toContain('48 hours')
+    expect(message.content).toBeUndefined()
+    expect(message.flags).toBe(MessageFlags.IsComponentsV2)
+    expect(message.allowedMentions).toEqual({
+      users: ['123456789012345678', '223456789012345678'],
+      roles: [],
+      parse: [],
+    })
+    expect(panel).toEqual({
+      type: ComponentType.Container,
+      accent_color: 0xff3366,
+      components: [
+        {
+          type: ComponentType.TextDisplay,
+          content:
+            '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.',
+        },
+      ],
+    })
   })
 
-  it('mentions the bot but not an unresolved reviewer', () => {
-    const content = buildUnresolvedVerificationCenterBotReminderContent(
-      {
-        id: '223456789012345678',
-        name: 'Example Bot',
-        reviewerName: 'Reviewer Nickname',
-        joinedTimestamp: 1_725_000_000_000,
-      },
-      { key: '7d:2', minimumAgeDays: 14, weeklyInterval: 2 }
-    )
+  it('keeps an unresolved reviewer alert short and only pings the bot', () => {
+    const content = buildUnresolvedVerificationCenterBotReminderContent({
+      id: '223456789012345678',
+      reviewerName: 'Reviewer Nickname',
+      joinedTimestamp: 1_725_000_000_000,
+    })
 
-    expect(content).toContain('`Reviewer Nickname`')
-    expect(content).toContain('`Example Bot`')
-    expect(content).toContain('`223456789012345678`')
-    expect(content).toContain('14 days')
+    expect(content).toBe(
+      'Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>. Could not match reviewer `Reviewer Nickname`.'
+    )
     expect(content.match(/<@!?(?:&)?\d+>/g)).toEqual(['<@223456789012345678>'])
+
+    const message = buildUnresolvedVerificationCenterBotReminderMessage({
+      id: '223456789012345678',
+      reviewerName: 'Reviewer Nickname',
+      joinedTimestamp: 1_725_000_000_000,
+    })
+
+    expect(message.flags).toBe(MessageFlags.IsComponentsV2)
+    expect(message.allowedMentions).toEqual({
+      users: ['223456789012345678'],
+      roles: [],
+      parse: [],
+    })
   })
 })

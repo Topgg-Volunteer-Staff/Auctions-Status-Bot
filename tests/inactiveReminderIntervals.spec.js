@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 require('./jasmine/reporter')
 
-const { Collection } = require('discord.js')
+const {
+  ButtonStyle,
+  Collection,
+  ComponentType,
+  MessageFlags,
+} = require('discord.js')
 const { roleIds } = require('../dist/globals')
 const {
   getDue7DayAlertInterval,
@@ -19,6 +24,9 @@ const {
   isTrackedTicketActivity,
   shouldEnrollWeeklyReminderCycle,
 } = require('../dist/utils/tickets/trackActivity')
+const {
+  buildStaffTicketReminderMessage,
+} = require('../dist/utils/tickets/staffTicketReminders')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -134,10 +142,13 @@ describe('recurring inactive ticket reminders', () => {
     const alertChannel = {
       send: async () => Promise.reject(new Error('Discord unavailable')),
     }
-    const thread = { id: '123' }
+    const thread = {
+      id: '123',
+      url: 'https://discord.com/channels/111/123',
+    }
 
     expect(
-      await sendInactiveAlert(alertChannel, thread, '7d', '456')
+      await sendInactiveAlert(alertChannel, thread, DAY_MS, '456')
     ).toBeFalse()
   })
 
@@ -267,14 +278,71 @@ describe('recurring inactive ticket reminders', () => {
     expect(
       await sendInactiveAlert(
         alertChannel,
-        { id: 'thread-id' },
-        '2d',
+        {
+          id: 'thread-id',
+          url: 'https://discord.com/channels/guild-id/thread-id',
+        },
+        1_725_000_000_999,
         selectedStaff.memberId
       )
     ).toBeTrue()
-    expect(alertChannel.send).toHaveBeenCalledWith(
-      `<@${reviewerId}>  -> :warning: Please check <#thread-id> - no staff response for 2d`
-    )
+
+    const payload = alertChannel.send.calls.mostRecent().args[0]
+    const panel = payload.components[0].toJSON()
+
+    expect(payload.content).toBeUndefined()
+    expect(payload.flags).toBe(MessageFlags.IsComponentsV2)
+    expect(payload.allowedMentions).toEqual({
+      users: [reviewerId],
+      roles: [],
+      parse: [],
+    })
+    expect(panel).toEqual({
+      type: ComponentType.Container,
+      accent_color: 0xff3366,
+      components: [
+        {
+          type: ComponentType.Section,
+          components: [
+            {
+              type: ComponentType.TextDisplay,
+              content: `<@${reviewerId}> -> Please check <#thread-id>. Unanswered since <t:1725000000:R>.`,
+            },
+          ],
+          accessory: {
+            type: ComponentType.Button,
+            label: 'Go to ticket',
+            style: ButtonStyle.Link,
+            url: 'https://discord.com/channels/guild-id/thread-id',
+            emoji: undefined,
+          },
+        },
+      ],
+    })
+  })
+
+  it('does not enable a user ping when a ticket has no known handler', async () => {
+    const alertChannel = { send: jasmine.createSpy('send').and.resolveTo() }
+
+    expect(
+      await sendInactiveAlert(
+        alertChannel,
+        {
+          id: 'thread-id',
+          url: 'https://discord.com/channels/guild-id/thread-id',
+        },
+        1_725_000_000_000,
+        null
+      )
+    ).toBeTrue()
+
+    expect(
+      alertChannel.send.calls.mostRecent().args[0].allowedMentions
+    ).toEqual({
+      users: [],
+      roles: [],
+      parse: [],
+    })
   })
 })
 
@@ -282,6 +350,42 @@ function createMember(id, assignedRoleIds) {
   const roles = new Set(assignedRoleIds)
   return { id, roles: { cache: { has: (roleId) => roles.has(roleId) } } }
 }
+
+describe('staff ticket reminder DMs', () => {
+  it('uses a compact Components V2 panel with a go-to-ticket button', () => {
+    const message = buildStaffTicketReminderMessage({
+      responderName: 'Example User',
+      messageUrl: 'https://discord.com/channels/111/222/333',
+    })
+    const panel = message.components[0].toJSON()
+
+    expect(message.content).toBeUndefined()
+    expect(message.flags).toBe(MessageFlags.IsComponentsV2)
+    expect(message.allowedMentions).toEqual({ parse: [] })
+    expect(panel).toEqual({
+      type: ComponentType.Container,
+      accent_color: 0xff3366,
+      components: [
+        {
+          type: ComponentType.Section,
+          components: [
+            {
+              type: ComponentType.TextDisplay,
+              content: 'Example User sent a new message in your ticket.',
+            },
+          ],
+          accessory: {
+            type: ComponentType.Button,
+            label: 'Go to ticket',
+            style: ButtonStyle.Link,
+            url: 'https://discord.com/channels/111/222/333',
+            emoji: undefined,
+          },
+        },
+      ],
+    })
+  })
+})
 
 describe('missing staff response alerts', () => {
   it('only includes reviewer tickets', () => {

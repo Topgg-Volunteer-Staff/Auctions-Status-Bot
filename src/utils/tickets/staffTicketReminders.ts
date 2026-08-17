@@ -1,15 +1,20 @@
 import {
+  ButtonBuilder,
+  ButtonStyle,
   ChatInputCommandInteraction,
   Client,
+  ContainerBuilder,
   Guild,
   GuildMember,
   Message,
+  MessageCreateOptions,
+  SectionBuilder,
   TextChannel,
   TextDisplayBuilder,
   ThreadChannel,
 } from 'discord.js'
 import { channelIds, roleIds } from '../../globals'
-import { COMPONENTS_V2_FLAGS, createTextPanel } from '../componentsV2'
+import { COMPONENTS_V2_FLAGS } from '../componentsV2'
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
@@ -566,16 +571,6 @@ async function sendPendingReminder(
   const reminder = pref?.pendingReminder
   if (!threadPrefs || !pref || !reminder) return
 
-  const panel = createTextPanel({
-    accentColor: 0xff3366,
-    title: 'Ticket Reminder',
-    description: `${reminder.responderName} sent a new message in your ticket thread: [Open Ticket](${reminder.messageUrl})`,
-  }).addTextDisplayComponents(
-    new TextDisplayBuilder().setContent(
-      `-# <t:${Math.floor(Date.now() / 1000)}:f>`
-    )
-  )
-
   try {
     await queueDm(async () => {
       const user = await client.users.fetch(userId).catch(() => null)
@@ -583,11 +578,7 @@ async function sendPendingReminder(
         throw new Error('Failed to fetch staff member for ticket reminder DM')
       }
 
-      await user.send({
-        components: [panel],
-        flags: COMPONENTS_V2_FLAGS,
-        allowedMentions: { parse: [] },
-      })
+      await user.send(buildStaffTicketReminderMessage(reminder))
     })
   } catch (error) {
     console.error(
@@ -599,6 +590,34 @@ async function sendPendingReminder(
   }
 
   await clearPendingReminder(threadId, userId)
+}
+
+export function buildStaffTicketReminderMessage(reminder: {
+  messageUrl: string
+  responderName: string
+}): MessageCreateOptions {
+  const panel = new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            `${reminder.responderName} sent a new message in your ticket.`
+          )
+        )
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setLabel('Go to ticket')
+            .setStyle(ButtonStyle.Link)
+            .setURL(reminder.messageUrl)
+        )
+    )
+
+  return {
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
+  }
 }
 
 export function getTicketReminderDelayMs(choice: string): number | null {

@@ -1,6 +1,12 @@
-import { Client, GuildMember, TextChannel } from 'discord.js'
+import {
+  Client,
+  GuildMember,
+  MessageCreateOptions,
+  TextChannel,
+} from 'discord.js'
 
 import { channelIds, roleIds } from '../../globals'
+import { COMPONENTS_V2_FLAGS, createTextPanel } from '../componentsV2'
 import {
   loadMongoBackedJson,
   saveMongoBackedJson,
@@ -15,6 +21,7 @@ const FORTY_EIGHT_HOURS = 48 * 60 * 60 * 1000
 const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
 const REMINDER_WINDOW = 24 * 60 * 60 * 1000
 const STORE_KEY = 'inactive-verification-center-bot-alerts'
+const REMINDER_ALERT_COLOR = 0xff3366
 
 type ReminderKey = '48h' | `7d:${number}`
 
@@ -169,65 +176,77 @@ export function getDueVerificationCenterBotReminder(
   return null
 }
 
-function formatBotName(name: string): string {
-  return `\`${name.replace(/`/g, '\u02cb')}\``
+function formatInlineCode(value: string): string {
+  return `\`${value.replace(/`/g, '\u02cb')}\``
 }
 
 export function buildVerificationCenterBotReminderContent(
   reviewerId: string,
-  bot: { id: string; name: string; joinedTimestamp: number },
-  reminder: VerificationCenterBotReminder
+  bot: { id: string; joinedTimestamp: number }
 ): string {
-  const age =
-    reminder.key === '48h' ? '48 hours' : `${reminder.minimumAgeDays} days`
-
-  return `<@${reviewerId}> -> :warning: Please check <@${
+  return `<@${reviewerId}> -> Please check <@${bot.id}> (\`${
     bot.id
-  }> (${formatBotName(bot.name)} | \`${
-    bot.id
-  }\`) in the VC. It has been there for at least ${age} (joined <t:${Math.floor(
-    bot.joinedTimestamp / 1000
-  )}:R>).`
+  }\`) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.`
 }
 
-export function buildUnresolvedVerificationCenterBotReminderContent(
-  bot: {
-    id: string
-    name: string
-    reviewerName: string
-    joinedTimestamp: number
-  },
-  reminder: VerificationCenterBotReminder
-): string {
-  const age =
-    reminder.key === '48h' ? '48 hours' : `${reminder.minimumAgeDays} days`
-
-  return `:warning: Please check <@${bot.id}> (${formatBotName(bot.name)} | \`${
+export function buildUnresolvedVerificationCenterBotReminderContent(bot: {
+  id: string
+  reviewerName: string
+  joinedTimestamp: number
+}): string {
+  return `Please check <@${bot.id}> (\`${
     bot.id
-  }\`) in the VC. It has been there for at least ${age}, but I could not match the reviewer name ${formatBotName(
-    bot.reviewerName
-  )} from its nickname to a server member.`
+  }\`) in the VC. It joined <t:${Math.floor(
+    bot.joinedTimestamp / 1000
+  )}:R>. Could not match reviewer ${formatInlineCode(bot.reviewerName)}.`
+}
+
+export function buildVerificationCenterBotReminderMessage(
+  reviewerId: string,
+  bot: { id: string; joinedTimestamp: number }
+): MessageCreateOptions {
+  return {
+    components: [
+      createTextPanel({
+        accentColor: REMINDER_ALERT_COLOR,
+        description: buildVerificationCenterBotReminderContent(reviewerId, bot),
+      }),
+    ],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: {
+      users: [reviewerId, bot.id],
+      roles: [],
+      parse: [],
+    },
+  }
+}
+
+export function buildUnresolvedVerificationCenterBotReminderMessage(bot: {
+  id: string
+  reviewerName: string
+  joinedTimestamp: number
+}): MessageCreateOptions {
+  return {
+    components: [
+      createTextPanel({
+        accentColor: REMINDER_ALERT_COLOR,
+        description: buildUnresolvedVerificationCenterBotReminderContent(bot),
+      }),
+    ],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { users: [bot.id], roles: [], parse: [] },
+  }
 }
 
 async function sendReviewerReminder(
   channel: TextChannel,
   reviewer: GuildMember,
-  bot: { id: string; name: string; joinedTimestamp: number },
-  reminder: VerificationCenterBotReminder
+  bot: { id: string; joinedTimestamp: number }
 ): Promise<boolean> {
   try {
-    await channel.send({
-      content: buildVerificationCenterBotReminderContent(
-        reviewer.id,
-        bot,
-        reminder
-      ),
-      allowedMentions: {
-        users: [reviewer.id, bot.id],
-        roles: [],
-        parse: [],
-      },
-    })
+    await channel.send(
+      buildVerificationCenterBotReminderMessage(reviewer.id, bot)
+    )
     return true
   } catch (error) {
     console.error(
@@ -242,20 +261,12 @@ async function sendUnresolvedReviewerReminder(
   channel: TextChannel,
   bot: {
     id: string
-    name: string
     reviewerName: string
     joinedTimestamp: number
-  },
-  reminder: VerificationCenterBotReminder
+  }
 ): Promise<boolean> {
   try {
-    await channel.send({
-      content: buildUnresolvedVerificationCenterBotReminderContent(
-        bot,
-        reminder
-      ),
-      allowedMentions: { users: [bot.id], roles: [], parse: [] },
-    })
+    await channel.send(buildUnresolvedVerificationCenterBotReminderMessage(bot))
     return true
   } catch (error) {
     console.error(
@@ -377,8 +388,7 @@ async function runVerificationCenterBotReminderCheck(
 
         const warningSent = await sendUnresolvedReviewerReminder(
           reviewerChannel,
-          bot,
-          reminder
+          bot
         )
         if (warningSent) {
           state.lastUnresolvedReminderKey = reminder.key
@@ -390,8 +400,7 @@ async function runVerificationCenterBotReminderCheck(
       const reminderSent = await sendReviewerReminder(
         reviewerChannel,
         reviewer,
-        bot,
-        reminder
+        bot
       )
       if (reminderSent) {
         markReminderSent(state, reminder)

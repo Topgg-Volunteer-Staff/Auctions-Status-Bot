@@ -1,5 +1,17 @@
-import { Client, TextChannel, ThreadChannel, ChannelType } from 'discord.js'
+import {
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType,
+  Client,
+  ContainerBuilder,
+  MessageCreateOptions,
+  SectionBuilder,
+  TextChannel,
+  TextDisplayBuilder,
+  ThreadChannel,
+} from 'discord.js'
 import { channelIds, resolvedFlag, roleIds } from '../../globals'
+import { COMPONENTS_V2_FLAGS } from '../componentsV2'
 import {
   getThreadAwaitingStaffResponseSince,
   getThreadLastStaffMessage,
@@ -26,6 +38,7 @@ const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
 const STAFF_RESPONSE_ALERT_WINDOW = 24 * 60 * 60 * 1000
 const MAX_MISSING_STAFF_ALERT_DETAILS = 15
+const INACTIVE_ALERT_COLOR = 0xff3366
 
 type MissingStaffResponseAlert = {
   threadId: string
@@ -258,7 +271,7 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
           let alertsSent = await sendInactiveAlert(
             targetAlertChannel,
             thread,
-            alertToSend,
+            awaitingStaffResponseSince,
             lastRoutedStaff?.memberId ?? null
           )
 
@@ -270,7 +283,7 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             const reviewerAlertSent = await sendInactiveAlert(
               reviewerAlertChannel,
               thread,
-              alertToSend,
+              awaitingStaffResponseSince,
               lastRoutedStaff.memberId
             )
             alertsSent = alertsSent && reviewerAlertSent
@@ -368,20 +381,57 @@ async function sendMissingStaffResponseAlerts(
 export async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
-  timeSince: string,
+  awaitingStaffResponseSince: number,
   lastStaffMemberId: string | null
 ): Promise<boolean> {
   try {
-    const handlerPing = lastStaffMemberId
-      ? `<@${lastStaffMemberId}> `
-      : 'Unknown Staff Member '
     await alertChannel.send(
-      `${handlerPing} -> :warning: Please check <#${thread.id}> - no staff response for ${timeSince}`
+      buildInactiveTicketAlertMessage(
+        thread,
+        awaitingStaffResponseSince,
+        lastStaffMemberId
+      )
     )
     return true
   } catch (error) {
     console.error('Failed to send inactive thread alert:', error)
     return false
+  }
+}
+
+export function buildInactiveTicketAlertMessage(
+  thread: Pick<ThreadChannel, 'id' | 'url'>,
+  awaitingStaffResponseSince: number,
+  lastStaffMemberId: string | null
+): MessageCreateOptions {
+  const handler = lastStaffMemberId
+    ? `<@${lastStaffMemberId}>`
+    : 'Unknown staff member'
+  const content = `${handler} -> Please check <#${
+    thread.id
+  }>. Unanswered since <t:${Math.floor(awaitingStaffResponseSince / 1000)}:R>.`
+
+  const panel = new ContainerBuilder()
+    .setAccentColor(INACTIVE_ALERT_COLOR)
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(content))
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setLabel('Go to ticket')
+            .setStyle(ButtonStyle.Link)
+            .setURL(thread.url)
+        )
+    )
+
+  return {
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: {
+      users: lastStaffMemberId ? [lastStaffMemberId] : [],
+      roles: [],
+      parse: [],
+    },
   }
 }
 
