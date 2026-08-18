@@ -22,6 +22,7 @@ const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
 const REMINDER_WINDOW = 24 * 60 * 60 * 1000
 const STORE_KEY = 'inactive-verification-center-bot-alerts'
 const REMINDER_ALERT_COLOR = 0xff3366
+const VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID = '357194464776814603'
 
 type ReminderKey = '48h' | `7d:${number}`
 
@@ -130,10 +131,17 @@ function queuePersistReminderStates(): Promise<void> {
   return writeChain
 }
 
+export function hasVerificationCenterReminderExemptRole(
+  member: GuildMember
+): boolean {
+  return member.roles.cache.has(VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID)
+}
+
 export function getDueVerificationCenterBotReminder(
   timeInVerificationCenter: number,
   sent48h: boolean,
-  last7dInterval: number
+  last7dInterval: number,
+  lastUnresolvedReminderKey: ReminderKey | null = null
 ): VerificationCenterBotReminder | null {
   if (
     !Number.isFinite(timeInVerificationCenter) ||
@@ -154,8 +162,11 @@ export function getDueVerificationCenterBotReminder(
     currentWeeklyInterval > last7dInterval &&
     isInCurrentWeeklyReminderWindow
   ) {
+    const key: ReminderKey = `7d:${currentWeeklyInterval}`
+    if (lastUnresolvedReminderKey === key) return null
+
     return {
-      key: `7d:${currentWeeklyInterval}`,
+      key,
       minimumAgeDays: currentWeeklyInterval * 7,
       weeklyInterval: currentWeeklyInterval,
     }
@@ -166,6 +177,8 @@ export function getDueVerificationCenterBotReminder(
     timeInVerificationCenter < FORTY_EIGHT_HOURS + REMINDER_WINDOW &&
     !sent48h
   ) {
+    if (lastUnresolvedReminderKey === '48h') return null
+
     return {
       key: '48h',
       minimumAgeDays: 2,
@@ -355,6 +368,8 @@ async function runVerificationCenterBotReminderCheck(
     if (!member.user.bot) continue
     presentBotIds.add(member.id)
 
+    if (hasVerificationCenterReminderExemptRole(member)) continue
+
     const bot = getVerificationCenterBot(member)
     if (!bot) continue
 
@@ -374,7 +389,8 @@ async function runVerificationCenterBotReminderCheck(
       const reminder = getDueVerificationCenterBotReminder(
         now - bot.joinedTimestamp,
         state.sent48h,
-        state.last7dInterval
+        state.last7dInterval,
+        state.lastUnresolvedReminderKey
       )
       if (!reminder) continue
 
@@ -384,8 +400,6 @@ async function runVerificationCenterBotReminderCheck(
       )
 
       if (!reviewer) {
-        if (state.lastUnresolvedReminderKey === reminder.key) continue
-
         const warningSent = await sendUnresolvedReviewerReminder(
           reviewerChannel,
           bot

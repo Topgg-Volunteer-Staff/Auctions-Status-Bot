@@ -8,11 +8,26 @@ const {
   buildVerificationCenterBotReminderContent,
   buildVerificationCenterBotReminderMessage,
   getDueVerificationCenterBotReminder,
+  hasVerificationCenterReminderExemptRole,
 } = require('../dist/utils/verificationCenter/inactiveBotReminders')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 describe('inactive verification center bot reminders', () => {
+  it('exempts VC bots with the configured role from reminders', () => {
+    const exemptBot = {
+      roles: {
+        cache: new Map([['357194464776814603', {}]]),
+      },
+    }
+    const regularBot = {
+      roles: { cache: new Map([['357194464776814604', {}]]) },
+    }
+
+    expect(hasVerificationCenterReminderExemptRole(exemptBot)).toBeTrue()
+    expect(hasVerificationCenterReminderExemptRole(regularBot)).toBeFalse()
+  })
+
   it('does not send a reminder before 48 hours', () => {
     expect(
       getDueVerificationCenterBotReminder(2 * DAY_MS - 1, false, 0)
@@ -29,6 +44,12 @@ describe('inactive verification center bot reminders', () => {
 
   it('suppresses a duplicate 48-hour reminder', () => {
     expect(getDueVerificationCenterBotReminder(2 * DAY_MS, true, 0)).toBeNull()
+  })
+
+  it('does not repost a 48-hour reminder after an unresolved warning', () => {
+    expect(
+      getDueVerificationCenterBotReminder(2 * DAY_MS, false, 0, '48h')
+    ).toBeNull()
   })
 
   it('prioritizes the first weekly reminder at exactly seven days', () => {
@@ -55,6 +76,30 @@ describe('inactive verification center bot reminders', () => {
   it('does not repeat a reminder during the same weekly interval', () => {
     expect(getDueVerificationCenterBotReminder(13 * DAY_MS, true, 1)).toBeNull()
     expect(getDueVerificationCenterBotReminder(20 * DAY_MS, true, 2)).toBeNull()
+  })
+
+  it('does not repost a weekly reminder after an unresolved warning', () => {
+    expect(
+      getDueVerificationCenterBotReminder(7 * DAY_MS, false, 0, '7d:1')
+    ).toBeNull()
+
+    expect(
+      getDueVerificationCenterBotReminder(14 * DAY_MS, false, 0, '7d:1')
+    ).toEqual({
+      key: '7d:2',
+      minimumAgeDays: 14,
+      weeklyInterval: 2,
+    })
+  })
+
+  it('allows the next milestone after an unresolved warning', () => {
+    expect(
+      getDueVerificationCenterBotReminder(7 * DAY_MS, false, 0, '48h')
+    ).toEqual({
+      key: '7d:1',
+      minimumAgeDays: 7,
+      weeklyInterval: 1,
+    })
   })
 
   it('does not backfill outside a reminder window and resumes weekly', () => {
