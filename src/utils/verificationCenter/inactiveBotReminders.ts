@@ -12,7 +12,7 @@ import {
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
 import {
-  findExactMemberByName,
+  findMemberByName,
   getVerificationCenterBot,
   VERIFICATION_CENTER_GUILD_ID,
 } from './botMembers'
@@ -378,7 +378,7 @@ async function runVerificationCenterBotReminderCheck(
       )
       if (!reminder) continue
 
-      const reviewer = findExactMemberByName(
+      const reviewer = findMemberByName(
         bot.reviewerName,
         reviewerCandidates.values()
       )

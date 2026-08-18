@@ -113,7 +113,23 @@ describe('verification center bot members', () => {
     expect(findMemberByName('Reviewr', [reviewer])).toBe(reviewer)
   })
 
-  it('requires an exact alias when resolving a reminder recipient', () => {
+  it('matches a unique shortened reviewer name to a longer username', () => {
+    const reviewer = createMember({
+      id: 'marco',
+      username: 'marco_rennmaus',
+    })
+
+    expect(findMemberByName('marco', [reviewer])).toBe(reviewer)
+  })
+
+  it('does not guess between shortened reviewer name matches', () => {
+    const first = createMember({ id: 'first', username: 'marco_rennmaus' })
+    const second = createMember({ id: 'second', username: 'marco_other' })
+
+    expect(findMemberByName('marco', [first, second])).toBeNull()
+  })
+
+  it('supports exact-only member lookups', () => {
     const exact = createMember({ id: 'exact', nickname: 'Reviewer Name' })
     const fuzzy = createMember({ id: 'fuzzy', nickname: 'Reviewer Names' })
 
