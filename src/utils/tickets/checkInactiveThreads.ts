@@ -1,4 +1,5 @@
 import {
+  ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
   ChannelType,
@@ -6,6 +7,8 @@ import {
   ContainerBuilder,
   MessageCreateOptions,
   SectionBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
   TextChannel,
   TextDisplayBuilder,
   ThreadChannel,
@@ -13,7 +16,7 @@ import {
 import { channelIds, resolvedFlag, roleIds } from '../../globals'
 import { COMPONENTS_V2_FLAGS } from '../componentsV2'
 import {
-  getThreadAwaitingStaffResponseSince,
+  getThreadLastMessage,
   getThreadLastStaffMessage,
   getLast7DayAlertInterval,
   isWeeklyReminderCycleEnrolled,
@@ -39,6 +42,16 @@ const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000
 const STAFF_RESPONSE_ALERT_WINDOW = 24 * 60 * 60 * 1000
 const MAX_MISSING_STAFF_ALERT_DETAILS = 15
 const INACTIVE_ALERT_COLOR = 0xff3366
+
+export const extraTicketReminderMenuName = 'extraTicketReminder'
+
+export const EXTRA_TICKET_REMINDER_HOURS = [1, 3, 5, 7, 10] as const
+
+type ExtraTicketReminderRequest = {
+  idleSince: number
+  lastStaffMemberId: string | null
+  threadId: string
+}
 
 type MissingStaffResponseAlert = {
   threadId: string
@@ -229,25 +242,21 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
           })
         }
 
-        const awaitingStaffResponseSince =
-          getThreadAwaitingStaffResponseSince(threadId)
-        if (!awaitingStaffResponseSince) continue
+        const idleSince = getThreadLastMessage(threadId)
+        if (!idleSince) continue
 
-        const timeAwaitingStaffResponse = now - awaitingStaffResponseSince
+        const timeSinceLastMessage = now - idleSince
         const shouldSend48h =
           isModTicket &&
           is48HourAlertDue(
-            timeAwaitingStaffResponse,
+            timeSinceLastMessage,
             has48HourAlertBeenSent(threadId)
           )
         const due7DayInterval = isModTicket
           ? getDue7DayAlertInterval(
-              timeAwaitingStaffResponse,
+              timeSinceLastMessage,
               getLast7DayAlertInterval(threadId),
-              isWeeklyReminderCycleEnrolled(
-                threadId,
-                awaitingStaffResponseSince
-              )
+              isWeeklyReminderCycleEnrolled(threadId, idleSince)
             )
           : null
 
@@ -271,7 +280,7 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
           let alertsSent = await sendInactiveAlert(
             targetAlertChannel,
             thread,
-            awaitingStaffResponseSince,
+            idleSince,
             lastRoutedStaff?.memberId ?? null
           )
 
@@ -283,7 +292,7 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             const reviewerAlertSent = await sendInactiveAlert(
               reviewerAlertChannel,
               thread,
-              awaitingStaffResponseSince,
+              idleSince,
               lastRoutedStaff.memberId
             )
             alertsSent = alertsSent && reviewerAlertSent
@@ -381,16 +390,12 @@ async function sendMissingStaffResponseAlerts(
 export async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
-  awaitingStaffResponseSince: number,
+  idleSince: number,
   lastStaffMemberId: string | null
 ): Promise<boolean> {
   try {
     await alertChannel.send(
-      buildInactiveTicketAlertMessage(
-        thread,
-        awaitingStaffResponseSince,
-        lastStaffMemberId
-      )
+      buildInactiveTicketAlertMessage(thread, idleSince, lastStaffMemberId)
     )
     return true
   } catch (error) {
@@ -399,17 +404,68 @@ export async function sendInactiveAlert(
   }
 }
 
+export function getExtraTicketReminderHours(value: string): number | null {
+  const hours = Number(value)
+  return EXTRA_TICKET_REMINDER_HOURS.includes(
+    hours as (typeof EXTRA_TICKET_REMINDER_HOURS)[number]
+  )
+    ? hours
+    : null
+}
+
+export function buildExtraTicketReminderCustomId(
+  threadId: string,
+  idleSince: number,
+  lastStaffMemberId: string | null
+): string {
+  return `${extraTicketReminderMenuName}_${threadId}_${idleSince}_${
+    lastStaffMemberId ?? 'none'
+  }`
+}
+
+export function parseExtraTicketReminderCustomId(
+  customId: string
+): ExtraTicketReminderRequest | null {
+  const [menuName, threadId, rawIdleSince, rawStaffMemberId, ...extra] =
+    customId.split('_')
+
+  if (
+    menuName !== extraTicketReminderMenuName ||
+    !threadId ||
+    !rawIdleSince ||
+    !rawStaffMemberId ||
+    extra.length > 0 ||
+    !/^\d+$/.test(threadId) ||
+    !/^\d+$/.test(rawIdleSince) ||
+    (rawStaffMemberId !== 'none' && !/^\d+$/.test(rawStaffMemberId))
+  ) {
+    return null
+  }
+
+  const idleSince = Number(rawIdleSince)
+  if (!Number.isSafeInteger(idleSince) || idleSince <= 0) {
+    return null
+  }
+
+  return {
+    idleSince,
+    lastStaffMemberId: rawStaffMemberId === 'none' ? null : rawStaffMemberId,
+    threadId,
+  }
+}
+
 export function buildInactiveTicketAlertMessage(
   thread: Pick<ThreadChannel, 'id' | 'url'>,
-  awaitingStaffResponseSince: number,
-  lastStaffMemberId: string | null
+  idleSince: number,
+  lastStaffMemberId: string | null,
+  extraReminderHours: number | null = null
 ): MessageCreateOptions {
   const handler = lastStaffMemberId
     ? `<@${lastStaffMemberId}>`
     : 'Unknown staff member'
   const content = `${handler} -> Please check <#${
     thread.id
-  }>. Unanswered since <t:${Math.floor(awaitingStaffResponseSince / 1000)}:R>.`
+  }>. Idle since <t:${Math.floor(idleSince / 1000)}:R>.`
 
   const panel = new ContainerBuilder()
     .setAccentColor(INACTIVE_ALERT_COLOR)
@@ -422,6 +478,33 @@ export function buildInactiveTicketAlertMessage(
             .setStyle(ButtonStyle.Link)
             .setURL(thread.url)
         )
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId(
+            buildExtraTicketReminderCustomId(
+              thread.id,
+              idleSince,
+              lastStaffMemberId
+            )
+          )
+          .setPlaceholder(
+            extraReminderHours === null
+              ? 'Extra Reminder (DM)'
+              : `Will remind in ${extraReminderHours} hour${
+                  extraReminderHours === 1 ? '' : 's'
+                } via DMs`
+          )
+          .setDisabled(extraReminderHours !== null)
+          .addOptions(
+            EXTRA_TICKET_REMINDER_HOURS.map((hours) =>
+              new StringSelectMenuOptionBuilder()
+                .setLabel(`Remind me in ${hours} hour${hours === 1 ? '' : 's'}`)
+                .setValue(String(hours))
+            )
+          )
+      )
     )
 
   return {

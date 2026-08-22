@@ -233,7 +233,9 @@ export const commandHandler = async (client: Client) => {
       const localContexts = Array.isArray(localJson.contexts)
         ? [...localJson.contexts].sort().join(',')
         : ''
-      const remoteContexts = Array.isArray((r as { contexts?: Array<number> }).contexts)
+      const remoteContexts = Array.isArray(
+        (r as { contexts?: Array<number> }).contexts
+      )
         ? [...((r as { contexts?: Array<number> }).contexts ?? [])]
             .sort()
             .join(',')
@@ -383,7 +385,10 @@ export const commandHandler = async (client: Client) => {
         if (mdl) await mdl.execute(client, interaction)
       } else if (interaction.isStringSelectMenu()) {
         const selected = interaction.values[0]
-        const mnu = menus.find((m) => m.name === selected)
+        const customIdKey = interaction.customId.split('_')[0]
+        const mnu =
+          menus.find((m) => m.name === customIdKey) ??
+          menus.find((m) => m.name === selected)
         if (mnu) await mnu.execute(client, interaction)
         else
           console.warn(

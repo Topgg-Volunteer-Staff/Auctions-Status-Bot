@@ -46,6 +46,13 @@ type StaffGlobalTicketReminderPreference = {
   delayMs: number
 }
 
+type ExtraTicketReminder = {
+  dueAt: number
+  threadId: string
+  threadUrl: string
+  userId: string
+}
+
 type PersistedStaffTicketReminderStore = Record<
   string,
   Record<string, StaffTicketReminderPreference>
@@ -56,8 +63,11 @@ type PersistedStaffGlobalTicketReminderStore = Record<
   StaffGlobalTicketReminderPreference
 >
 
+type PersistedExtraTicketReminderStore = Record<string, ExtraTicketReminder>
+
 const STAFF_TICKET_REMINDER_STORE_KEY = 'staff-ticket-reminders'
 const STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY = 'staff-ticket-reminders-global'
+const EXTRA_TICKET_REMINDER_STORE_KEY = 'extra-ticket-reminders'
 const DM_QUEUE_SPACING_MS = 1_000
 const TICKET_REMINDER_DM_FALLBACK_CHANNEL_ID =
   channelIds.inactiveThreadAlertsReviewers
@@ -90,6 +100,8 @@ const globalReminderPreferences = new Map<
   StaffGlobalTicketReminderPreference
 >()
 const pendingReminderTimers = new Map<string, NodeJS.Timeout>()
+const extraTicketReminderTimers = new Map<string, NodeJS.Timeout>()
+const extraTicketReminders = new Map<string, ExtraTicketReminder>()
 const threadOwnerCache = new Map<string, string | null>()
 
 let initPromise: Promise<void> | null = null
@@ -168,6 +180,34 @@ function normalizePendingReminder(value: unknown): PendingStaffReminder | null {
   }
 }
 
+function isValidExtraTicketReminder(value: unknown): value is ExtraTicketReminder {
+  if (!isObject(value)) return false
+
+  return (
+    typeof value.dueAt === 'number' &&
+    Number.isFinite(value.dueAt) &&
+    typeof value.threadId === 'string' &&
+    value.threadId.length > 0 &&
+    typeof value.threadUrl === 'string' &&
+    value.threadUrl.length > 0 &&
+    typeof value.userId === 'string' &&
+    value.userId.length > 0
+  )
+}
+
+function normalizeExtraTicketReminder(
+  value: unknown
+): ExtraTicketReminder | null {
+  if (!isValidExtraTicketReminder(value)) return null
+
+  return {
+    dueAt: normalizeTimestamp(value.dueAt),
+    threadId: value.threadId,
+    threadUrl: value.threadUrl,
+    userId: value.userId,
+  }
+}
+
 function normalizeReminderSource(value: unknown): ReminderPreferenceSource {
   return value === 'global' ? 'global' : 'thread'
 }
@@ -197,6 +237,7 @@ function getThreadPreferences(
 async function writeCurrentStore(): Promise<void> {
   const threadData: PersistedStaffTicketReminderStore = {}
   const globalData: PersistedStaffGlobalTicketReminderStore = {}
+  const extraReminderData: PersistedExtraTicketReminderStore = {}
 
   for (const [threadId, threadPrefs] of reminderPreferences.entries()) {
     if (threadPrefs.size === 0) continue
@@ -213,6 +254,10 @@ async function writeCurrentStore(): Promise<void> {
     globalData[userId] = pref
   }
 
+  for (const [timerKey, reminder] of extraTicketReminders.entries()) {
+    extraReminderData[timerKey] = reminder
+  }
+
   await saveMongoBackedJson(STAFF_TICKET_REMINDER_STORE_KEY, threadData, {
     operation: 'persist',
   })
@@ -224,19 +269,30 @@ async function writeCurrentStore(): Promise<void> {
       operation: 'persist-global',
     }
   )
+
+  await saveMongoBackedJson(
+    EXTRA_TICKET_REMINDER_STORE_KEY,
+    extraReminderData,
+    {
+      operation: 'persist-extra',
+    }
+  )
 }
 
 async function initStore(): Promise<void> {
   if (initPromise) return initPromise
 
   initPromise = (async () => {
-    const [parsedThreadPrefs, parsedGlobalPrefs] = await Promise.all([
+    const [parsedThreadPrefs, parsedGlobalPrefs, parsedExtraReminders] =
+      await Promise.all([
       loadMongoBackedJson<unknown>(STAFF_TICKET_REMINDER_STORE_KEY, {}),
       loadMongoBackedJson<unknown>(STAFF_TICKET_REMINDER_GLOBAL_STORE_KEY, {}),
+      loadMongoBackedJson<unknown>(EXTRA_TICKET_REMINDER_STORE_KEY, {}),
     ])
 
     reminderPreferences.clear()
     globalReminderPreferences.clear()
+    extraTicketReminders.clear()
 
     if (isObject(parsedThreadPrefs)) {
       for (const [threadId, rawThreadPrefs] of Object.entries(
@@ -291,6 +347,20 @@ async function initStore(): Promise<void> {
         })
       }
     }
+
+    if (isObject(parsedExtraReminders)) {
+      for (const rawReminder of Object.values(parsedExtraReminders)) {
+        const reminder = normalizeExtraTicketReminder(rawReminder)
+        if (!reminder) continue
+
+        extraTicketReminders.set(
+          getTimerKey(reminder.threadId, reminder.userId),
+          reminder
+        )
+      }
+    }
+
+    restorePendingReminderTimers()
   })()
 
   return initPromise
@@ -326,6 +396,15 @@ function clearPendingReminderTimer(threadId: string, userId: string): void {
   pendingReminderTimers.delete(timerKey)
 }
 
+function clearExtraTicketReminderTimer(threadId: string, userId: string): void {
+  const timerKey = getTimerKey(threadId, userId)
+  const existing = extraTicketReminderTimers.get(timerKey)
+  if (!existing) return
+
+  clearTimeout(existing)
+  extraTicketReminderTimers.delete(timerKey)
+}
+
 async function clearPendingReminder(
   threadId: string,
   userId: string,
@@ -337,8 +416,11 @@ async function clearPendingReminder(
   const pref = threadPrefs?.get(userId)
   if (!threadPrefs || !pref?.pendingReminder) return
 
-  const { pendingReminder: _removedReminder, ...nextPref } = pref
-  threadPrefs.set(userId, nextPref)
+  threadPrefs.set(userId, {
+    source: pref.source,
+    userId: pref.userId,
+    delayMs: pref.delayMs,
+  })
 
   if (persist) {
     await queuePersist().catch(() => void 0)
@@ -362,6 +444,22 @@ function schedulePendingReminder(
   pendingReminderTimers.set(getTimerKey(threadId, userId), timer)
 }
 
+function scheduleExtraTicketReminderTimer(reminder: ExtraTicketReminder): void {
+  if (!runtimeClient) return
+
+  clearExtraTicketReminderTimer(reminder.threadId, reminder.userId)
+
+  const delay = Math.max(0, reminder.dueAt - Date.now())
+  const timer = setTimeout(() => {
+    void sendExtraTicketReminder(reminder)
+  }, delay)
+
+  extraTicketReminderTimers.set(
+    getTimerKey(reminder.threadId, reminder.userId),
+    timer
+  )
+}
+
 function restorePendingReminderTimers(): void {
   if (!runtimeClient) return
 
@@ -372,6 +470,13 @@ function restorePendingReminderTimers(): void {
 
       schedulePendingReminder(threadId, userId, pref.pendingReminder)
     }
+  }
+
+  for (const reminder of extraTicketReminders.values()) {
+    const timerKey = getTimerKey(reminder.threadId, reminder.userId)
+    if (extraTicketReminderTimers.has(timerKey)) continue
+
+    scheduleExtraTicketReminderTimer(reminder)
   }
 }
 
@@ -592,6 +697,70 @@ async function sendPendingReminder(
   await clearPendingReminder(threadId, userId)
 }
 
+async function sendExtraTicketReminder(
+  reminder: ExtraTicketReminder
+): Promise<void> {
+  const timerKey = getTimerKey(reminder.threadId, reminder.userId)
+  clearExtraTicketReminderTimer(reminder.threadId, reminder.userId)
+
+  if (extraTicketReminders.get(timerKey) !== reminder) return
+
+  const client = runtimeClient
+  if (!client) return
+
+  try {
+    await queueDm(async () => {
+      const user = await client.users.fetch(reminder.userId).catch(() => null)
+      if (!user) {
+        throw new Error('Failed to fetch staff member for extra ticket reminder')
+      }
+
+      await user.send(buildExtraTicketReminderMessage(reminder))
+    })
+  } catch (error) {
+    console.error(
+      `[staff-ticket-reminders] Failed to send extra reminder for ${timerKey}:`,
+      error
+    )
+
+    await notifyReminderDmFailure(
+      client,
+      reminder.threadId,
+      reminder.userId,
+      reminder.threadUrl
+    )
+  }
+
+  await clearExtraTicketReminder(reminder.threadId, reminder.userId)
+}
+
+export function buildExtraTicketReminderMessage(reminder: {
+  threadUrl: string
+}): MessageCreateOptions {
+  const panel = new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addSectionComponents(
+      new SectionBuilder()
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            'Hello, its me :), This is your extra reminder for this ticket.'
+          )
+        )
+        .setButtonAccessory(
+          new ButtonBuilder()
+            .setLabel('Go to ticket')
+            .setStyle(ButtonStyle.Link)
+            .setURL(reminder.threadUrl)
+        )
+    )
+
+  return {
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
+  }
+}
+
 export function buildStaffTicketReminderMessage(reminder: {
   messageUrl: string
   responderName: string
@@ -618,6 +787,48 @@ export function buildStaffTicketReminderMessage(reminder: {
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: { parse: [] },
   }
+}
+
+async function clearExtraTicketReminder(
+  threadId: string,
+  userId: string,
+  persist = true
+): Promise<void> {
+  clearExtraTicketReminderTimer(threadId, userId)
+
+  const timerKey = getTimerKey(threadId, userId)
+  if (!extraTicketReminders.delete(timerKey)) return
+
+  if (persist) {
+    await queuePersist().catch(() => void 0)
+  }
+}
+
+export async function scheduleExtraTicketReminder(options: {
+  delayMs: number
+  threadId: string
+  threadUrl: string
+  userId: string
+}): Promise<void> {
+  if (!Number.isFinite(options.delayMs) || options.delayMs <= 0) {
+    throw new Error('Extra ticket reminder delay must be positive')
+  }
+
+  await initStore()
+
+  const reminder: ExtraTicketReminder = {
+    dueAt: Date.now() + options.delayMs,
+    threadId: options.threadId,
+    threadUrl: options.threadUrl,
+    userId: options.userId,
+  }
+  extraTicketReminders.set(
+    getTimerKey(reminder.threadId, reminder.userId),
+    reminder
+  )
+  scheduleExtraTicketReminderTimer(reminder)
+
+  await queuePersist()
 }
 
 export function getTicketReminderDelayMs(choice: string): number | null {

@@ -20,7 +20,7 @@ const {
   sendInactiveAlert,
 } = require('../dist/utils/tickets/checkInactiveThreads')
 const {
-  getAwaitingStaffResponseSinceAfterMessage,
+  getIdleSinceAfterMessage,
   isTrackedTicketActivity,
   shouldEnrollWeeklyReminderCycle,
 } = require('../dist/utils/tickets/trackActivity')
@@ -114,27 +114,10 @@ describe('recurring inactive ticket reminders', () => {
     ).toBeFalse()
   })
 
-  it('resets the reminder baseline for staff replies but not user bumps', () => {
-    const firstUnansweredMessage = DAY_MS
+  it('resets the idle timer on any reply, staff or customer', () => {
     const newMessage = 2 * DAY_MS
 
-    expect(
-      getAwaitingStaffResponseSinceAfterMessage(
-        firstUnansweredMessage,
-        newMessage,
-        false
-      )
-    ).toBe(firstUnansweredMessage)
-    expect(
-      getAwaitingStaffResponseSinceAfterMessage(
-        firstUnansweredMessage,
-        newMessage,
-        true
-      )
-    ).toBeNull()
-    expect(
-      getAwaitingStaffResponseSinceAfterMessage(null, newMessage, false)
-    ).toBe(newMessage)
+    expect(getIdleSinceAfterMessage(newMessage)).toBe(newMessage)
   })
 
   it('does not report a failed Discord send as successful', async () => {
@@ -306,7 +289,7 @@ describe('recurring inactive ticket reminders', () => {
           components: [
             {
               type: ComponentType.TextDisplay,
-              content: `<@${reviewerId}> -> Please check <#thread-id>. Unanswered since <t:1725000000:R>.`,
+              content: `<@${reviewerId}> -> Please check <#thread-id>. Idle since <t:1725000000:R>.`,
             },
           ],
           accessory: {
@@ -316,6 +299,28 @@ describe('recurring inactive ticket reminders', () => {
             url: 'https://discord.com/channels/guild-id/thread-id',
             emoji: undefined,
           },
+        },
+        {
+          type: ComponentType.ActionRow,
+          components: [
+            {
+              type: ComponentType.StringSelect,
+              custom_id: 'extraTicketReminder_thread-id_1725000000999_1526773378055147681',
+              placeholder: 'Extra Reminder (DM)',
+              disabled: false,
+              options: [
+                { emoji: undefined, label: 'Remind me in 1 hour', value: '1' },
+                { emoji: undefined, label: 'Remind me in 3 hours', value: '3' },
+                { emoji: undefined, label: 'Remind me in 5 hours', value: '5' },
+                { emoji: undefined, label: 'Remind me in 7 hours', value: '7' },
+                {
+                  emoji: undefined,
+                  label: 'Remind me in 10 hours',
+                  value: '10',
+                },
+              ],
+            },
+          ],
         },
       ],
     })
