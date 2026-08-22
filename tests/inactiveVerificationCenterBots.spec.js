@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 require('./jasmine/reporter')
 
-const { ComponentType, MessageFlags } = require('discord.js')
+const { ButtonStyle, ComponentType, MessageFlags } = require('discord.js')
 const {
+  buildKickVerificationCenterBotCustomId,
   buildUnresolvedVerificationCenterBotReminderContent,
   buildUnresolvedVerificationCenterBotReminderMessage,
   buildVerificationCenterBotReminderContent,
@@ -10,6 +11,13 @@ const {
   getDueVerificationCenterBotReminder,
   hasVerificationCenterReminderExemptRole,
 } = require('../dist/utils/verificationCenter/inactiveBotReminders')
+const {
+  execute: executeKickVerificationCenterBot,
+  parseKickVerificationCenterBotCustomId,
+} = require('../dist/buttons/kickVerificationCenterBot')
+const {
+  VERIFICATION_CENTER_GUILD_ID,
+} = require('../dist/utils/verificationCenter/botMembers')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -126,11 +134,12 @@ describe('inactive verification center bot reminders', () => {
       {
         id: '223456789012345678',
         joinedTimestamp: 1_725_000_000_999,
+        roleNames: ['Review Queue', 'Priority'],
       }
     )
 
     expect(content).toBe(
-      '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.'
+      '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority'
     )
   })
 
@@ -140,6 +149,7 @@ describe('inactive verification center bot reminders', () => {
       {
         id: '223456789012345678',
         joinedTimestamp: 1_725_000_000_000,
+        roleNames: ['Review Queue', 'Priority'],
       }
     )
     const panel = message.components[0].toJSON()
@@ -158,7 +168,21 @@ describe('inactive verification center bot reminders', () => {
         {
           type: ComponentType.TextDisplay,
           content:
-            '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.',
+            '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority',
+        },
+        {
+          type: ComponentType.ActionRow,
+          components: [
+            {
+              type: ComponentType.Button,
+              custom_id:
+                'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000',
+              label: 'Kick Bot',
+              style: ButtonStyle.Danger,
+              disabled: false,
+              emoji: undefined,
+            },
+          ],
         },
       ],
     })
@@ -169,10 +193,11 @@ describe('inactive verification center bot reminders', () => {
       id: '223456789012345678',
       reviewerName: 'Reviewer Nickname',
       joinedTimestamp: 1_725_000_000_000,
+      roleNames: ['Review Queue', 'Priority'],
     })
 
     expect(content).toBe(
-      'Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>. Could not match reviewer `Reviewer Nickname`.'
+      'Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>. Could not match reviewer `Reviewer Nickname`.\n\nCurrent Roles:\nReview Queue, Priority'
     )
     expect(content.match(/<@!?(?:&)?\d+>/g)).toEqual(['<@223456789012345678>'])
 
@@ -180,6 +205,7 @@ describe('inactive verification center bot reminders', () => {
       id: '223456789012345678',
       reviewerName: 'Reviewer Nickname',
       joinedTimestamp: 1_725_000_000_000,
+      roleNames: ['Review Queue', 'Priority'],
     })
 
     expect(message.flags).toBe(MessageFlags.IsComponentsV2)
@@ -188,5 +214,193 @@ describe('inactive verification center bot reminders', () => {
       roles: [],
       parse: [],
     })
+    expect(message.components[0].toJSON().components).toHaveSize(1)
+  })
+
+  it('encodes the mentioned reviewer and original VC membership in the kick button', () => {
+    expect(
+      buildKickVerificationCenterBotCustomId('123456789012345678', {
+        id: '223456789012345678',
+        joinedTimestamp: 1_725_000_000_000,
+      })
+    ).toBe(
+      'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000'
+    )
+
+    expect(
+      parseKickVerificationCenterBotCustomId(
+        'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000'
+      )
+    ).toEqual({
+      reviewerId: '123456789012345678',
+      botId: '223456789012345678',
+      joinedTimestamp: 1_725_000_000_000,
+    })
+  })
+
+  it('only lets the reviewer mentioned in the reminder kick the bot', async () => {
+    const botMember = {
+      user: { bot: true },
+      joinedTimestamp: 1_725_000_000_000,
+      kickable: true,
+      guild: { id: 'verification-center-guild' },
+      roles: {
+        cache: new Map([
+          ['role-id', { id: 'role-id', name: 'Review Queue', position: 1 }],
+          [
+            'verification-center-guild',
+            {
+              id: 'verification-center-guild',
+              name: '@everyone',
+              position: 0,
+            },
+          ],
+        ]),
+      },
+      kick: jasmine.createSpy('kick').and.resolveTo(),
+    }
+    const fetchMember = jasmine
+      .createSpy('fetchMember')
+      .and.resolveTo(botMember)
+    const fetchGuild = jasmine.createSpy('fetchGuild')
+    const client = {
+      guilds: {
+        cache: new Map([
+          [VERIFICATION_CENTER_GUILD_ID, { members: { fetch: fetchMember } }],
+        ]),
+        fetch: fetchGuild,
+      },
+    }
+    const interaction = createKickInteraction({
+      userId: '323456789012345678',
+      customId:
+        'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000',
+    })
+
+    await executeKickVerificationCenterBot(client, interaction)
+
+    expect(interaction.reply).toHaveBeenCalledWith({
+      content:
+        'Only the reviewer mentioned in this reminder can kick this bot.',
+      flags: MessageFlags.Ephemeral,
+    })
+    expect(interaction.deferReply).not.toHaveBeenCalled()
+    expect(fetchGuild).not.toHaveBeenCalled()
+    expect(fetchMember).not.toHaveBeenCalled()
+    expect(botMember.kick).not.toHaveBeenCalled()
+  })
+
+  it('kicks the original bot membership when the mentioned reviewer clicks', async () => {
+    const botMember = {
+      user: { bot: true },
+      joinedTimestamp: 1_725_000_000_000,
+      kickable: true,
+      guild: { id: 'verification-center-guild' },
+      roles: {
+        cache: new Map([
+          ['role-id', { id: 'role-id', name: 'Review Queue', position: 1 }],
+          [
+            'verification-center-guild',
+            {
+              id: 'verification-center-guild',
+              name: '@everyone',
+              position: 0,
+            },
+          ],
+        ]),
+      },
+      kick: jasmine.createSpy('kick').and.resolveTo(),
+    }
+    const fetchMember = jasmine
+      .createSpy('fetchMember')
+      .and.resolveTo(botMember)
+    const client = {
+      guilds: {
+        cache: new Map([
+          [VERIFICATION_CENTER_GUILD_ID, { members: { fetch: fetchMember } }],
+        ]),
+        fetch: jasmine.createSpy('fetchGuild'),
+      },
+    }
+    const interaction = createKickInteraction({
+      userId: '123456789012345678',
+      customId:
+        'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000',
+    })
+
+    await executeKickVerificationCenterBot(client, interaction)
+
+    expect(interaction.reply).not.toHaveBeenCalled()
+    expect(interaction.deferReply).toHaveBeenCalledWith({
+      flags: MessageFlags.Ephemeral,
+    })
+    expect(fetchMember).toHaveBeenCalledWith('223456789012345678')
+    expect(botMember.kick).toHaveBeenCalledWith(
+      'Kicked from Verification Center by Reviewer#0001 via inactive bot reminder'
+    )
+    const editedPanel = interaction.message.edit.calls
+      .mostRecent()
+      .args[0].components[0].toJSON()
+    expect(editedPanel.components[1].components[0]).toEqual(
+      jasmine.objectContaining({
+        label: 'Kicked by Reviewer',
+        disabled: true,
+      })
+    )
+    expect(editedPanel.components[0].content).toContain(
+      'Current Roles:\nReview Queue'
+    )
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      'Kicked bot `223456789012345678` from the Verification Center.'
+    )
+  })
+
+  it('does not kick a bot that has rejoined since the reminder was sent', async () => {
+    const botMember = {
+      user: { bot: true },
+      joinedTimestamp: 1_725_000_000_001,
+      kickable: true,
+      kick: jasmine.createSpy('kick').and.resolveTo(),
+    }
+    const client = {
+      guilds: {
+        cache: new Map([
+          [
+            VERIFICATION_CENTER_GUILD_ID,
+            {
+              members: {
+                fetch: jasmine
+                  .createSpy('fetchMember')
+                  .and.resolveTo(botMember),
+              },
+            },
+          ],
+        ]),
+        fetch: jasmine.createSpy('fetchGuild'),
+      },
+    }
+    const interaction = createKickInteraction({
+      userId: '123456789012345678',
+      customId:
+        'kickVerificationCenterBot_123456789012345678_223456789012345678_1725000000000',
+    })
+
+    await executeKickVerificationCenterBot(client, interaction)
+
+    expect(botMember.kick).not.toHaveBeenCalled()
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      'This reminder is stale because the bot has rejoined the Verification Center.'
+    )
   })
 })
+
+function createKickInteraction({ userId, customId }) {
+  return {
+    customId,
+    user: { id: userId, username: 'Reviewer', tag: 'Reviewer#0001' },
+    message: { edit: jasmine.createSpy('edit').and.resolveTo() },
+    reply: jasmine.createSpy('reply').and.resolveTo(),
+    deferReply: jasmine.createSpy('deferReply').and.resolveTo(),
+    editReply: jasmine.createSpy('editReply').and.resolveTo(),
+  }
+}

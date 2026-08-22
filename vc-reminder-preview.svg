@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1168" height="360" viewBox="0 0 1168 360">
+  <rect width="1168" height="360" fill="#313338"/>
+  <circle cx="62" cy="66" r="39" fill="#1e1f22"/>
+  <path d="M41 49l10-10 7 7-10 10m2 2 20 20m-23-21 10 10m-15 4 12-12 7 7-12 12z" fill="none" stroke="#f23f77" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="106" y="61" fill="#f23f77" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700">Top.gg Tickets</text>
+  <rect x="285" y="39" width="59" height="28" rx="6" fill="#5865f2"/>
+  <text x="294" y="60" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">APP</text>
+  <text x="357" y="61" fill="#949ba4" font-family="Arial, Helvetica, sans-serif" font-size="20">Yesterday at 8:00 AM</text>
+  <rect x="106" y="78" width="1050" height="250" rx="16" fill="#1e1f22" stroke="#3f4147"/>
+  <path d="M122 78h-1a15 15 0 0 0-15 15v220a15 15 0 0 0 15 15h1z" fill="#ff3366"/>
+  <rect x="135" y="107" width="205" height="31" rx="5" fill="#12232f"/>
+  <text x="141" y="130" fill="#00a8fc" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600">@marco_rennmaus</text>
+  <text x="349" y="130" fill="#dbdee1" font-family="Arial, Helvetica, sans-serif" font-size="22">-&gt; Please check</text>
+  <rect x="514" y="107" width="151" height="31" rx="5" fill="#24284a"/>
+  <text x="520" y="130" fill="#9aa9ff" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="600">@BirdStar App</text>
+  <rect x="673" y="107" width="257" height="31" rx="7" fill="#282b30" stroke="#4e5058"/>
+  <text x="681" y="130" fill="#dbdee1" font-family="Consolas, monospace" font-size="19">1530480496281256018</text>
+  <text x="941" y="130" fill="#dbdee1" font-family="Arial, Helvetica, sans-serif" font-size="22">in the VC. It</text>
+  <text x="135" y="163" fill="#dbdee1" font-family="Arial, Helvetica, sans-serif" font-size="22">joined 15 days ago.</text>
+  <text x="135" y="211" fill="#f2f3f5" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700">Current Roles:</text>
+  <text x="135" y="240" fill="#dbdee1" font-family="Arial, Helvetica, sans-serif" font-size="20">Review Queue, Priority</text>
+  <rect x="135" y="267" width="241" height="42" rx="5" fill="#4e5058"/>
+  <text x="183" y="294" fill="#a6a9ae" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700">Kicked by marco_rennmaus</text>
+</svg>

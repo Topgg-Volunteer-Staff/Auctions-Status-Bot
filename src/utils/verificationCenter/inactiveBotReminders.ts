@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   GuildMember,
   MessageCreateOptions,
@@ -24,12 +27,20 @@ const STORE_KEY = 'inactive-verification-center-bot-alerts'
 const REMINDER_ALERT_COLOR = 0xff3366
 const VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID = '357194464776814603'
 
+export const kickVerificationCenterBotButtonName = 'kickVerificationCenterBot'
+
 type ReminderKey = '48h' | `7d:${number}`
 
 export type VerificationCenterBotReminder = {
   key: ReminderKey
   minimumAgeDays: number
   weeklyInterval: number | null
+}
+
+type VerificationCenterBotReminderTarget = {
+  id: string
+  joinedTimestamp: number
+  roleNames?: ReadonlyArray<string>
 }
 
 type VerificationCenterBotReminderState = {
@@ -137,6 +148,15 @@ export function hasVerificationCenterReminderExemptRole(
   return member.roles.cache.has(VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID)
 }
 
+export function getVerificationCenterBotRoleNames(
+  member: GuildMember
+): Array<string> {
+  return [...member.roles.cache.values()]
+    .filter((role) => role.id !== member.guild.id)
+    .sort((left, right) => right.position - left.position)
+    .map((role) => role.name)
+}
+
 export function getDueVerificationCenterBotReminder(
   timeInVerificationCenter: number,
   sent48h: boolean,
@@ -195,36 +215,64 @@ function formatInlineCode(value: string): string {
 
 export function buildVerificationCenterBotReminderContent(
   reviewerId: string,
-  bot: { id: string; joinedTimestamp: number }
+  bot: VerificationCenterBotReminderTarget
 ): string {
   return `<@${reviewerId}> -> Please check <@${bot.id}> (\`${
     bot.id
-  }\`) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.`
+  }\`) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.
+
+Current Roles:
+${bot.roleNames?.join(', ') || 'None'}`
+}
+
+export function buildKickVerificationCenterBotCustomId(
+  reviewerId: string,
+  bot: VerificationCenterBotReminderTarget
+): string {
+  return `${kickVerificationCenterBotButtonName}_${reviewerId}_${bot.id}_${bot.joinedTimestamp}`
 }
 
 export function buildUnresolvedVerificationCenterBotReminderContent(bot: {
   id: string
   reviewerName: string
   joinedTimestamp: number
+  roleNames?: ReadonlyArray<string>
 }): string {
   return `Please check <@${bot.id}> (\`${
     bot.id
   }\`) in the VC. It joined <t:${Math.floor(
     bot.joinedTimestamp / 1000
-  )}:R>. Could not match reviewer ${formatInlineCode(bot.reviewerName)}.`
+  )}:R>. Could not match reviewer ${formatInlineCode(bot.reviewerName)}.
+
+Current Roles:
+${bot.roleNames?.join(', ') || 'None'}`
+}
+
+type KickVerificationCenterBotButtonOptions = {
+  disabled?: boolean
+  label?: string
 }
 
 export function buildVerificationCenterBotReminderMessage(
   reviewerId: string,
-  bot: { id: string; joinedTimestamp: number }
+  bot: VerificationCenterBotReminderTarget,
+  kickButtonOptions: KickVerificationCenterBotButtonOptions = {}
 ): MessageCreateOptions {
+  const panel = createTextPanel({
+    accentColor: REMINDER_ALERT_COLOR,
+    description: buildVerificationCenterBotReminderContent(reviewerId, bot),
+  }).addActionRowComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(buildKickVerificationCenterBotCustomId(reviewerId, bot))
+        .setLabel(kickButtonOptions.label ?? 'Kick Bot')
+        .setStyle(ButtonStyle.Danger)
+        .setDisabled(kickButtonOptions.disabled ?? false)
+    )
+  )
+
   return {
-    components: [
-      createTextPanel({
-        accentColor: REMINDER_ALERT_COLOR,
-        description: buildVerificationCenterBotReminderContent(reviewerId, bot),
-      }),
-    ],
+    components: [panel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
       users: [reviewerId, bot.id],
@@ -238,6 +286,7 @@ export function buildUnresolvedVerificationCenterBotReminderMessage(bot: {
   id: string
   reviewerName: string
   joinedTimestamp: number
+  roleNames?: ReadonlyArray<string>
 }): MessageCreateOptions {
   return {
     components: [
@@ -254,7 +303,7 @@ export function buildUnresolvedVerificationCenterBotReminderMessage(bot: {
 async function sendReviewerReminder(
   channel: TextChannel,
   reviewer: GuildMember,
-  bot: { id: string; joinedTimestamp: number }
+  bot: VerificationCenterBotReminderTarget
 ): Promise<boolean> {
   try {
     await channel.send(
@@ -276,6 +325,7 @@ async function sendUnresolvedReviewerReminder(
     id: string
     reviewerName: string
     joinedTimestamp: number
+    roleNames?: ReadonlyArray<string>
   }
 ): Promise<boolean> {
   try {
@@ -373,6 +423,11 @@ async function runVerificationCenterBotReminderCheck(
     const bot = getVerificationCenterBot(member)
     if (!bot) continue
 
+    const botWithRoles = {
+      ...bot,
+      roleNames: getVerificationCenterBotRoleNames(member),
+    }
+
     try {
       let state = reminderStates.get(bot.id)
       if (!state || state.joinedAt !== bot.joinedTimestamp) {
@@ -402,7 +457,7 @@ async function runVerificationCenterBotReminderCheck(
       if (!reviewer) {
         const warningSent = await sendUnresolvedReviewerReminder(
           reviewerChannel,
-          bot
+          botWithRoles
         )
         if (warningSent) {
           state.lastUnresolvedReminderKey = reminder.key
@@ -414,7 +469,7 @@ async function runVerificationCenterBotReminderCheck(
       const reminderSent = await sendReviewerReminder(
         reviewerChannel,
         reviewer,
-        bot
+        botWithRoles
       )
       if (reminderSent) {
         markReminderSent(state, reminder)
