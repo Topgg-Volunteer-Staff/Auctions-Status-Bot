@@ -46,6 +46,17 @@ export const execute = async (
     return
   }
 
+  if (
+    request.lastStaffMemberId &&
+    interaction.user.id !== request.lastStaffMemberId
+  ) {
+    await interaction.reply({
+      content: 'Only the staff member mentioned in this alert can set an extra reminder.',
+      flags: MessageFlags.Ephemeral,
+    })
+    return
+  }
+
   const thread = await client.channels.fetch(request.threadId).catch(() => null)
   if (
     !thread ||
