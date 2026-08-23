@@ -95,7 +95,7 @@ const USER_TEAMS_QUERY = `
 
 const BOT_TEAM_QUERY = `
   query BotTeam($id: String!) {
-    discordBot(externalId: $id) {
+    bot(id: $id) {
       owners {
         id
         username
@@ -327,15 +327,15 @@ export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   if (cached) return cached
 
   const data = await topggGraphql<{
-    discordBot: {
+    bot: {
       owners?: Array<TopggBotOwner>
       team?: TopggBotTeam | null
     } | null
   }>(BOT_TEAM_QUERY, { id })
 
   const ownership = {
-    owners: data.discordBot?.owners ?? [],
-    team: data.discordBot?.team ?? null,
+    owners: data.bot?.owners ?? [],
+    team: data.bot?.team ?? null,
   }
   setCached(botOwnershipCache, id, ownership)
   return ownership

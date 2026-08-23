@@ -195,7 +195,7 @@ describe('Top.gg team lookups', () => {
       },
     }
     global.fetch.and.resolveTo(
-      graphqlResponse({ data: { discordBot: ownership } })
+      graphqlResponse({ data: { bot: ownership } })
     )
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual(ownership)
@@ -212,7 +212,7 @@ describe('Top.gg team lookups', () => {
     process.env.GRAPHQL_API_TOKEN = 'test-graphql-token'
     global.fetch.and.resolveTo(
       graphqlResponse({
-        data: { discordBot: { owners: [], team: null } },
+        data: { bot: { owners: [], team: null } },
       })
     )
 
@@ -229,7 +229,7 @@ describe('Top.gg team lookups', () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
         data: {
-          discordBot: {
+          bot: {
             owners: [{ id: USER_ID, username: 'owner' }],
             team: null,
           },
@@ -254,7 +254,7 @@ describe('Top.gg team lookups', () => {
   })
 
   it('returns an empty ownership result when a valid bot is not on Top.gg', async () => {
-    global.fetch.and.resolveTo(graphqlResponse({ data: { discordBot: null } }))
+    global.fetch.and.resolveTo(graphqlResponse({ data: { bot: null } }))
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual({
       owners: [],
@@ -266,7 +266,7 @@ describe('Top.gg team lookups', () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
         data: {
-          discordBot: {
+          bot: {
             owners: [{ id: USER_ID, username: 'owner' }],
             team: null,
           },
@@ -390,7 +390,7 @@ describe('Top.gg team lookups', () => {
   it('caches successful lookups for repeated bot IDs', async () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
-        data: { discordBot: { owners: [], team: null } },
+        data: { bot: { owners: [], team: null } },
       })
     )
 
