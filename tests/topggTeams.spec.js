@@ -147,10 +147,12 @@ describe('Top.gg team lookups', () => {
       })
     )
     const botTeam = {
-      id: TEAM_ID,
       members: [
-        { user: { id: 'internal-member-id', username: 'member' } },
-        { user: { id: 'internal-owner-id', username: 'owner' } },
+        {
+          user: { id: 'internal-member-id', username: 'member' },
+          role: 'VIEWER',
+        },
+        { user: { id: 'internal-owner-id', username: 'owner' }, role: 'OWNER' },
       ],
     }
 
@@ -176,10 +178,12 @@ describe('Top.gg team lookups', () => {
       })
     )
     const botTeam = {
-      id: TEAM_ID,
       members: [
-        { user: { id: 'internal-owner-id', username: 'owner' } },
-        { user: { id: 'internal-member-id', username: 'member' } },
+        { user: { id: 'internal-owner-id', username: 'owner' }, role: 'OWNER' },
+        {
+          user: { id: 'internal-member-id', username: 'member' },
+          role: 'VIEWER',
+        },
       ],
     }
 
@@ -188,19 +192,23 @@ describe('Top.gg team lookups', () => {
 
   it('returns the owning team and its members for a listed bot', async () => {
     const ownership = {
-      owners: [{ id: USER_ID, username: 'owner' }],
+      ownerIds: [USER_ID],
       team: {
-        id: TEAM_ID,
-        members: [{ user: { id: USER_ID, username: 'owner' } }],
+        members: [{ user: { id: USER_ID, username: 'owner' }, role: 'OWNER' }],
       },
     }
     global.fetch.and.resolveTo(
-      graphqlResponse({ data: { bot: ownership } })
+      graphqlResponse({ data: { entityExternal: ownership } })
     )
 
-    expect(await fetchTopggBotOwnership(BOT_ID)).toEqual(ownership)
+    expect(await fetchTopggBotOwnership(BOT_ID)).toEqual({
+      owners: ownership.ownerIds,
+      team: ownership.team,
+    })
     const requestBody = JSON.parse(global.fetch.calls.mostRecent().args[1].body)
-    expect(requestBody.query).toMatch(/team\s*{\s*id\s+members/)
+    expect(requestBody.query).toMatch(
+      /entityExternal\(externalId:\s*\$id,\s*type:\s*BOT,\s*platform:\s*DISCORD\)/
+    )
     expect(global.fetch.calls.mostRecent().args[1].headers).toEqual(
       jasmine.objectContaining({
         'User-Agent': 'Top-GG-Tickets/1.0 (+https://top.gg)',
@@ -212,7 +220,7 @@ describe('Top.gg team lookups', () => {
     process.env.GRAPHQL_API_TOKEN = 'test-graphql-token'
     global.fetch.and.resolveTo(
       graphqlResponse({
-        data: { bot: { owners: [], team: null } },
+        data: { entityExternal: { ownerIds: [], team: null } },
       })
     )
 
@@ -229,8 +237,8 @@ describe('Top.gg team lookups', () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
         data: {
-          bot: {
-            owners: [{ id: USER_ID, username: 'owner' }],
+          entityExternal: {
+            ownerIds: [USER_ID],
             team: null,
           },
         },
@@ -238,7 +246,7 @@ describe('Top.gg team lookups', () => {
     )
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual({
-      owners: [{ id: USER_ID, username: 'owner' }],
+      owners: [USER_ID],
       team: null,
     })
   })
@@ -254,7 +262,9 @@ describe('Top.gg team lookups', () => {
   })
 
   it('returns an empty ownership result when a valid bot is not on Top.gg', async () => {
-    global.fetch.and.resolveTo(graphqlResponse({ data: { bot: null } }))
+    global.fetch.and.resolveTo(
+      graphqlResponse({ data: { entityExternal: null } })
+    )
 
     expect(await fetchTopggBotOwnership(BOT_ID)).toEqual({
       owners: [],
@@ -266,8 +276,8 @@ describe('Top.gg team lookups', () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
         data: {
-          bot: {
-            owners: [{ id: USER_ID, username: 'owner' }],
+          entityExternal: {
+            ownerIds: [USER_ID],
             team: null,
           },
         },
@@ -285,7 +295,7 @@ describe('Top.gg team lookups', () => {
       type: 'bot',
       id: BOT_ID,
       username: 'Example Bot',
-      owners: [{ id: USER_ID, username: 'owner' }],
+      owners: [USER_ID],
       team: null,
     })
     expect(client.users.fetch).toHaveBeenCalledWith(BOT_ID, { force: true })
@@ -390,7 +400,7 @@ describe('Top.gg team lookups', () => {
   it('caches successful lookups for repeated bot IDs', async () => {
     global.fetch.and.resolveTo(
       graphqlResponse({
-        data: { bot: { owners: [], team: null } },
+        data: { entityExternal: { ownerIds: [], team: null } },
       })
     )
 

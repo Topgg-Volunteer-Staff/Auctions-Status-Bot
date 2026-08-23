@@ -28,18 +28,13 @@ export interface TopggUserTeam {
 }
 
 export interface TopggBotTeam {
-  id: string
   members: Array<{
     user: {
       id: string
       username: string
     }
+    role: string
   }>
-}
-
-export interface TopggBotOwner {
-  id: string
-  username: string
 }
 
 export type TopggLookupErrorKind =
@@ -69,7 +64,7 @@ const userTeamCache = new Map<string, CacheEntry<Array<TopggUserTeam>>>()
 const botOwnershipCache = new Map<
   string,
   CacheEntry<{
-    owners: Array<TopggBotOwner>
+    owners: Array<string>
     team: TopggBotTeam | null
   }>
 >()
@@ -95,18 +90,15 @@ const USER_TEAMS_QUERY = `
 
 const BOT_TEAM_QUERY = `
   query BotTeam($id: String!) {
-    bot(id: $id) {
-      owners {
-        id
-        username
-      }
+    entityExternal(externalId: $id, type: BOT, platform: DISCORD) {
+      ownerIds
       team {
-        id
         members {
           user {
             id
             username
           }
+          role
         }
       }
     }
@@ -319,7 +311,7 @@ export async function isTopggUserOnBotTeam(
 }
 
 export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
-  owners: Array<TopggBotOwner>
+  owners: Array<string>
   team: TopggBotTeam | null
 }> {
   const id = validateDiscordId(discordBotId)
@@ -327,15 +319,15 @@ export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   if (cached) return cached
 
   const data = await topggGraphql<{
-    bot: {
-      owners?: Array<TopggBotOwner>
+    entityExternal: {
+      ownerIds?: Array<string>
       team?: TopggBotTeam | null
     } | null
   }>(BOT_TEAM_QUERY, { id })
 
   const ownership = {
-    owners: data.bot?.owners ?? [],
-    team: data.bot?.team ?? null,
+    owners: data.entityExternal?.ownerIds ?? [],
+    team: data.entityExternal?.team ?? null,
   }
   setCached(botOwnershipCache, id, ownership)
   return ownership
@@ -355,7 +347,7 @@ export async function fetchTopggTeamsForDiscordId(
       type: 'bot'
       id: string
       username: string
-      owners: Array<TopggBotOwner>
+      owners: Array<string>
       team: TopggBotTeam | null
     }
 > {

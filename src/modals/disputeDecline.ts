@@ -24,7 +24,6 @@ import {
 import { sendErrorLog } from '../utils/errorLogging'
 import {
   fetchTopggBotOwnership,
-  getTopggTeamUrl,
   isTopggUserOnBotTeam,
   validateDiscordId,
   type TopggBotTeam,
@@ -372,15 +371,10 @@ export const execute = async (
   const openerRelationship = openedByOwner
     ? 'Owner (from the decline log)'
     : 'Top.gg team member'
-  const topggTeamDetails = topggTeam
-    ? `\n**Top.gg team:** [View the owning team](${getTopggTeamUrl(
-        topggTeam.id
-      )})`
-    : ''
   const ticketPanel = createDisputeTicketPanel(
     notificationContent,
     `${disputeTitle} - ${interaction.user.username}`,
-    `**Bot ID:** ${disputeID}\n**Opened as:** ${openerRelationship}${topggTeamDetails}\n\n**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
+    `**Bot ID:** ${disputeID}\n**Opened as:** ${openerRelationship}\n\n**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
   )
 
   await thread.send({
