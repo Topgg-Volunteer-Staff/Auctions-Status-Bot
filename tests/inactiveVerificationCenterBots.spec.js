@@ -165,6 +165,39 @@ describe('inactive verification center bot reminders', () => {
     )
   })
 
+  it('prepends an escalation note when building the mod chat copy', async () => {
+    const content = buildVerificationCenterBotReminderContent(
+      '123456789012345678',
+      {
+        id: '223456789012345678',
+        name: 'Example Bot',
+        joinedTimestamp: 1_725_000_000_999,
+        roleNames: [],
+      },
+      { noteText: "sending here as it's 7 days" }
+    )
+
+    expect(content).toBe(
+      "sending here as it's 7 days\n\n<@123456789012345678> -> Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nNone"
+    )
+
+    const message = await buildVerificationCenterBotReminderMessage(
+      '123456789012345678',
+      {
+        id: '223456789012345678',
+        name: 'Example Bot',
+        joinedTimestamp: 1_725_000_000_999,
+        roleNames: [],
+      },
+      {},
+      { noteText: "sending here as it's 7 days" }
+    )
+
+    expect(message.components[0].toJSON().components[0].content).toContain(
+      "sending here as it's 7 days"
+    )
+  })
+
   it('sends the reviewer reminder as a compact Components V2 panel with pings enabled', async () => {
     const message = await buildVerificationCenterBotReminderMessage(
       '123456789012345678',

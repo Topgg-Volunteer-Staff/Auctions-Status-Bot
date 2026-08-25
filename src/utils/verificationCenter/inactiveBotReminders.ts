@@ -217,9 +217,14 @@ function formatInlineCode(value: string): string {
 
 export function buildVerificationCenterBotReminderContent(
   reviewerId: string,
-  bot: VerificationCenterBotReminderTarget
+  bot: VerificationCenterBotReminderTarget,
+  options: { noteText?: string } = {}
 ): string {
-  return `<@${reviewerId}> -> Please check <@${bot.id}> (${formatInlineCode(
+  const notePrefix = options.noteText ? `${options.noteText}\n\n` : ''
+
+  return `${notePrefix}<@${reviewerId}> -> Please check <@${
+    bot.id
+  }> (${formatInlineCode(
     `${bot.name} | ${bot.id}`
   )}) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.
 
@@ -272,7 +277,8 @@ async function fetchModPanelUrl(botId: string): Promise<string | null> {
 export async function buildVerificationCenterBotReminderMessage(
   reviewerId: string,
   bot: VerificationCenterBotReminderTarget,
-  kickButtonOptions: KickVerificationCenterBotButtonOptions = {}
+  kickButtonOptions: KickVerificationCenterBotButtonOptions = {},
+  contentOptions: { noteText?: string } = {}
 ): Promise<MessageCreateOptions> {
   const buttons = [
     new ButtonBuilder()
@@ -294,7 +300,11 @@ export async function buildVerificationCenterBotReminderMessage(
 
   const panel = createTextPanel({
     accentColor: REMINDER_ALERT_COLOR,
-    description: buildVerificationCenterBotReminderContent(reviewerId, bot),
+    description: buildVerificationCenterBotReminderContent(
+      reviewerId,
+      bot,
+      contentOptions
+    ),
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
   )
@@ -345,6 +355,28 @@ async function sendReviewerReminder(
       error
     )
     return false
+  }
+}
+
+async function sendModChatWeeklyEscalation(
+  channel: TextChannel,
+  reviewerId: string,
+  bot: VerificationCenterBotReminderTarget
+): Promise<void> {
+  try {
+    await channel.send(
+      await buildVerificationCenterBotReminderMessage(
+        reviewerId,
+        bot,
+        {},
+        { noteText: "sending here as it's 7 days" }
+      )
+    )
+  } catch (error) {
+    console.error(
+      `Failed to send mod chat escalation for bot ${bot.id}:`,
+      error
+    )
   }
 }
 
@@ -411,6 +443,16 @@ async function runVerificationCenterBotReminderCheck(
       `Reviewer alerts channel ${channelIds.inactiveThreadAlertsReviewers} not found for VC idle bot check`
     )
     return
+  }
+
+  const modChatChannel = (await client.channels
+    .fetch(channelIds.inactiveThreadAlerts)
+    .catch(() => null)) as TextChannel | null
+
+  if (!modChatChannel) {
+    console.error(
+      `Mod chat channel ${channelIds.inactiveThreadAlerts} not found for VC idle bot 7-day escalation`
+    )
   }
 
   const verificationCenter =
@@ -504,6 +546,14 @@ async function runVerificationCenterBotReminderCheck(
       if (reminderSent) {
         markReminderSent(state, reminder)
         stateChanged = true
+
+        if (reminder.weeklyInterval !== null && modChatChannel) {
+          await sendModChatWeeklyEscalation(
+            modChatChannel,
+            reviewer.id,
+            botWithRoles
+          )
+        }
       }
     } catch (error) {
       console.error(`Failed to check VC bot ${member.id}:`, error)
