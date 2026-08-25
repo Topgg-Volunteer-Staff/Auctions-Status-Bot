@@ -18,10 +18,31 @@ const {
 const {
   VERIFICATION_CENTER_GUILD_ID,
 } = require('../dist/utils/verificationCenter/botMembers')
+const { clearTopggTeamCache } = require('../dist/utils/topggTeams')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
+function noModPanelFetchResponse() {
+  return new Response(JSON.stringify({ data: { entityExternal: null } }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
 describe('inactive verification center bot reminders', () => {
+  const originalFetch = global.fetch
+
+  beforeEach(() => {
+    clearTopggTeamCache()
+    global.fetch = jasmine
+      .createSpy('fetch')
+      .and.resolveTo(noModPanelFetchResponse())
+  })
+
+  afterEach(() => {
+    global.fetch = originalFetch
+  })
+
   it('exempts VC bots with the configured role from reminders', () => {
     const exemptBot = {
       roles: {
@@ -133,21 +154,23 @@ describe('inactive verification center bot reminders', () => {
       '123456789012345678',
       {
         id: '223456789012345678',
+        name: 'Example Bot',
         joinedTimestamp: 1_725_000_000_999,
         roleNames: ['Review Queue', 'Priority'],
       }
     )
 
     expect(content).toBe(
-      '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority'
+      '<@123456789012345678> -> Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority'
     )
   })
 
-  it('sends the reviewer reminder as a compact Components V2 panel with pings enabled', () => {
-    const message = buildVerificationCenterBotReminderMessage(
+  it('sends the reviewer reminder as a compact Components V2 panel with pings enabled', async () => {
+    const message = await buildVerificationCenterBotReminderMessage(
       '123456789012345678',
       {
         id: '223456789012345678',
+        name: 'Example Bot',
         joinedTimestamp: 1_725_000_000_000,
         roleNames: ['Review Queue', 'Priority'],
       }
@@ -168,7 +191,7 @@ describe('inactive verification center bot reminders', () => {
         {
           type: ComponentType.TextDisplay,
           content:
-            '<@123456789012345678> -> Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority',
+            '<@123456789012345678> -> Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nReview Queue, Priority',
         },
         {
           type: ComponentType.ActionRow,
@@ -188,21 +211,72 @@ describe('inactive verification center bot reminders', () => {
     })
   })
 
+  it('adds an Open In Modpanel link button when the Top.gg internal ID resolves', async () => {
+    global.fetch.and.resolveTo(
+      new Response(
+        JSON.stringify({
+          data: { entityExternal: { internalId: '01HZXINTERNALID' } },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    )
+
+    const message = await buildVerificationCenterBotReminderMessage(
+      '123456789012345678',
+      {
+        id: '223456789012345678',
+        name: 'Example Bot',
+        joinedTimestamp: 1_725_000_000_000,
+        roleNames: [],
+      }
+    )
+    const buttons = message.components[0].toJSON().components[1].components
+
+    expect(buttons).toHaveSize(2)
+    expect(buttons[1]).toEqual(
+      jasmine.objectContaining({
+        label: 'Open In Modpanel',
+        style: ButtonStyle.Link,
+        url: 'https://moderation.top.gg/project/01HZXINTERNALID',
+      })
+    )
+  })
+
+  it('omits the Open In Modpanel button when the Top.gg lookup fails', async () => {
+    global.fetch.and.rejectWith(new Error('network down'))
+
+    const message = await buildVerificationCenterBotReminderMessage(
+      '123456789012345678',
+      {
+        id: '223456789012345678',
+        name: 'Example Bot',
+        joinedTimestamp: 1_725_000_000_000,
+        roleNames: [],
+      }
+    )
+    const buttons = message.components[0].toJSON().components[1].components
+
+    expect(buttons).toHaveSize(1)
+    expect(buttons[0].label).toBe('Kick Bot')
+  })
+
   it('keeps an unresolved reviewer alert short and only pings the bot', () => {
     const content = buildUnresolvedVerificationCenterBotReminderContent({
       id: '223456789012345678',
+      name: 'Example Bot',
       reviewerName: 'Reviewer Nickname',
       joinedTimestamp: 1_725_000_000_000,
       roleNames: ['Review Queue', 'Priority'],
     })
 
     expect(content).toBe(
-      'Please check <@223456789012345678> (`223456789012345678`) in the VC. It joined <t:1725000000:R>. Could not match reviewer `Reviewer Nickname`.\n\nCurrent Roles:\nReview Queue, Priority'
+      'Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>. Could not match reviewer `Reviewer Nickname`.\n\nCurrent Roles:\nReview Queue, Priority'
     )
     expect(content.match(/<@!?(?:&)?\d+>/g)).toEqual(['<@223456789012345678>'])
 
     const message = buildUnresolvedVerificationCenterBotReminderMessage({
       id: '223456789012345678',
+      name: 'Example Bot',
       reviewerName: 'Reviewer Nickname',
       joinedTimestamp: 1_725_000_000_000,
       roleNames: ['Review Queue', 'Priority'],
@@ -293,6 +367,7 @@ describe('inactive verification center bot reminders', () => {
   it('kicks the original bot membership when the mentioned reviewer clicks', async () => {
     const botMember = {
       user: { bot: true },
+      displayName: 'Reviewer | Example Bot',
       joinedTimestamp: 1_725_000_000_000,
       kickable: true,
       guild: { id: 'verification-center-guild' },
@@ -346,6 +421,9 @@ describe('inactive verification center bot reminders', () => {
         label: 'Kicked by Reviewer',
         disabled: true,
       })
+    )
+    expect(editedPanel.components[0].content).toContain(
+      '(`Example Bot | 223456789012345678`)'
     )
     expect(editedPanel.components[0].content).toContain(
       'Current Roles:\nReview Queue'

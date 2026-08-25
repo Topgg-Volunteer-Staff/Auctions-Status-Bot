@@ -5,7 +5,10 @@ import {
   getVerificationCenterBotRoleNames,
   kickVerificationCenterBotButtonName,
 } from '../utils/verificationCenter/inactiveBotReminders'
-import { VERIFICATION_CENTER_GUILD_ID } from '../utils/verificationCenter/botMembers'
+import {
+  getVerificationCenterBot,
+  VERIFICATION_CENTER_GUILD_ID,
+} from '../utils/verificationCenter/botMembers'
 
 type KickVerificationCenterBotRequest = {
   reviewerId: string
@@ -110,6 +113,8 @@ export const execute = async (
   }
 
   const roleNames = getVerificationCenterBotRoleNames(botMember)
+  const botName =
+    getVerificationCenterBot(botMember)?.name ?? botMember.displayName
 
   try {
     await botMember.kick(
@@ -126,10 +131,11 @@ export const execute = async (
     return
   }
 
-  const kickedReminder = buildVerificationCenterBotReminderMessage(
+  const kickedReminder = await buildVerificationCenterBotReminderMessage(
     request.reviewerId,
     {
       id: request.botId,
+      name: botName,
       joinedTimestamp: request.joinedTimestamp,
       roleNames,
     },

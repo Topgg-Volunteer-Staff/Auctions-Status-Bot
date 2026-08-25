@@ -14,6 +14,7 @@ import {
   loadMongoBackedJson,
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
+import { fetchTopggBotInternalId, getTopggModPanelUrl } from '../topggTeams'
 import {
   findMemberByName,
   getVerificationCenterBot,
@@ -39,6 +40,7 @@ export type VerificationCenterBotReminder = {
 
 type VerificationCenterBotReminderTarget = {
   id: string
+  name: string
   joinedTimestamp: number
   roleNames?: ReadonlyArray<string>
 }
@@ -217,9 +219,9 @@ export function buildVerificationCenterBotReminderContent(
   reviewerId: string,
   bot: VerificationCenterBotReminderTarget
 ): string {
-  return `<@${reviewerId}> -> Please check <@${bot.id}> (\`${
-    bot.id
-  }\`) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.
+  return `<@${reviewerId}> -> Please check <@${bot.id}> (${formatInlineCode(
+    `${bot.name} | ${bot.id}`
+  )}) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.
 
 Current Roles:
 ${bot.roleNames?.join(', ') || 'None'}`
@@ -234,13 +236,14 @@ export function buildKickVerificationCenterBotCustomId(
 
 export function buildUnresolvedVerificationCenterBotReminderContent(bot: {
   id: string
+  name: string
   reviewerName: string
   joinedTimestamp: number
   roleNames?: ReadonlyArray<string>
 }): string {
-  return `Please check <@${bot.id}> (\`${
-    bot.id
-  }\`) in the VC. It joined <t:${Math.floor(
+  return `Please check <@${bot.id}> (${formatInlineCode(
+    `${bot.name} | ${bot.id}`
+  )}) in the VC. It joined <t:${Math.floor(
     bot.joinedTimestamp / 1000
   )}:R>. Could not match reviewer ${formatInlineCode(bot.reviewerName)}.
 
@@ -253,22 +256,47 @@ type KickVerificationCenterBotButtonOptions = {
   label?: string
 }
 
-export function buildVerificationCenterBotReminderMessage(
+async function fetchModPanelUrl(botId: string): Promise<string | null> {
+  try {
+    const internalId = await fetchTopggBotInternalId(botId)
+    return internalId ? getTopggModPanelUrl(internalId) : null
+  } catch (error) {
+    console.error(
+      `Failed to resolve Top.gg internal ID for bot ${botId}:`,
+      error
+    )
+    return null
+  }
+}
+
+export async function buildVerificationCenterBotReminderMessage(
   reviewerId: string,
   bot: VerificationCenterBotReminderTarget,
   kickButtonOptions: KickVerificationCenterBotButtonOptions = {}
-): MessageCreateOptions {
+): Promise<MessageCreateOptions> {
+  const buttons = [
+    new ButtonBuilder()
+      .setCustomId(buildKickVerificationCenterBotCustomId(reviewerId, bot))
+      .setLabel(kickButtonOptions.label ?? 'Kick Bot')
+      .setStyle(ButtonStyle.Danger)
+      .setDisabled(kickButtonOptions.disabled ?? false),
+  ]
+
+  const modPanelUrl = await fetchModPanelUrl(bot.id)
+  if (modPanelUrl) {
+    buttons.push(
+      new ButtonBuilder()
+        .setLabel('Open In Modpanel')
+        .setStyle(ButtonStyle.Link)
+        .setURL(modPanelUrl)
+    )
+  }
+
   const panel = createTextPanel({
     accentColor: REMINDER_ALERT_COLOR,
     description: buildVerificationCenterBotReminderContent(reviewerId, bot),
   }).addActionRowComponents(
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(buildKickVerificationCenterBotCustomId(reviewerId, bot))
-        .setLabel(kickButtonOptions.label ?? 'Kick Bot')
-        .setStyle(ButtonStyle.Danger)
-        .setDisabled(kickButtonOptions.disabled ?? false)
-    )
+    new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
   )
 
   return {
@@ -284,6 +312,7 @@ export function buildVerificationCenterBotReminderMessage(
 
 export function buildUnresolvedVerificationCenterBotReminderMessage(bot: {
   id: string
+  name: string
   reviewerName: string
   joinedTimestamp: number
   roleNames?: ReadonlyArray<string>
@@ -307,7 +336,7 @@ async function sendReviewerReminder(
 ): Promise<boolean> {
   try {
     await channel.send(
-      buildVerificationCenterBotReminderMessage(reviewer.id, bot)
+      await buildVerificationCenterBotReminderMessage(reviewer.id, bot)
     )
     return true
   } catch (error) {
@@ -323,6 +352,7 @@ async function sendUnresolvedReviewerReminder(
   channel: TextChannel,
   bot: {
     id: string
+    name: string
     reviewerName: string
     joinedTimestamp: number
     roleNames?: ReadonlyArray<string>

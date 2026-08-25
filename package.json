@@ -31,7 +31,8 @@
     "list:global": "tsx src/scripts/commands-cli.ts list:global",
     "register:guild": "tsx src/scripts/commands-cli.ts register:guild",
     "unregister:guild": "tsx src/scripts/commands-cli.ts unregister:guild",
-    "list:guild": "tsx src/scripts/commands-cli.ts list:guild"
+    "list:guild": "tsx src/scripts/commands-cli.ts list:guild",
+    "test:modpanel": "tsx src/scripts/test-modpanel-lookup.ts"
   },
   "dependencies": {
     "@discordjs/builders": "1.13.0",

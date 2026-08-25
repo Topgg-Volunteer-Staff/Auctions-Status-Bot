@@ -68,6 +68,7 @@ const botOwnershipCache = new Map<
     team: TopggBotTeam | null
   }>
 >()
+const botInternalIdCache = new Map<string, CacheEntry<string>>()
 
 const USER_TEAMS_QUERY = `
   query UserTeams($id: String!) {
@@ -101,6 +102,14 @@ const BOT_TEAM_QUERY = `
           role
         }
       }
+    }
+  }
+`
+
+const BOT_INTERNAL_ID_QUERY = `
+  query BotEntityInternalId($id: String!, $platform: Platform!, $type: EntityType!) {
+    entityExternal(externalId: $id, platform: $platform, type: $type) {
+      internalId: id
     }
   }
 `
@@ -159,6 +168,15 @@ export function getTopggTeamUrl(teamId: string): string {
   if (!normalizedId) throw new Error('The supplied Top.gg team ID is empty')
 
   return `https://top.gg/team/${encodeURIComponent(normalizedId)}`
+}
+
+export function getTopggModPanelUrl(internalId: string): string {
+  const normalizedId = internalId.trim()
+  if (!normalizedId) throw new Error('The supplied Top.gg internal ID is empty')
+
+  return `https://moderation.top.gg/project/${encodeURIComponent(
+    normalizedId
+  )}`
 }
 
 export async function topggGraphql<T>(
@@ -333,6 +351,22 @@ export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   return ownership
 }
 
+export async function fetchTopggBotInternalId(
+  discordBotId: string
+): Promise<string | null> {
+  const id = validateDiscordId(discordBotId)
+  const cached = getCached(botInternalIdCache, id)
+  if (cached) return cached
+
+  const data = await topggGraphql<{
+    entityExternal: { internalId?: string } | null
+  }>(BOT_INTERNAL_ID_QUERY, { id, platform: 'DISCORD', type: 'BOT' })
+
+  const internalId = data.entityExternal?.internalId ?? null
+  if (internalId !== null) setCached(botInternalIdCache, id, internalId)
+  return internalId
+}
+
 export async function fetchTopggTeamsForDiscordId(
   client: Client,
   input: string
@@ -376,4 +410,5 @@ export async function fetchTopggTeamsForDiscordId(
 export function clearTopggTeamCache(): void {
   userTeamCache.clear()
   botOwnershipCache.clear()
+  botInternalIdCache.clear()
 }
