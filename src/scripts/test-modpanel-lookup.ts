@@ -6,7 +6,7 @@ import * as dotenv from 'dotenv'
 dotenv.config({ path: path.join(process.cwd(), '.env') })
 
 import {
-  fetchTopggBotInternalId,
+  fetchTopggBotModPanelInfo,
   getTopggModPanelUrl,
 } from '../utils/topggTeams'
 
@@ -19,17 +19,18 @@ async function main(): Promise<void> {
     )
   }
 
-  console.log(`Looking up Top.gg internal ID for bot ${botId}...`)
+  console.log(`Looking up Top.gg mod panel info for bot ${botId}...`)
 
-  const internalId = await fetchTopggBotInternalId(botId)
+  const info = await fetchTopggBotModPanelInfo(botId)
 
-  if (!internalId) {
+  if (!info) {
     console.log('No internal ID found (bot is not listed on Top.gg).')
     return
   }
 
-  console.log(`Internal ID: ${internalId}`)
-  console.log(`Modpanel URL: ${getTopggModPanelUrl(internalId)}`)
+  console.log(`Internal ID: ${info.internalId}`)
+  console.log(`Review Status: ${info.reviewStatus ?? '(none)'}`)
+  console.log(`Modpanel URL: ${getTopggModPanelUrl(info.internalId)}`)
 }
 
 main().catch((error: unknown) => {

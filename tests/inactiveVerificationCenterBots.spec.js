@@ -244,11 +244,16 @@ describe('inactive verification center bot reminders', () => {
     })
   })
 
-  it('adds an Open In Modpanel link button when the Top.gg internal ID resolves', async () => {
+  it('adds an Open In Modpanel link button and review status when the Top.gg lookup resolves', async () => {
     global.fetch.and.resolveTo(
       new Response(
         JSON.stringify({
-          data: { entityExternal: { internalId: '01HZXINTERNALID' } },
+          data: {
+            entityExternal: {
+              internalId: '01HZXINTERNALID',
+              reviewStatus: 'IN_REVIEW',
+            },
+          },
         }),
         { status: 200, headers: { 'content-type': 'application/json' } }
       )
@@ -263,7 +268,8 @@ describe('inactive verification center bot reminders', () => {
         roleNames: [],
       }
     )
-    const buttons = message.components[0].toJSON().components[1].components
+    const panel = message.components[0].toJSON()
+    const buttons = panel.components[1].components
 
     expect(buttons).toHaveSize(2)
     expect(buttons[1]).toEqual(
@@ -272,6 +278,36 @@ describe('inactive verification center bot reminders', () => {
         style: ButtonStyle.Link,
         url: 'https://moderation.top.gg/project/01HZXINTERNALID',
       })
+    )
+    expect(panel.components[0].content).toContain(
+      'Review Status: `IN_REVIEW`'
+    )
+  })
+
+  it('omits the review status line when the Top.gg lookup has none', async () => {
+    global.fetch.and.resolveTo(
+      new Response(
+        JSON.stringify({
+          data: {
+            entityExternal: { internalId: '01HZXINTERNALID', reviewStatus: null },
+          },
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
+    )
+
+    const message = await buildVerificationCenterBotReminderMessage(
+      '123456789012345678',
+      {
+        id: '223456789012345678',
+        name: 'Example Bot',
+        joinedTimestamp: 1_725_000_000_000,
+        roleNames: [],
+      }
+    )
+
+    expect(message.components[0].toJSON().components[0].content).not.toContain(
+      'Review Status:'
     )
   })
 

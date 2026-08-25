@@ -14,7 +14,7 @@ import {
   loadMongoBackedJson,
   saveMongoBackedJson,
 } from '../db/mongoBackedJsonStore'
-import { fetchTopggBotInternalId, getTopggModPanelUrl } from '../topggTeams'
+import { fetchTopggBotModPanelInfo, getTopggModPanelUrl } from '../topggTeams'
 import {
   findMemberByName,
   getVerificationCenterBot,
@@ -218,18 +218,22 @@ function formatInlineCode(value: string): string {
 export function buildVerificationCenterBotReminderContent(
   reviewerId: string,
   bot: VerificationCenterBotReminderTarget,
-  options: { noteText?: string } = {}
+  options: { noteText?: string; reviewStatus?: string | null } = {}
 ): string {
-  const notePrefix = options.noteText ? `${options.noteText}\n\n` : ''
+  const sections = [
+    `<@${reviewerId}> -> Please check <@${bot.id}> (${formatInlineCode(
+      `${bot.name} | ${bot.id}`
+    )}) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.`,
+  ]
 
-  return `${notePrefix}<@${reviewerId}> -> Please check <@${
-    bot.id
-  }> (${formatInlineCode(
-    `${bot.name} | ${bot.id}`
-  )}) in the VC. It joined <t:${Math.floor(bot.joinedTimestamp / 1000)}:R>.
+  if (options.reviewStatus) {
+    sections.push(`Review Status: ${formatInlineCode(options.reviewStatus)}`)
+  }
 
-Current Roles:
-${bot.roleNames?.join(', ') || 'None'}`
+  sections.push(`Current Roles:\n${bot.roleNames?.join(', ') || 'None'}`)
+
+  const content = sections.join('\n\n')
+  return options.noteText ? `${options.noteText}\n\n${content}` : content
 }
 
 export function buildKickVerificationCenterBotCustomId(
@@ -261,13 +265,23 @@ type KickVerificationCenterBotButtonOptions = {
   label?: string
 }
 
-async function fetchModPanelUrl(botId: string): Promise<string | null> {
+type ModPanelInfo = {
+  url: string
+  reviewStatus: string | null
+}
+
+async function fetchModPanelInfo(botId: string): Promise<ModPanelInfo | null> {
   try {
-    const internalId = await fetchTopggBotInternalId(botId)
-    return internalId ? getTopggModPanelUrl(internalId) : null
+    const info = await fetchTopggBotModPanelInfo(botId)
+    if (!info) return null
+
+    return {
+      url: getTopggModPanelUrl(info.internalId),
+      reviewStatus: info.reviewStatus,
+    }
   } catch (error) {
     console.error(
-      `Failed to resolve Top.gg internal ID for bot ${botId}:`,
+      `Failed to resolve Top.gg mod panel info for bot ${botId}:`,
       error
     )
     return null
@@ -288,23 +302,22 @@ export async function buildVerificationCenterBotReminderMessage(
       .setDisabled(kickButtonOptions.disabled ?? false),
   ]
 
-  const modPanelUrl = await fetchModPanelUrl(bot.id)
-  if (modPanelUrl) {
+  const modPanelInfo = await fetchModPanelInfo(bot.id)
+  if (modPanelInfo) {
     buttons.push(
       new ButtonBuilder()
         .setLabel('Open In Modpanel')
         .setStyle(ButtonStyle.Link)
-        .setURL(modPanelUrl)
+        .setURL(modPanelInfo.url)
     )
   }
 
   const panel = createTextPanel({
     accentColor: REMINDER_ALERT_COLOR,
-    description: buildVerificationCenterBotReminderContent(
-      reviewerId,
-      bot,
-      contentOptions
-    ),
+    description: buildVerificationCenterBotReminderContent(reviewerId, bot, {
+      ...contentOptions,
+      reviewStatus: modPanelInfo?.reviewStatus ?? null,
+    }),
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(...buttons)
   )

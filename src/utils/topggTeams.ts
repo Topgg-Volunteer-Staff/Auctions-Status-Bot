@@ -37,6 +37,11 @@ export interface TopggBotTeam {
   }>
 }
 
+export interface TopggBotModPanelInfo {
+  internalId: string
+  reviewStatus: string | null
+}
+
 export type TopggLookupErrorKind =
   | 'http'
   | 'graphql'
@@ -68,7 +73,7 @@ const botOwnershipCache = new Map<
     team: TopggBotTeam | null
   }>
 >()
-const botInternalIdCache = new Map<string, CacheEntry<string>>()
+const botModPanelInfoCache = new Map<string, CacheEntry<TopggBotModPanelInfo>>()
 
 const USER_TEAMS_QUERY = `
   query UserTeams($id: String!) {
@@ -106,10 +111,11 @@ const BOT_TEAM_QUERY = `
   }
 `
 
-const BOT_INTERNAL_ID_QUERY = `
-  query BotEntityInternalId($id: String!, $platform: Platform!, $type: EntityType!) {
+const BOT_MOD_PANEL_INFO_QUERY = `
+  query BotEntityModPanelInfo($id: String!, $platform: Platform!, $type: EntityType!) {
     entityExternal(externalId: $id, platform: $platform, type: $type) {
       internalId: id
+      reviewStatus
     }
   }
 `
@@ -174,9 +180,7 @@ export function getTopggModPanelUrl(internalId: string): string {
   const normalizedId = internalId.trim()
   if (!normalizedId) throw new Error('The supplied Top.gg internal ID is empty')
 
-  return `https://moderation.top.gg/project/${encodeURIComponent(
-    normalizedId
-  )}`
+  return `https://moderation.top.gg/project/${encodeURIComponent(normalizedId)}`
 }
 
 export async function topggGraphql<T>(
@@ -351,20 +355,28 @@ export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   return ownership
 }
 
-export async function fetchTopggBotInternalId(
+export async function fetchTopggBotModPanelInfo(
   discordBotId: string
-): Promise<string | null> {
+): Promise<TopggBotModPanelInfo | null> {
   const id = validateDiscordId(discordBotId)
-  const cached = getCached(botInternalIdCache, id)
+  const cached = getCached(botModPanelInfoCache, id)
   if (cached) return cached
 
   const data = await topggGraphql<{
-    entityExternal: { internalId?: string } | null
-  }>(BOT_INTERNAL_ID_QUERY, { id, platform: 'DISCORD', type: 'BOT' })
+    entityExternal: {
+      internalId?: string
+      reviewStatus?: string | null
+    } | null
+  }>(BOT_MOD_PANEL_INFO_QUERY, { id, platform: 'DISCORD', type: 'BOT' })
 
-  const internalId = data.entityExternal?.internalId ?? null
-  if (internalId !== null) setCached(botInternalIdCache, id, internalId)
-  return internalId
+  if (!data.entityExternal?.internalId) return null
+
+  const info: TopggBotModPanelInfo = {
+    internalId: data.entityExternal.internalId,
+    reviewStatus: data.entityExternal.reviewStatus ?? null,
+  }
+  setCached(botModPanelInfoCache, id, info)
+  return info
 }
 
 export async function fetchTopggTeamsForDiscordId(
@@ -410,5 +422,5 @@ export async function fetchTopggTeamsForDiscordId(
 export function clearTopggTeamCache(): void {
   userTeamCache.clear()
   botOwnershipCache.clear()
-  botInternalIdCache.clear()
+  botModPanelInfoCache.clear()
 }
