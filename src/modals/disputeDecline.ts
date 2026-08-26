@@ -16,6 +16,7 @@ import {
   createErrorPanel,
   createSuccessPanel,
 } from '../utils/componentsV2'
+import { createCustomAlertContainer } from '../utils/customAlert'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 import {
   findRecentBotReviewLog,
@@ -209,8 +210,9 @@ export const execute = async (
       `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
     )
 
+    const alertContainer = createCustomAlertContainer()
     await thread.send({
-      components: [ticketPanel],
+      components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],
       flags: COMPONENTS_V2_FLAGS,
       allowedMentions: {
         parse: [],
@@ -377,8 +379,9 @@ export const execute = async (
     `**Bot ID:** ${disputeID}\n**Opened as:** ${openerRelationship}\n\n**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
   )
 
+  const alertContainer = createCustomAlertContainer()
   await thread.send({
-    components: [ticketPanel],
+    components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
       parse: [],

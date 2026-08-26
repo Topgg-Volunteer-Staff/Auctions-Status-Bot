@@ -9,6 +9,7 @@ import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
   createTextPanel,
 } from '../utils/componentsV2'
+import { createCustomAlertContainer } from '../utils/customAlert'
 
 export const menu = {
   name: 'dispute_decline',
@@ -35,8 +36,10 @@ export const execute = async (
       '**__This ticket is strictly for discussing project rejections.__**\n\nIf you are disputing your projects decline, click the button below. For all other questions, please use the <#714045415707770900> channel!\n\n:x: Tickets opened for any other reason will be closed without explanation.',
   }).addActionRowComponents(row)
 
+  const alertContainer = createCustomAlertContainer()
+
   await interaction.followUp({
-    components: [panel],
+    components: alertContainer ? [alertContainer, panel] : [panel],
     flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
   })
 }

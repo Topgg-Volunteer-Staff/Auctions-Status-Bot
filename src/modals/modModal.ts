@@ -20,6 +20,7 @@ import {
   createErrorPanel,
   createSuccessPanel,
 } from '../utils/componentsV2'
+import { createCustomAlertContainer } from '../utils/customAlert'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 const MAX_MESSAGE_CONTENT_LENGTH = 2_000
@@ -355,8 +356,9 @@ export const execute = async (
   })
 
   // Send the initial ticket panel together with the close button.
+  const alertContainer = createCustomAlertContainer()
   await thread.send({
-    components: [ticketPanel],
+    components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
       parse: [],

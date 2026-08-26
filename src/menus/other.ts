@@ -11,16 +11,13 @@ import {
   FileUploadBuilder,
 } from 'discord.js'
 
+import { promptAlertConfirmationIfActive } from '../utils/customAlert'
+
 export const menu = {
   name: 'other',
 }
 
-export const execute = async (
-  _client: Client,
-  interaction: StringSelectMenuInteraction
-) => {
-  if (!interaction.inCachedGuild()) return
-
+export function buildOtherModal(): ModalBuilder {
   const modal = new ModalBuilder()
     .setCustomId('modModal_other') // modal custom id
     .setTitle('I need help with something else')
@@ -89,5 +86,16 @@ export const execute = async (
     )
 
   modal.addLabelComponents(categorySelectLabel, reasonLabel, imagesLabel)
-  await interaction.showModal(modal)
+  return modal
+}
+
+export const execute = async (
+  _client: Client,
+  interaction: StringSelectMenuInteraction
+) => {
+  if (!interaction.inCachedGuild()) return
+  if (await promptAlertConfirmationIfActive(interaction, 'confirmTicketAlert_other'))
+    return
+
+  await interaction.showModal(buildOtherModal())
 }

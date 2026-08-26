@@ -15,12 +15,7 @@ export const button = {
   name: 'disputeCreate',
 }
 
-export const execute = async (
-  _client: Client,
-  interaction: ButtonInteraction
-) => {
-  if (!interaction.inCachedGuild()) return
-
+export function buildDisputeModal(): ModalBuilder {
   const modal = new ModalBuilder()
     .setCustomId('disputeDecline')
     .setTitle('Dispute a project decline')
@@ -115,11 +110,22 @@ export const execute = async (
     .setLabel('Screenshots')
     .setDescription('Optional: upload relevant images to support your dispute.')
     .setFileUploadComponent(fileUpload)
+
   modal.addLabelComponents(
     reasonSelectLabel,
     reasonInputLabel,
     reasonLabel,
     fileUploadLabel
   )
-  await interaction.showModal(modal)
+
+  return modal
+}
+
+export const execute = async (
+  _client: Client,
+  interaction: ButtonInteraction
+) => {
+  if (!interaction.inCachedGuild()) return
+
+  await interaction.showModal(buildDisputeModal())
 }

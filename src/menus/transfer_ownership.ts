@@ -11,16 +11,13 @@ import {
   TextDisplayBuilder,
 } from 'discord.js'
 
+import { promptAlertConfirmationIfActive } from '../utils/customAlert'
+
 export const menu = {
   name: 'transfer_ownership',
 }
 
-export const execute = async (
-  _client: Client,
-  interaction: StringSelectMenuInteraction
-) => {
-  if (!interaction.inCachedGuild()) return
-
+export function buildTransferOwnershipModal(): ModalBuilder {
   const modal = new ModalBuilder()
     .setCustomId('modModal_transfer_ownership') // modal custom id
     .setTitle('Request an ownership transfer')
@@ -72,5 +69,21 @@ export const execute = async (
 
   modal.addLabelComponents(projectTypeLabel, linkLabel, ownershipUserLabel)
 
-  await interaction.showModal(modal)
+  return modal
+}
+
+export const execute = async (
+  _client: Client,
+  interaction: StringSelectMenuInteraction
+) => {
+  if (!interaction.inCachedGuild()) return
+  if (
+    await promptAlertConfirmationIfActive(
+      interaction,
+      'confirmTicketAlert_transfer_ownership'
+    )
+  )
+    return
+
+  await interaction.showModal(buildTransferOwnershipModal())
 }

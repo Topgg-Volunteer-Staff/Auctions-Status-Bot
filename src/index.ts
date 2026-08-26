@@ -35,6 +35,7 @@ import {
   maybeHandleStaffTicketReminder,
 } from './utils/tickets/staffTicketReminders'
 import { initializeTempRoleStore } from './utils/tempRoles'
+import { initializeCustomAlertStore } from './utils/customAlert'
 import { getResolvedThreadName } from './utils/tickets/resolvedThreadName'
 import {
   loadMongoBackedJson,
@@ -853,6 +854,10 @@ client.on('clientReady', async (readyClient) => {
       'staffBreakNotification.store.init.failed',
       error
     )
+  })
+
+  await initializeCustomAlertStore(readyClient).catch((error) => {
+    void sendMongoErrorLog(readyClient, 'customAlert.store.init.failed', error)
   })
 
   startReminders(readyClient)
