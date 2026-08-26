@@ -25,7 +25,6 @@ export const command = new SlashCommandBuilder()
   .setName('outage-alert')
   .setDescription('Manage the known-outage alert shown on ticket panels')
   .setContexts(InteractionContextType.Guild)
-  .setDefaultMemberPermissions('0')
   .addSubcommand((sub) =>
     sub
       .setName('set')
