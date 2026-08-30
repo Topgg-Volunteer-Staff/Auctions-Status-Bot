@@ -17,7 +17,13 @@ import {
   createSuccessPanel,
 } from '../utils/componentsV2'
 import { createCustomAlertContainer } from '../utils/customAlert'
-import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+import {
+  createConsolidatedDisputePanel,
+  getTicketDmResponsesState,
+  registerTicketThread,
+  setToggleMessageUrl,
+  sendDmOnResponsesPrompt,
+} from '../utils/tickets/dmOnResponses'
 import {
   findRecentBotReviewLog,
   resolveDisputeReviewer,
@@ -393,17 +399,48 @@ export const execute = async (
     },
   })
 
-  await sendDmOnResponsesPrompt(thread, interaction.user.id)
+  await registerTicketThread(thread.id, interaction.user.id)
+  const dmState = await getTicketDmResponsesState(
+    thread.id,
+    interaction.user.id
+  )
+
+  const declineReason =
+    matchingMessage.embeds
+      .flatMap((embed) => [embed.description, ...embed.fields.map((f) => f.value)])
+      .find((text) => text && text.length > 0) || undefined
+
+  const consolidatedPanel = createConsolidatedDisputePanel(
+    interaction.user.id,
+    dmState.enabled,
+    dmState.deliveryStatus,
+    dmState.inheritedDisabled,
+    disputeID,
+    reviewerName,
+    matchingMessage.url,
+    declineReason
+  )
+
+  const sent = await thread.send({
+    components: [consolidatedPanel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
+  })
+
+  await setToggleMessageUrl(thread.id, sent.url).catch(() => void 0)
 
   let forwardContent = matchingMessage.content || ''
   forwardContent = forwardContent.replace(/<@&?\d+>/g, '').trim()
 
-  await thread.send({
-    ...(forwardContent && { content: forwardContent }),
-    embeds: matchingMessage.embeds,
-    files: matchingMessage.attachments.map((att) => ({ attachment: att.url })),
-    allowedMentions: { parse: [] },
-  })
+  if (forwardContent || matchingMessage.attachments.size > 0) {
+    await thread.send({
+      ...(forwardContent && { content: forwardContent }),
+      files: Array.from(matchingMessage.attachments.values()).map((att) => ({
+        attachment: att.url,
+      })),
+      allowedMentions: { parse: [] },
+    })
+  }
 
   const webhook = await modTickets.createWebhook({
     name: interaction.user.username,

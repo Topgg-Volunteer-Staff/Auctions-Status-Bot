@@ -1104,6 +1104,21 @@ export async function removeTicketDmPreference(
   await queuePersist().catch(() => void 0)
 }
 
+export async function setToggleMessageUrl(
+  threadId: string,
+  messageUrl: string
+): Promise<void> {
+  await initStore()
+  const current = ticketDmPreferences.get(threadId)
+  if (!current) return
+
+  ticketDmPreferences.set(threadId, {
+    ...current,
+    toggleMessageUrl: messageUrl,
+  })
+  await queuePersist().catch(() => void 0)
+}
+
 function buildDmResponsePromptDescription(
   openerId: string,
   enabled: boolean,
@@ -1157,6 +1172,47 @@ export function createDmOnResponsesPanel(
       status,
       inheritedDisabled
     ),
+  }).addActionRowComponents(createDmOnResponsesRow(openerId, enabled))
+}
+
+export function createConsolidatedDisputePanel(
+  openerId: string,
+  enabled: boolean,
+  status: TicketDmDeliveryStatus | undefined,
+  inheritedDisabled: boolean,
+  botId: string,
+  reviewerName: string,
+  declineUrl: string,
+  declineReason?: string
+): ContainerBuilder {
+  const dmStatusLine = enabled
+    ? `<@${openerId}> has opted in for DM responses.`
+    : inheritedDisabled
+      ? `<@${openerId}> opted out of ticket DMs.`
+      : `<@${openerId}> has opted out of DM responses.`
+
+  const deliveryStatusLine = buildDmDeliveryStatusLine(status)
+  const deliveryStatusText = deliveryStatusLine ? `\n\n${deliveryStatusLine}` : ''
+
+  const declineDetailsLines = [
+    `Reviewer: ${reviewerName}`,
+    ...(declineReason ? [`Reason: ${declineReason}`] : []),
+    `[See original decline](${declineUrl})`,
+  ]
+
+  return createTextPanel({
+    accentColor: 0xff3366,
+    title: 'Dispute Summary',
+    description: [
+      '**Bot Information**',
+      `Bot ID: \`${botId}\``,
+      '',
+      '**Decline Details**',
+      ...declineDetailsLines,
+      '',
+      '**Ticket Response Notifications**',
+      `${dmStatusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.${deliveryStatusText}`,
+    ].join('\n'),
   }).addActionRowComponents(createDmOnResponsesRow(openerId, enabled))
 }
 
