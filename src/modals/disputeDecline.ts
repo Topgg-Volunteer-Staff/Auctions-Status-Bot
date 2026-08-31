@@ -435,10 +435,17 @@ export const execute = async (
     interaction.user.id
   )
 
-  const declineReason =
-    matchingMessage.embeds
-      .flatMap((embed) => [embed.description, ...embed.fields.map((f) => f.value)])
-      .find((text) => text && text.length > 0) || undefined
+  // Extract decline reason from the "Reason" field specifically
+  let declineReason: string | undefined
+  for (const embed of matchingMessage.embeds) {
+    const reasonField = embed.fields.find(
+      (field) => field.name.toLowerCase() === 'reason'
+    )
+    if (reasonField?.value) {
+      declineReason = reasonField.value
+      break
+    }
+  }
 
   // Create a comprehensive panel combining all dispute information
   const dmStatusText = dmState.enabled
