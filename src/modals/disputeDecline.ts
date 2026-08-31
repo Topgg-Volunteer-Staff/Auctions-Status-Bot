@@ -221,6 +221,8 @@ export const execute = async (
       interaction.user.id
     )
 
+    const unknownDmStatusText = dmState.enabled ? 'On' : 'Off'
+
     const unknownBotPanel = new ContainerBuilder()
       .setAccentColor(0xff3366)
       .addTextDisplayComponents(
@@ -228,17 +230,9 @@ export const execute = async (
         new TextDisplayBuilder().setContent(`## ${disputeTitle} - ${interaction.user.username}`),
         new TextDisplayBuilder().setContent(
           [
-            '**Bot Information**',
-            `Bot ID: \`${disputeID}\``,
+            '**Bot ID:** `' + disputeID + '`',
             '',
-            '**Ticket Response Notifications**',
-            dmState.enabled
-              ? `<@${interaction.user.id}> has opted in for DM responses.`
-              : `<@${interaction.user.id}> has opted out of DM responses.`,
-            '',
-            'When staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.',
-            '',
-            'Please provide any additional evidence or reasoning below.',
+            '-# DM notifications: ' + unknownDmStatusText,
           ].join('\n')
         )
       )
@@ -447,6 +441,12 @@ export const execute = async (
       .find((text) => text && text.length > 0) || undefined
 
   // Create a comprehensive panel combining all dispute information
+  const dmStatusText = dmState.enabled
+    ? 'On'
+    : dmState.inheritedDisabled
+      ? 'Off (global setting)'
+      : 'Off'
+
   const comprehensivePanel = new ContainerBuilder()
     .setAccentColor(0xff3366)
     .addTextDisplayComponents(
@@ -454,25 +454,14 @@ export const execute = async (
       new TextDisplayBuilder().setContent(`## ${disputeTitle} - ${interaction.user.username}`),
       new TextDisplayBuilder().setContent(
         [
-          '**Bot Information**',
-          `Bot ID: \`${disputeID}\``,
-          `Opened as: ${openerRelationship}`,
+          '**Bot ID:** `' + disputeID + '`',
+          '**Opened as:** ' + openerRelationship,
           '',
-          '**Decline Details**',
-          `Reviewer: ${reviewerName}`,
-          ...(declineReason ? [`Reason: ${declineReason}`] : []),
-          `[See original decline](${matchingMessage.url})`,
+          '**Reviewer:** ' + reviewerName,
+          ...(declineReason ? ['**Reason:** ' + declineReason] : []),
+          '[See original decline](' + matchingMessage.url + ')',
           '',
-          '**Ticket Response Notifications**',
-          dmState.enabled
-            ? `<@${interaction.user.id}> has opted in for DM responses.`
-            : dmState.inheritedDisabled
-              ? `<@${interaction.user.id}> opted out of ticket DMs.`
-              : `<@${interaction.user.id}> has opted out of DM responses.`,
-          '',
-          'When staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.',
-          '',
-          'Please provide any additional evidence or reasoning below.',
+          '-# DM notifications: ' + dmStatusText,
         ].join('\n')
       )
     )
