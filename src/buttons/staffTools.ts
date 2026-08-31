@@ -32,7 +32,8 @@ async function isStaff(interaction: ButtonInteraction): Promise<boolean> {
 }
 
 function extractBotIdFromContent(content: string): string | null {
-  const match = content.match(/Bot ID: `(\d+)`/)
+  // Match both formats: "Bot ID: `123`" and "Bot ID: 123" or "Bot ID:**123**"
+  const match = content.match(/Bot ID:[\s`*]*(\d{10,30})/)
   return match?.[1] ?? null
 }
 
