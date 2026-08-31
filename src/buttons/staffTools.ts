@@ -6,6 +6,7 @@ import {
   MessageFlags,
   TextDisplayBuilder,
 } from 'discord.js'
+import { COMPONENTS_V2_FLAGS } from '../utils/componentsV2'
 import { roleIds } from '../globals'
 import { sendErrorLog } from '../utils/errorLogging'
 import {
@@ -129,6 +130,7 @@ export const execute = async (
 
     await interaction.editReply({
       components: [panel],
+      flags: COMPONENTS_V2_FLAGS,
     })
   } catch (error) {
     await sendErrorLog(
