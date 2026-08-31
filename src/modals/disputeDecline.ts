@@ -408,7 +408,7 @@ export const execute = async (
       : ` ${reviewerNotificationsMention} no valid reviewer - please investigate.`
   }`
   const openerRelationship = openedByOwner
-    ? 'Owner (from the decline log)'
+    ? 'Owner'
     : 'Top.gg team member'
 
   const alertContainer = createCustomAlertContainer()
