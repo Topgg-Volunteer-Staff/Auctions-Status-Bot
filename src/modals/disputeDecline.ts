@@ -7,6 +7,9 @@ import {
   MessageFlags,
   MessageType,
   TextDisplayBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   type Collection,
   type Attachment,
 } from 'discord.js'
@@ -18,7 +21,7 @@ import {
 } from '../utils/componentsV2'
 import { createCustomAlertContainer } from '../utils/customAlert'
 import {
-  createConsolidatedDisputePanel,
+  createDmOnResponsesRow,
   getTicketDmResponsesState,
   registerTicketThread,
   setToggleMessageUrl,
@@ -48,19 +51,6 @@ export function extractDisputeOwnerId(content: string): string | null {
   return content.match(/<@!?(\d{10,30})>/)?.[1] ?? null
 }
 
-function createDisputeTicketPanel(
-  notificationContent: string,
-  title: string,
-  description: string
-): ContainerBuilder {
-  return new ContainerBuilder()
-    .setAccentColor(0xff3366)
-    .addTextDisplayComponents(
-      new TextDisplayBuilder().setContent(notificationContent),
-      new TextDisplayBuilder().setContent(`## ${title}`),
-      new TextDisplayBuilder().setContent(description)
-    )
-}
 
 export const modal = {
   name: 'disputeDecline',
@@ -210,15 +200,62 @@ export const execute = async (
       : 'reviewers'
 
     const notificationContent = `<@${interaction.user.id}> has opened a dispute. ${reviewerNotificationsMention} no decline log found for this bot - please investigate.`
-    const ticketPanel = createDisputeTicketPanel(
-      notificationContent,
-      `${disputeTitle} - ${interaction.user.username}`,
-      `**Bot ID:** ${disputeID}\n\nPlease provide any additional evidence or reasoning below.`
-    )
 
     const alertContainer = createCustomAlertContainer()
-    await thread.send({
-      components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],
+    if (alertContainer) {
+      await thread.send({
+        components: [alertContainer],
+        flags: COMPONENTS_V2_FLAGS,
+        allowedMentions: {
+          parse: [],
+          users: isSnowflake(interaction.user.id) ? [interaction.user.id] : [],
+          roles: reviewerNotificationsRoleId ? [reviewerNotificationsRoleId] : [],
+        },
+      })
+    }
+
+    await sendDmOnResponsesPrompt(thread, interaction.user.id)
+
+    const dmState = await getTicketDmResponsesState(
+      thread.id,
+      interaction.user.id
+    )
+
+    const unknownBotPanel = new ContainerBuilder()
+      .setAccentColor(0xff3366)
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(notificationContent),
+        new TextDisplayBuilder().setContent(`## ${disputeTitle} - ${interaction.user.username}`),
+        new TextDisplayBuilder().setContent(
+          [
+            '**Bot Information**',
+            `Bot ID: \`${disputeID}\``,
+            '',
+            '**Ticket Response Notifications**',
+            dmState.enabled
+              ? `<@${interaction.user.id}> has opted in for DM responses.`
+              : `<@${interaction.user.id}> has opted out of DM responses.`,
+            '',
+            'When staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.',
+            '',
+            'Please provide any additional evidence or reasoning below.',
+          ].join('\n')
+        )
+      )
+      .addActionRowComponents(
+        createDmOnResponsesRow(interaction.user.id, dmState.enabled)
+      )
+      .addActionRowComponents(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('staffTools')
+            .setLabel('Staff Tools')
+            .setStyle(ButtonStyle.Secondary)
+        )
+      )
+
+    const sent = await thread.send({
+      components: [unknownBotPanel],
       flags: COMPONENTS_V2_FLAGS,
       allowedMentions: {
         parse: [],
@@ -227,7 +264,7 @@ export const execute = async (
       },
     })
 
-    await sendDmOnResponsesPrompt(thread, interaction.user.id)
+    await setToggleMessageUrl(thread.id, sent.url).catch(() => void 0)
 
     const webhook = await modTickets.createWebhook({
       name: interaction.user.username,
@@ -379,25 +416,24 @@ export const execute = async (
   const openerRelationship = openedByOwner
     ? 'Owner (from the decline log)'
     : 'Top.gg team member'
-  const ticketPanel = createDisputeTicketPanel(
-    notificationContent,
-    `${disputeTitle} - ${interaction.user.username}`,
-    `**Bot ID:** ${disputeID}\n**Opened as:** ${openerRelationship}\n\n**See decline here:** ${matchingMessage.url}\n\nPlease provide any additional evidence or reasoning below.`
-  )
 
   const alertContainer = createCustomAlertContainer()
-  await thread.send({
-    components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],
-    flags: COMPONENTS_V2_FLAGS,
-    allowedMentions: {
-      parse: [],
-      users: mentionUserIds,
-      roles:
-        reviewerId || !reviewerNotificationsRoleId
-          ? []
-          : [reviewerNotificationsRoleId],
-    },
-  })
+
+  // Send initial notification
+  if (alertContainer) {
+    await thread.send({
+      components: [alertContainer],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: {
+        parse: [],
+        users: mentionUserIds,
+        roles:
+          reviewerId || !reviewerNotificationsRoleId
+            ? []
+            : [reviewerNotificationsRoleId],
+      },
+    })
+  }
 
   await registerTicketThread(thread.id, interaction.user.id)
   const dmState = await getTicketDmResponsesState(
@@ -410,21 +446,59 @@ export const execute = async (
       .flatMap((embed) => [embed.description, ...embed.fields.map((f) => f.value)])
       .find((text) => text && text.length > 0) || undefined
 
-  const consolidatedPanel = createConsolidatedDisputePanel(
-    interaction.user.id,
-    dmState.enabled,
-    dmState.deliveryStatus,
-    dmState.inheritedDisabled,
-    disputeID,
-    reviewerName,
-    matchingMessage.url,
-    declineReason
-  )
+  // Create a comprehensive panel combining all dispute information
+  const comprehensivePanel = new ContainerBuilder()
+    .setAccentColor(0xff3366)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(notificationContent),
+      new TextDisplayBuilder().setContent(`## ${disputeTitle} - ${interaction.user.username}`),
+      new TextDisplayBuilder().setContent(
+        [
+          '**Bot Information**',
+          `Bot ID: \`${disputeID}\``,
+          `Opened as: ${openerRelationship}`,
+          '',
+          '**Decline Details**',
+          `Reviewer: ${reviewerName}`,
+          ...(declineReason ? [`Reason: ${declineReason}`] : []),
+          `[See original decline](${matchingMessage.url})`,
+          '',
+          '**Ticket Response Notifications**',
+          dmState.enabled
+            ? `<@${interaction.user.id}> has opted in for DM responses.`
+            : dmState.inheritedDisabled
+              ? `<@${interaction.user.id}> opted out of ticket DMs.`
+              : `<@${interaction.user.id}> has opted out of DM responses.`,
+          '',
+          'When staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.',
+          '',
+          'Please provide any additional evidence or reasoning below.',
+        ].join('\n')
+      )
+    )
+    .addActionRowComponents(
+      createDmOnResponsesRow(interaction.user.id, dmState.enabled)
+    )
+    .addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId('staffTools')
+          .setLabel('Staff Tools')
+          .setStyle(ButtonStyle.Secondary)
+      )
+    )
 
   const sent = await thread.send({
-    components: [consolidatedPanel],
+    components: [comprehensivePanel],
     flags: COMPONENTS_V2_FLAGS,
-    allowedMentions: { parse: [] },
+    allowedMentions: {
+      parse: [],
+      users: mentionUserIds,
+      roles:
+        reviewerId || !reviewerNotificationsRoleId
+          ? []
+          : [reviewerNotificationsRoleId],
+    },
   })
 
   await setToggleMessageUrl(thread.id, sent.url).catch(() => void 0)

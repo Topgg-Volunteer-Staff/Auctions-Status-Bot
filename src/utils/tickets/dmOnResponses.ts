@@ -1211,7 +1211,10 @@ export function createConsolidatedDisputePanel(
       ...declineDetailsLines,
       '',
       '**Ticket Response Notifications**',
-      `${dmStatusLine}\n\nWhen staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.${deliveryStatusText}`,
+      dmStatusLine,
+      '',
+      'When staff respond in this ticket, you will receive a DM reminder if you have not replied after 5 minutes.',
+      ...(deliveryStatusText ? [deliveryStatusText] : []),
     ].join('\n'),
   }).addActionRowComponents(createDmOnResponsesRow(openerId, enabled))
 }
