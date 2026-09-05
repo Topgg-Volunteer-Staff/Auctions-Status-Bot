@@ -15,11 +15,15 @@ import {
   createSuccessPanel,
 } from '../utils/componentsV2'
 import { emoji } from '../utils/emojis'
+import { sendErrorLog } from '../utils/errorLogging'
 import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
 import { recordResolvedTicketCredit } from '../utils/tickets/resolvedTicketCredit'
 import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
 import { removeThread } from '../utils/tickets/trackActivity'
+import { generateTranscript } from '../utils/tickets/generateTranscript'
+import { sendTranscriptDm } from '../utils/tickets/sendTranscript'
+import { saveTranscript } from '../utils/db/transcripts'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
@@ -80,6 +84,90 @@ export const execute = async (
       components: [createSuccessPanel(`Ticket resolved!`, `${resolveString}`)],
       flags: COMPONENTS_V2_FLAGS,
       allowedMentions: { parse: [] },
+    })
+
+    // Generate and send transcript
+    let transcriptHtml: string
+    try {
+      transcriptHtml = await generateTranscript(thread)
+    } catch (error) {
+      await sendErrorLog(client, 'Failed to generate ticket transcript', error, {
+        threadId: thread.id,
+        threadName: thread.name,
+      })
+      throw error
+    }
+
+    // Get the thread owner (usually in thread name or first message)
+    const threadMessages = await thread.messages.fetch({ limit: 1 })
+    const firstMessage = threadMessages.last()
+    const threadOwner = firstMessage?.author
+
+    if (threadOwner) {
+      const dmResult = await sendTranscriptDm(
+        threadOwner,
+        thread,
+        transcriptHtml
+      )
+
+      if (!dmResult.success) {
+        await sendErrorLog(
+          client,
+          'Failed to send transcript DM',
+          dmResult.error || 'Unknown error',
+          {
+            threadId: thread.id,
+            threadName: thread.name,
+            userId: threadOwner.id,
+          }
+        )
+
+        // Notify in channel that DM failed
+        await thread.send({
+          content: `${threadOwner.toString()}, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
+          allowedMentions: { parse: ['users'] },
+        }).catch(() => void 0)
+      }
+    }
+
+    // Save transcript to database
+    if (threadOwner) {
+      const isModTicket = parent.id === channelIds.modTickets
+      await saveTranscript({
+        threadId: thread.id,
+        threadName: originalThreadName,
+        userId: threadOwner.id,
+        transcriptHtml,
+        generatedAt: interaction.createdAt,
+        resolvedAt: interaction.createdAt,
+        resolvedBy: interaction.user.id,
+        isModTicket,
+      }).catch((error) => {
+        sendErrorLog(client, 'Failed to save transcript to database', error, {
+          threadId: thread.id,
+          threadName: thread.name,
+          userId: threadOwner.id,
+        })
+      })
+    }
+
+    // Post transcript in channel
+    const buffer = Buffer.from(transcriptHtml, 'utf-8')
+    const fileName = `transcript-${thread.id}.html`
+
+    await thread.send({
+      content: 'Here is the transcript for this ticket:',
+      files: [
+        {
+          attachment: buffer,
+          name: fileName,
+        },
+      ],
+    }).catch((error) => {
+      sendErrorLog(client, 'Failed to post transcript in channel', error, {
+        threadId: thread.id,
+        threadName: thread.name,
+      })
     })
 
     await removeTicketDmPreference(thread.id).catch((error) => {
