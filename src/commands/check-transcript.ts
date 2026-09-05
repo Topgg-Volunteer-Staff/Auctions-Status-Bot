@@ -104,7 +104,7 @@ export const execute = async (
     })
 
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId('transcript_select')
+      .setCustomId('select_transcript')
       .setPlaceholder('Select a transcript to download')
       .addOptions(selectOptions)
 
