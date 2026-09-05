@@ -10,7 +10,7 @@ import {
 import { getTranscript } from '../utils/db/transcripts'
 import { sendErrorLog } from '../utils/errorLogging'
 
-export const button = { name: 'transcript_view' }
+export const button = { name: 'transcript' }
 
 export const execute = async (
   client: Client,
