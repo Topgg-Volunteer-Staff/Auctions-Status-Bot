@@ -11,6 +11,7 @@ export const generateTranscript = async (
       const timestamp = new Date(msg.createdTimestamp).toLocaleString()
       const content = msg.content || '*(No text content)*'
       const author = msg.author.username
+      const userId = msg.author.id
       const avatar = msg.author.displayAvatarURL()
 
       let messageContent = escapeHtml(content)
@@ -23,15 +24,15 @@ export const generateTranscript = async (
       }
 
       return `
-        <div style="margin: 12px 0; padding: 12px; border-radius: 8px; background: #fafafa; border-left: 4px solid #5865f2;">
-          <div style="display: flex; align-items: center; margin-bottom: 8px;">
-            <img src="${avatar}" alt="${author}" style="width: 32px; height: 32px; border-radius: 50%; margin-right: 8px;">
-            <div>
-              <strong style="color: #2c3e50;">${escapeHtml(author)}</strong>
-              <span style="color: #7f8c8d; font-size: 12px; margin-left: 8px;">${timestamp}</span>
+        <div class="message">
+          <div class="message-header">
+            <img src="${avatar}" alt="${author}" class="message-avatar">
+            <div class="message-info">
+              <div class="message-author">${escapeHtml(author)} <span style="color: #7f8c8d; font-weight: normal;">(${userId})</span></div>
+              <div class="message-time">${timestamp}</div>
             </div>
           </div>
-          <div style="color: #2c3e50; line-height: 1.5;">
+          <div class="message-content">
             ${messageContent}
           </div>
         </div>
