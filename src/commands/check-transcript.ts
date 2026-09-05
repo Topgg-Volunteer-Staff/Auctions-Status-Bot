@@ -7,6 +7,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
 } from 'discord.js'
 import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
@@ -73,7 +74,7 @@ export const execute = async (
   }
 
   try {
-    await interaction.deferReply({ ephemeral: true })
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
     const transcripts = await getUserTranscripts(userId)
 

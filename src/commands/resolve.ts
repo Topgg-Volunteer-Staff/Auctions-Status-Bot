@@ -6,6 +6,9 @@ import {
   InteractionContextType,
   ThreadChannel,
   EmbedBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ActionRowBuilder,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -180,7 +183,7 @@ export const execute = async (
         const dmResult = await sendTranscriptDm(
           userForDm,
           thread,
-          transcriptHtml
+          interaction.user.id
         )
 
         if (!dmResult.success) {
@@ -237,12 +240,13 @@ export const execute = async (
     }
 
     // Post transcript embed in channel
-    const buffer = Buffer.from(transcriptHtml, 'utf-8')
-    const fileName = `transcript-${thread.id}.html`
+    const disclaimerText = isModTicket
+      ? 'These transcripts are available to yourself and our Support Associates, as well as our Moderator team and any reviewer that handled your ticket. Let us know if you have any questions or concerns.'
+      : 'These transcripts are only available to yourself and the Support Associate that handled your ticket. Let us know if you have any questions or concerns.'
 
     const transcriptEmbed = new EmbedBuilder()
       .setTitle('📋 Ticket Transcript')
-      .setDescription(originalThreadName)
+      .setDescription(`**${originalThreadName}**\n\n${disclaimerText}`)
       .addFields(
         {
           name: 'Ticket Type',
@@ -253,25 +257,22 @@ export const execute = async (
           name: 'Resolved By',
           value: `<@${interaction.user.id}>`,
           inline: true,
-        },
-        {
-          name: 'Resolved At',
-          value: `<t:${Math.floor(interaction.createdAt.getTime() / 1000)}:f>`,
-          inline: true,
         }
       )
       .setColor(isModTicket ? 0xff6b6b : 0x4ecdc4)
       .setTimestamp()
-      .setFooter({ text: 'Transcript saved for record keeping' })
+
+    const transcriptButton = new ButtonBuilder()
+      .setCustomId(`transcript_view_${thread.id}`)
+      .setLabel('Transcript')
+      .setEmoji('📋')
+      .setStyle(ButtonStyle.Secondary)
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
 
     await thread.send({
       embeds: [transcriptEmbed],
-      files: [
-        {
-          attachment: buffer,
-          name: fileName,
-        },
-      ],
+      components: [row],
     }).catch((error) => {
       sendErrorLog(client, 'Failed to post transcript in channel', error, {
         threadId: thread.id,

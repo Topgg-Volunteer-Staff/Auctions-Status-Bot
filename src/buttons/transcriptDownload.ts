@@ -1,6 +1,7 @@
 import {
   Client,
   ButtonInteraction,
+  MessageFlags,
 } from 'discord.js'
 import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
@@ -9,16 +10,16 @@ import {
 import { getTranscript } from '../utils/db/transcripts'
 import { sendErrorLog } from '../utils/errorLogging'
 
-export const button = { name: 'transcript_download' }
+export const button = { name: 'transcript_view' }
 
 export const execute = async (
   client: Client,
   interaction: ButtonInteraction
 ): Promise<void> => {
-  const threadId = interaction.customId.replace('transcript_download_', '')
+  const threadId = interaction.customId.replace('transcript_view_', '')
 
   try {
-    await interaction.deferReply({ ephemeral: true })
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
     const transcript = await getTranscript(threadId)
 
@@ -33,14 +34,12 @@ export const execute = async (
     const fileName = `transcript-${threadId}.html`
 
     await interaction.editReply({
-      content: `Here is the transcript for **${transcript.threadName}**`,
       files: [
         {
           attachment: buffer,
           name: fileName,
         },
       ],
-      components: [],
     })
   } catch (error) {
     console.error('Failed to download transcript:', error)
