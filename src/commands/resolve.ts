@@ -6,9 +6,6 @@ import {
   InteractionContextType,
   ThreadChannel,
   EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -104,10 +101,11 @@ export const execute = async (
       throw error
     }
 
-    // Get the thread owner by fetching messages and finding the first non-bot author
+    // Get the thread owner by finding the mentioned user in ticket creation message
     let threadOwner: { id: string } | null = null
     let before: string | undefined
 
+    // First, try to find the ticket creation message that mentions the ticket opener
     while (!threadOwner) {
       const messages = await thread.messages.fetch({
         limit: 100,
@@ -116,20 +114,64 @@ export const execute = async (
 
       if (messages.size === 0) break
 
-      const nonBotMessages = Array.from(messages.values()).filter(
-        (m) => !m.author.bot && m.author.id !== client.user?.id
+      // Look for messages with mentions (usually the creation message)
+      const messagesWithMentions = Array.from(messages.values()).filter(
+        (m) => m.mentions.users.size > 0
       )
 
-      if (nonBotMessages.length > 0) {
-        const msg = nonBotMessages[nonBotMessages.length - 1]
-        if (msg) {
-          threadOwner = { id: msg.author.id }
-          break
+      // Find the oldest message with mentions (the creation message)
+      if (messagesWithMentions.length > 0) {
+        const creationMsg = messagesWithMentions[messagesWithMentions.length - 1]
+        if (creationMsg && creationMsg.mentions.users.size > 0) {
+          // Get the first mentioned user that isn't a bot
+          const mentionedUser = creationMsg.mentions.users.find(
+            (u) => !u.bot && u.id !== client.user?.id
+          )
+          if (mentionedUser) {
+            threadOwner = { id: mentionedUser.id }
+            break
+          }
         }
       }
 
       if (messages.size < 100) break
       before = messages.last()?.id
+    }
+
+    // Fallback: find the second non-bot message author (skip first speaker in case it's staff)
+    if (!threadOwner) {
+      let before: string | undefined
+      let secondNonBotMessage = null
+      let nonBotCount = 0
+
+      while (!secondNonBotMessage) {
+        const messages = await thread.messages.fetch({
+          limit: 100,
+          ...(before ? { before } : {}),
+        })
+
+        if (messages.size === 0) break
+
+        const nonBotMessages = Array.from(messages.values())
+          .filter((m) => !m.author.bot && m.author.id !== client.user?.id)
+          .reverse()
+
+        for (const msg of nonBotMessages) {
+          nonBotCount++
+          if (nonBotCount === 2) {
+            secondNonBotMessage = msg
+            break
+          }
+        }
+
+        if (secondNonBotMessage) break
+        if (messages.size < 100) break
+        before = messages.last()?.id
+      }
+
+      if (secondNonBotMessage) {
+        threadOwner = { id: secondNonBotMessage.author.id }
+      }
     }
 
     if (threadOwner) {
@@ -222,13 +264,6 @@ export const execute = async (
       .setTimestamp()
       .setFooter({ text: 'Transcript saved for record keeping' })
 
-    const downloadButton = new ButtonBuilder()
-      .setCustomId(`transcript_download_${thread.id}`)
-      .setLabel('Download Full Transcript')
-      .setStyle(ButtonStyle.Primary)
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(downloadButton)
-
     await thread.send({
       embeds: [transcriptEmbed],
       files: [
@@ -237,7 +272,6 @@ export const execute = async (
           name: fileName,
         },
       ],
-      components: [row],
     }).catch((error) => {
       sendErrorLog(client, 'Failed to post transcript in channel', error, {
         threadId: thread.id,
