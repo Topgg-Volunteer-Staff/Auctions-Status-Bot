@@ -44,120 +44,153 @@ export const generateTranscript = async (
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ticket Transcript - ${escapeHtml(thread.name)}</title>
+  <title>Top.gg Support Ticket - ${escapeHtml(thread.name)}</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 20px;
-      color: #2c3e50;
+      background: #f8f9fa;
+      color: #1a1a1a;
     }
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
       background: white;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
     }
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%);
       color: white;
-      padding: 30px;
+      padding: 40px 30px;
       text-align: center;
+      border-bottom: 4px solid #4752c4;
+    }
+    .header-logo {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.5px;
     }
     .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: 600;
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 8px;
     }
-    .header p {
-      margin: 8px 0 0 0;
-      opacity: 0.95;
+    .header-subtitle {
       font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+    .header-meta {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      font-size: 12px;
+      opacity: 0.85;
+      flex-wrap: wrap;
     }
     .content {
-      padding: 30px;
+      padding: 40px 30px;
     }
     .message {
-      margin: 12px 0;
-      padding: 12px;
+      margin-bottom: 16px;
+      padding: 16px;
       border-radius: 8px;
-      background: #fafafa;
-      border-left: 4px solid #667eea;
+      background: #f8f9fa;
+      border-left: 4px solid #5865f2;
+      transition: background 0.2s;
+    }
+    .message:hover {
+      background: #eff0f7;
     }
     .message-header {
       display: flex;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
     .message-avatar {
-      width: 32px;
-      height: 32px;
+      width: 36px;
+      height: 36px;
       border-radius: 50%;
-      margin-right: 8px;
+      margin-right: 12px;
+      border: 2px solid #5865f2;
+    }
+    .message-info {
+      flex: 1;
     }
     .message-author {
       font-weight: 600;
-      color: #2c3e50;
+      color: #1a1a1a;
+      font-size: 14px;
     }
     .message-time {
-      color: #7f8c8d;
+      color: #6c757d;
       font-size: 12px;
-      margin-left: 8px;
+      margin-top: 2px;
     }
     .message-content {
       color: #2c3e50;
-      line-height: 1.5;
+      line-height: 1.6;
       word-wrap: break-word;
+      font-size: 14px;
     }
     .embed {
-      margin-top: 8px;
-      padding: 8px;
-      background: #f0f0f0;
-      border-left: 4px solid #667eea;
+      margin-top: 12px;
+      padding: 12px;
+      background: #e9ecef;
+      border-left: 4px solid #5865f2;
       border-radius: 4px;
       font-size: 13px;
+      color: #495057;
     }
     .footer {
-      background: #f9f9f9;
-      padding: 20px 30px;
+      background: #5865f2;
+      color: white;
+      padding: 30px;
       text-align: center;
-      border-top: 1px solid #e0e0e0;
       font-size: 12px;
-      color: #7f8c8d;
+      line-height: 1.6;
+    }
+    .footer-logo {
+      font-weight: 700;
+      margin-bottom: 10px;
+      font-size: 14px;
     }
     @media (prefers-color-scheme: dark) {
       body {
-        background: #2c3e50;
+        background: #1a1a1a;
       }
       .container {
-        background: #34495e;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        background: #2c2f33;
       }
       .content {
-        background: #34495e;
+        background: #2c2f33;
       }
       .message {
-        background: #2c3e50;
-        border-left-color: #667eea;
+        background: #36393f;
+        border-left-color: #5865f2;
       }
-      .message-author,
-      .message-content {
-        color: #ecf0f1;
+      .message:hover {
+        background: #3f4248;
+      }
+      .message-author {
+        color: #ffffff;
       }
       .message-time {
-        color: #95a5a6;
+        color: #72767d;
       }
-      .footer {
-        background: #2c3e50;
-        border-top-color: #1a252f;
-        color: #95a5a6;
+      .message-content {
+        color: #dcddde;
       }
       .embed {
-        background: #2c3e50;
-        color: #ecf0f1;
+        background: #2f3136;
+        color: #b9bbbe;
+      }
+      .header-meta {
+        opacity: 0.8;
       }
     }
   </style>
@@ -165,15 +198,20 @@ export const generateTranscript = async (
 <body>
   <div class="container">
     <div class="header">
+      <div class="header-logo">🐟 top.gg</div>
       <h1>Support Ticket Transcript</h1>
-      <p><strong>${escapeHtml(thread.name)}</strong></p>
-      <p style="font-size: 13px; margin: 12px 0 0 0;">Generated on ${new Date().toString()}</p>
+      <p class="header-subtitle">${escapeHtml(thread.name)}</p>
+      <div class="header-meta">
+        <span>📅 Generated: ${new Date().toLocaleDateString()}</span>
+        <span>⏰ ${new Date().toLocaleTimeString()}</span>
+      </div>
     </div>
     <div class="content">
       ${messagesHtml}
     </div>
     <div class="footer">
-      <p>This is a transcript of your support ticket. These messages are confidential and intended solely for the parties involved in this support request.</p>
+      <div class="footer-logo">🐟 top.gg Support</div>
+      <p>This transcript contains the complete history of your support ticket. It is confidential and intended solely for you and the top.gg support team.</p>
     </div>
   </div>
 </body>
