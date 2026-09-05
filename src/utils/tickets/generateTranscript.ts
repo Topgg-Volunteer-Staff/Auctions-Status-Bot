@@ -45,7 +45,7 @@ export const generateTranscript = async (
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Top.gg Support Ticket - ${escapeHtml(thread.name)}</title>
+  <title>top.gg Support Ticket - ${escapeHtml(thread.name)}</title>
   <style>
     * {
       margin: 0;
@@ -54,58 +54,61 @@ export const generateTranscript = async (
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #f8f9fa;
-      color: #1a1a1a;
+      background: #0f0f23;
+      color: #e8e8e8;
     }
     .container {
       max-width: 900px;
       margin: 0 auto;
-      background: white;
+      background: #1a1a2e;
     }
     .header {
-      background: linear-gradient(135deg, #5865f2 0%, #4752c4 100%);
+      background: #1a1a2e;
       color: white;
-      padding: 40px 30px;
+      padding: 50px 40px;
       text-align: center;
-      border-bottom: 4px solid #4752c4;
+      border-bottom: 2px solid #ff006e;
     }
     .header-logo {
-      font-size: 24px;
+      font-size: 28px;
       font-weight: 700;
-      margin-bottom: 12px;
-      letter-spacing: -0.5px;
+      margin-bottom: 16px;
+      color: #ff006e;
     }
     .header h1 {
-      font-size: 32px;
+      font-size: 36px;
       font-weight: 700;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
+      color: #ffffff;
     }
     .header-subtitle {
-      font-size: 14px;
-      opacity: 0.9;
-      margin-bottom: 20px;
+      font-size: 16px;
+      color: #ff006e;
+      margin-bottom: 24px;
+      font-weight: 500;
     }
     .header-meta {
       display: flex;
       justify-content: center;
-      gap: 20px;
-      font-size: 12px;
-      opacity: 0.85;
+      gap: 24px;
+      font-size: 13px;
+      color: #a8a8c0;
       flex-wrap: wrap;
     }
     .content {
-      padding: 40px 30px;
+      padding: 40px;
     }
     .message {
-      margin-bottom: 16px;
+      margin-bottom: 20px;
       padding: 16px;
       border-radius: 8px;
-      background: #f8f9fa;
-      border-left: 4px solid #5865f2;
-      transition: background 0.2s;
+      background: #252541;
+      border-left: 3px solid #ff006e;
+      transition: all 0.2s;
     }
     .message:hover {
-      background: #eff0f7;
+      background: #2d2d4a;
+      border-left-color: #ff4d94;
     }
     .message-header {
       display: flex;
@@ -117,23 +120,27 @@ export const generateTranscript = async (
       height: 36px;
       border-radius: 50%;
       margin-right: 12px;
-      border: 2px solid #5865f2;
+      border: 2px solid #ff006e;
     }
     .message-info {
       flex: 1;
     }
     .message-author {
       font-weight: 600;
-      color: #1a1a1a;
+      color: #ffffff;
       font-size: 14px;
     }
+    .message-author span {
+      color: #a8a8c0;
+      font-weight: normal;
+    }
     .message-time {
-      color: #6c757d;
+      color: #7a7a8e;
       font-size: 12px;
       margin-top: 2px;
     }
     .message-content {
-      color: #2c3e50;
+      color: #d8d8e8;
       line-height: 1.6;
       word-wrap: break-word;
       font-size: 14px;
@@ -141,69 +148,40 @@ export const generateTranscript = async (
     .embed {
       margin-top: 12px;
       padding: 12px;
-      background: #e9ecef;
-      border-left: 4px solid #5865f2;
+      background: #1a1a30;
+      border-left: 3px solid #ff006e;
       border-radius: 4px;
       font-size: 13px;
-      color: #495057;
+      color: #b8b8c8;
     }
     .footer {
-      background: #5865f2;
-      color: white;
-      padding: 30px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #252541 100%);
+      color: #ffffff;
+      padding: 40px;
       text-align: center;
       font-size: 12px;
-      line-height: 1.6;
+      line-height: 1.8;
+      border-top: 2px solid #ff006e;
     }
     .footer-logo {
       font-weight: 700;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 12px;
+      font-size: 16px;
+      color: #ff006e;
     }
-    @media (prefers-color-scheme: dark) {
-      body {
-        background: #1a1a1a;
-      }
-      .container {
-        background: #2c2f33;
-      }
-      .content {
-        background: #2c2f33;
-      }
-      .message {
-        background: #36393f;
-        border-left-color: #5865f2;
-      }
-      .message:hover {
-        background: #3f4248;
-      }
-      .message-author {
-        color: #ffffff;
-      }
-      .message-time {
-        color: #72767d;
-      }
-      .message-content {
-        color: #dcddde;
-      }
-      .embed {
-        background: #2f3136;
-        color: #b9bbbe;
-      }
-      .header-meta {
-        opacity: 0.8;
-      }
+    .footer p {
+      color: #a8a8c0;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="header-logo">🐟 top.gg</div>
+      <div class="header-logo">top.gg</div>
       <h1>Support Ticket Transcript</h1>
       <p class="header-subtitle">${escapeHtml(thread.name)}</p>
       <div class="header-meta">
-        <span>📅 Generated: ${new Date().toLocaleDateString()}</span>
+        <span>📅 ${new Date().toLocaleDateString()}</span>
         <span>⏰ ${new Date().toLocaleTimeString()}</span>
       </div>
     </div>
@@ -211,8 +189,8 @@ export const generateTranscript = async (
       ${messagesHtml}
     </div>
     <div class="footer">
-      <div class="footer-logo">🐟 top.gg Support</div>
-      <p>This transcript contains the complete history of your support ticket. It is confidential and intended solely for you and the top.gg support team.</p>
+      <div class="footer-logo">top.gg Support</div>
+      <p>This transcript contains the complete history of your support ticket.<br>It is confidential and intended solely for you and the top.gg support team.</p>
     </div>
   </div>
 </body>
