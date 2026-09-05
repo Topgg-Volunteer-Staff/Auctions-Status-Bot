@@ -28,21 +28,26 @@ const hasEquivalentIndex = async (
   keys: Record<string, 1 | -1>,
   options: CreateIndexesOptions
 ): Promise<boolean> => {
-  const existingIndexes = await collection.indexes()
+  try {
+    const existingIndexes = await collection.indexes()
 
-  return existingIndexes.some((index) => {
-    const indexKeys = index.key as Record<string, unknown>
-    const indexPartialFilter = ('partialFilterExpression' in index
-      ? index.partialFilterExpression
-      : null) ?? null
+    return existingIndexes.some((index) => {
+      const indexKeys = index.key as Record<string, unknown>
+      const indexPartialFilter = ('partialFilterExpression' in index
+        ? index.partialFilterExpression
+        : null) ?? null
 
-    return (
-      JSON.stringify(indexKeys) === JSON.stringify(keys) &&
-      JSON.stringify(indexPartialFilter) ===
-        JSON.stringify(options.partialFilterExpression ?? null) &&
-      index.unique === (options.unique === true)
-    )
-  })
+      return (
+        JSON.stringify(indexKeys) === JSON.stringify(keys) &&
+        JSON.stringify(indexPartialFilter) ===
+          JSON.stringify(options.partialFilterExpression ?? null) &&
+        index.unique === (options.unique === true)
+      )
+    })
+  } catch {
+    // Collection doesn't exist yet, no indexes to check
+    return false
+  }
 }
 
 const ensureIndex = async (

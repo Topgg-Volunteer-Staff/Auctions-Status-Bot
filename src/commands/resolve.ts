@@ -5,6 +5,10 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -86,6 +90,8 @@ export const execute = async (
       allowedMentions: { parse: [] },
     })
 
+    const isModTicket = parent.id === channelIds.modTickets
+
     // Generate and send transcript
     let transcriptHtml: string
     try {
@@ -98,45 +104,82 @@ export const execute = async (
       throw error
     }
 
-    // Get the thread owner (usually in thread name or first message)
-    const threadMessages = await thread.messages.fetch({ limit: 1 })
-    const firstMessage = threadMessages.last()
-    const threadOwner = firstMessage?.author
+    // Get the thread owner by fetching messages and finding the first non-bot author
+    let threadOwner: { id: string } | null = null
+    let before: string | undefined
 
-    if (threadOwner) {
-      const dmResult = await sendTranscriptDm(
-        threadOwner,
-        thread,
-        transcriptHtml
+    while (!threadOwner) {
+      const messages = await thread.messages.fetch({
+        limit: 100,
+        ...(before ? { before } : {}),
+      })
+
+      if (messages.size === 0) break
+
+      const nonBotMessages = Array.from(messages.values()).filter(
+        (m) => !m.author.bot && m.author.id !== client.user?.id
       )
 
-      if (!dmResult.success) {
+      if (nonBotMessages.length > 0) {
+        const msg = nonBotMessages[nonBotMessages.length - 1]
+        if (msg) {
+          threadOwner = { id: msg.author.id }
+          break
+        }
+      }
+
+      if (messages.size < 100) break
+      before = messages.last()?.id
+    }
+
+    if (threadOwner) {
+      try {
+        const userForDm = await client.users.fetch(threadOwner.id)
+        const dmResult = await sendTranscriptDm(
+          userForDm,
+          thread,
+          transcriptHtml
+        )
+
+        if (!dmResult.success) {
+          await sendErrorLog(
+            client,
+            'Failed to send transcript DM',
+            dmResult.error || 'Unknown error',
+            {
+              threadId: thread.id,
+              threadName: thread.name,
+              userId: threadOwner.id,
+            }
+          )
+
+          // Notify in channel that DM failed
+          await thread.send({
+            content: `<@${threadOwner.id}>, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
+            allowedMentions: { parse: ['users'] },
+          }).catch(() => void 0)
+        }
+      } catch (error) {
         await sendErrorLog(
           client,
-          'Failed to send transcript DM',
-          dmResult.error || 'Unknown error',
+          'Failed to fetch user for transcript DM',
+          error,
           {
             threadId: thread.id,
             threadName: thread.name,
             userId: threadOwner.id,
           }
         )
-
-        // Notify in channel that DM failed
-        await thread.send({
-          content: `${threadOwner.toString()}, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
-          allowedMentions: { parse: ['users'] },
-        }).catch(() => void 0)
       }
     }
 
     // Save transcript to database
     if (threadOwner) {
-      const isModTicket = parent.id === channelIds.modTickets
+      const owner = threadOwner
       await saveTranscript({
         threadId: thread.id,
         threadName: originalThreadName,
-        userId: threadOwner.id,
+        userId: owner.id,
         transcriptHtml,
         generatedAt: interaction.createdAt,
         resolvedAt: interaction.createdAt,
@@ -146,23 +189,55 @@ export const execute = async (
         sendErrorLog(client, 'Failed to save transcript to database', error, {
           threadId: thread.id,
           threadName: thread.name,
-          userId: threadOwner.id,
+          userId: owner.id,
         })
       })
     }
 
-    // Post transcript in channel
+    // Post transcript embed in channel
     const buffer = Buffer.from(transcriptHtml, 'utf-8')
     const fileName = `transcript-${thread.id}.html`
 
+    const transcriptEmbed = new EmbedBuilder()
+      .setTitle('📋 Ticket Transcript')
+      .setDescription(originalThreadName)
+      .addFields(
+        {
+          name: 'Ticket Type',
+          value: isModTicket ? '🔴 Mod/Dispute' : '🟢 Auctions',
+          inline: true,
+        },
+        {
+          name: 'Resolved By',
+          value: `<@${interaction.user.id}>`,
+          inline: true,
+        },
+        {
+          name: 'Resolved At',
+          value: `<t:${Math.floor(interaction.createdAt.getTime() / 1000)}:f>`,
+          inline: true,
+        }
+      )
+      .setColor(isModTicket ? 0xff6b6b : 0x4ecdc4)
+      .setTimestamp()
+      .setFooter({ text: 'Transcript saved for record keeping' })
+
+    const downloadButton = new ButtonBuilder()
+      .setCustomId(`transcript_download_${thread.id}`)
+      .setLabel('Download Full Transcript')
+      .setStyle(ButtonStyle.Primary)
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(downloadButton)
+
     await thread.send({
-      content: 'Here is the transcript for this ticket:',
+      embeds: [transcriptEmbed],
       files: [
         {
           attachment: buffer,
           name: fileName,
         },
       ],
+      components: [row],
     }).catch((error) => {
       sendErrorLog(client, 'Failed to post transcript in channel', error, {
         threadId: thread.id,
@@ -204,8 +279,6 @@ export const execute = async (
     if (!interaction.guild) {
       throw new Error('Guild is not available on this interaction')
     }
-
-    const isModTicket = parent.id === channelIds.modTickets
 
     if (isModTicket) {
       const fetched = await interaction.guild.channels.fetch(thread.id)
