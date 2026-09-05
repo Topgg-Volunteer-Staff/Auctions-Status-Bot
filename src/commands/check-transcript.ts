@@ -5,8 +5,7 @@ import {
   InteractionContextType,
   EmbedBuilder,
   ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
+  StringSelectMenuBuilder,
   MessageFlags,
 } from 'discord.js'
 import {
@@ -92,48 +91,34 @@ export const execute = async (
       (a, b) => b.generatedAt.getTime() - a.generatedAt.getTime()
     )
 
-    // Create embeds for each transcript
-    const embeds = transcripts.slice(0, 10).map((transcript) => {
-      const embed = new EmbedBuilder()
-        .setTitle(transcript.threadName)
-        .setDescription(`**Ticket Type:** ${transcript.isModTicket ? 'Mod/Dispute' : 'Auctions'}`)
-        .addFields(
-          {
-            name: 'Thread ID',
-            value: transcript.threadId,
-            inline: true,
-          },
-          {
-            name: 'Resolved By',
-            value: `<@${transcript.resolvedBy}>`,
-            inline: true,
-          },
-          {
-            name: 'Resolved At',
-            value: `<t:${Math.floor(transcript.resolvedAt.getTime() / 1000)}:f>`,
-            inline: false,
-          }
-        )
-        .setColor(transcript.isModTicket ? 0xff6b6b : 0x4ecdc4)
-        .setTimestamp(transcript.generatedAt)
+    // Create select menu to choose transcript
+    const selectOptions = transcripts.slice(0, 25).map((transcript) => {
+      const resolvedDate = new Date(transcript.resolvedAt).toLocaleDateString()
+      const ticketType = transcript.isModTicket ? '🔴 Mod/Dispute' : '🟢 Auctions'
 
-      return embed
+      return {
+        label: `${transcript.threadName.substring(0, 50)}`,
+        description: `${ticketType} • ${resolvedDate}`,
+        value: transcript.threadId,
+      }
     })
 
-    // Create buttons to download transcripts
-    const buttons = transcripts.slice(0, 5).map((transcript) => {
-      const label = transcript.threadName.substring(0, 80)
-      return new ButtonBuilder()
-        .setCustomId(`transcript_download_${transcript.threadId}`)
-        .setLabel(label)
-        .setStyle(ButtonStyle.Secondary)
-    })
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('transcript_select')
+      .setPlaceholder('Select a transcript to download')
+      .addOptions(selectOptions)
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu)
+
+    const summaryEmbed = new EmbedBuilder()
+      .setTitle('📋 Ticket Transcripts')
+      .setDescription(`Found ${transcripts.length} transcript(s) for <@${userId}>`)
+      .setColor(0x4ecdc4)
+      .setTimestamp()
 
     await interaction.editReply({
-      embeds: embeds,
-      components: buttons.length > 0 ? [row] : [],
+      embeds: [summaryEmbed],
+      components: [row],
     })
   } catch (error) {
     console.error('Failed to check transcripts:', error)
