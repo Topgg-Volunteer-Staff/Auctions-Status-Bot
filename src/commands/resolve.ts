@@ -180,17 +180,36 @@ export const execute = async (
     if (threadOwner) {
       try {
         const userForDm = await client.users.fetch(threadOwner.id)
-        const dmResult = await sendTranscriptDm(
-          userForDm,
-          thread,
-          interaction.user.id
-        )
+        try {
+          const dmResult = await sendTranscriptDm(
+            userForDm,
+            thread,
+            interaction.user.id
+          )
 
-        if (!dmResult.success) {
+          if (!dmResult.success) {
+            await sendErrorLog(
+              client,
+              'Failed to send transcript DM',
+              dmResult.error || 'Unknown error',
+              {
+                threadId: thread.id,
+                threadName: thread.name,
+                userId: threadOwner.id,
+              }
+            )
+
+            // Notify in channel that DM failed
+            await thread.send({
+              content: `<@${threadOwner.id}>, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
+              allowedMentions: { parse: ['users'] },
+            }).catch(() => void 0)
+          }
+        } catch (dmError) {
           await sendErrorLog(
             client,
             'Failed to send transcript DM',
-            dmResult.error || 'Unknown error',
+            dmError,
             {
               threadId: thread.id,
               threadName: thread.name,
