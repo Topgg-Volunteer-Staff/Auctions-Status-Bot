@@ -197,7 +197,7 @@ export const execute = async (
                 threadName: thread.name,
                 userId: threadOwner.id,
               }
-            )
+            ).catch(() => void 0)
 
             // Notify in channel that DM failed
             await thread.send({
@@ -215,7 +215,7 @@ export const execute = async (
               threadName: thread.name,
               userId: threadOwner.id,
             }
-          )
+          ).catch(() => void 0)
 
           // Notify in channel that DM failed
           await thread.send({
@@ -233,7 +233,7 @@ export const execute = async (
             threadName: thread.name,
             userId: threadOwner.id,
           }
-        )
+        ).catch(() => void 0)
       }
     }
 
