@@ -21,6 +21,22 @@ import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
 
 const EXPECTED_DM_ERROR_CODES = new Set([50007, 50278])
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message
+  if (error instanceof DiscordAPIError && typeof error.message === 'string') {
+    return error.message
+  }
+  return ''
+}
+
+function getDiscordErrorCode(error: unknown): number | null {
+  if (error instanceof DiscordAPIError) {
+    return typeof error.code === 'number' ? error.code : null
+  }
+  return null
+}
+
 function isExpectedDmError(error: unknown): boolean {
   if (error instanceof DiscordAPIError) {
     return (
@@ -33,6 +49,33 @@ function isExpectedDmError(error: unknown): boolean {
   return /cannot send messages to this user|no mutual guilds/i.test(
     error.message
   )
+}
+
+async function resolveDmFailureMessage(
+  client: Client,
+  userId: string,
+  error: unknown
+): Promise<string> {
+  const code = getDiscordErrorCode(error)
+  const message = getErrorMessage(error)
+
+  const looksLikeNoMutualGuildIssue =
+    code === 50278 || /no mutual guilds/i.test(message)
+  if (!looksLikeNoMutualGuildIssue) {
+    return 'The ticket was created, but I could not DM the user about it.'
+  }
+
+  const channel = await client.channels.fetch(channelIds.modTickets).catch(() => null)
+  if (!channel || !('guild' in channel) || !channel.guild) {
+    return 'The ticket was created, but I could not DM the user about it. They likely have left the server.'
+  }
+
+  const member = await channel.guild.members.fetch(userId).catch(() => null)
+  if (!member) {
+    return 'The ticket was created, but I could not DM the user about it. They are no longer in the server.'
+  }
+
+  return 'The ticket was created, but I could not DM the user about it (likely DMs disabled for this server or bot blocked).'
 }
 
 export const modal = {
@@ -156,11 +199,14 @@ export const execute = async (
         allowedMentions: { parse: [] },
       })
     } catch (dmError) {
-      dmFailureMessage = isExpectedDmError(dmError)
-        ? 'The ticket was created, but I could not DM the user about it. They likely have DMs disabled.'
-        : 'The ticket was created, but I could not DM the user about it.'
-
-      if (!isExpectedDmError(dmError)) {
+      if (isExpectedDmError(dmError)) {
+        dmFailureMessage = await resolveDmFailureMessage(
+          interaction.client,
+          userId,
+          dmError
+        )
+      } else {
+        dmFailureMessage = 'The ticket was created, but I could not DM the user about it.'
         console.error(
           'Failed to DM contacted user about ticket creation:',
           dmError
