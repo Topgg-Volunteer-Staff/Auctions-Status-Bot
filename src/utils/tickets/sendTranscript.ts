@@ -5,12 +5,57 @@ import {
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
+  DiscordAPIError,
+  Client,
 } from 'discord.js'
 import { channelIds } from '../../globals'
 
 type SendTranscriptResult = {
   success: boolean
   error?: string
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error instanceof Error) return error.message
+  if (error instanceof DiscordAPIError && typeof error.message === 'string') {
+    return error.message
+  }
+  return ''
+}
+
+function getDiscordErrorCode(error: unknown): number | null {
+  if (error instanceof DiscordAPIError) {
+    return typeof error.code === 'number' ? error.code : null
+  }
+  return null
+}
+
+async function resolveDmFailureMessage(
+  client: Client,
+  userId: string,
+  error: unknown
+): Promise<string> {
+  const code = getDiscordErrorCode(error)
+  const message = getErrorMessage(error)
+
+  const looksLikeNoMutualGuildIssue =
+    code === 50278 || /no mutual guilds/i.test(message)
+  if (!looksLikeNoMutualGuildIssue) {
+    return 'Failed to send transcript DM'
+  }
+
+  const channel = await client.channels.fetch(channelIds.modTickets).catch(() => null)
+  if (!channel || !('guild' in channel) || !channel.guild) {
+    return 'Failed to send transcript DM (user likely left the server)'
+  }
+
+  const member = await channel.guild.members.fetch(userId).catch(() => null)
+  if (!member) {
+    return 'Failed to send transcript DM (user is no longer in the server)'
+  }
+
+  return 'Failed to send transcript DM (likely DMs disabled for this server or bot blocked)'
 }
 
 export const sendTranscriptDm = async (
@@ -58,11 +103,15 @@ export const sendTranscriptDm = async (
 
     return { success: true }
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error sending DM'
+    const resolvedMessage = await resolveDmFailureMessage(
+      user.client,
+      user.id,
+      error
+    ).catch(() => 'Failed to send transcript DM')
+
     return {
       success: false,
-      error: errorMessage,
+      error: resolvedMessage,
     }
   }
 }
