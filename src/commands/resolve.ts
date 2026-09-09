@@ -1,4 +1,7 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChannelType,
   Client,
   CommandInteraction,
@@ -12,23 +15,14 @@ import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
   COMPONENTS_V2_FLAGS,
   createErrorPanel,
-  createSuccessPanel,
+  createTextPanel,
 } from '../utils/componentsV2'
-import { emoji } from '../utils/emojis'
-import { sendErrorLog } from '../utils/errorLogging'
-import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
-import { recordResolvedTicketCredit } from '../utils/tickets/resolvedTicketCredit'
-import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
-import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
-import { removeThread } from '../utils/tickets/trackActivity'
-import { generateTranscript } from '../utils/tickets/generateTranscript'
 import {
-  collectTicketParticipantIds,
-  createTranscriptPanel,
-  sendTranscriptDm,
-} from '../utils/tickets/sendTranscript'
-import { saveTranscript } from '../utils/db/transcripts'
-import { getTranscriptUrl } from '../utils/webServer'
+  DISPUTE_AUDIT_BUTTON,
+  DISPUTE_AUDIT_QUESTION,
+} from '../utils/tickets/disputeAuditPrompt'
+import { isDisputeThreadName } from '../utils/tickets/disputeThread'
+import { resolveTicket } from '../utils/tickets/resolveTicket'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
@@ -49,7 +43,6 @@ export const execute = async (
   }
 
   const thread = ch as ThreadChannel
-  const originalThreadName = thread.name
 
   if (thread.name.startsWith(resolvedFlag)) {
     await interaction.reply({
@@ -72,296 +65,49 @@ export const execute = async (
     return
   }
 
-  try {
-    await thread.setAutoArchiveDuration(1440, 'Ticket resolved!')
-    await thread.setName(getResolvedThreadName(thread.name))
-
-    let resolveString =
-      'If your issue persists or if you need help with a different issue, please open a new ticket in'
-
-    if (parent.id === channelIds.auctionsTickets) {
-      resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
-    } else {
-      resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our staff! ${emoji.dogThumbUp}`
-    }
-
+  // Disputes are audited before anything is resolved: the buttons carry the
+  // resolve through once the question is answered.
+  if (parent.id === channelIds.modTickets && isDisputeThreadName(thread.name)) {
     await interaction.reply({
-      components: [createSuccessPanel(`Ticket resolved!`, `${resolveString}`)],
-      flags: COMPONENTS_V2_FLAGS,
-      allowedMentions: { parse: [] },
-    })
-
-    const isModTicket = parent.id === channelIds.modTickets
-
-    // Generate and send transcript
-    let transcriptHtml: string
-    try {
-      transcriptHtml = await generateTranscript(thread)
-    } catch (error) {
-      await sendErrorLog(client, 'Failed to generate ticket transcript', error, {
-        threadId: thread.id,
-        threadName: thread.name,
-      })
-      throw error
-    }
-
-    // Get the thread owner by finding the mentioned user in ticket creation message
-    let threadOwner: { id: string } | null = null
-    let before: string | undefined
-
-    // First, try to find the ticket creation message that mentions the ticket opener
-    while (!threadOwner) {
-      const messages = await thread.messages.fetch({
-        limit: 100,
-        ...(before ? { before } : {}),
-      })
-
-      if (messages.size === 0) break
-
-      // Look for messages with mentions (usually the creation message)
-      const messagesWithMentions = Array.from(messages.values()).filter(
-        (m) => m.mentions.users.size > 0
-      )
-
-      // Find the oldest message with mentions (the creation message)
-      if (messagesWithMentions.length > 0) {
-        const creationMsg = messagesWithMentions[messagesWithMentions.length - 1]
-        if (creationMsg && creationMsg.mentions.users.size > 0) {
-          // Get the first mentioned user that isn't a bot
-          const mentionedUser = creationMsg.mentions.users.find(
-            (u) => !u.bot && u.id !== client.user?.id
-          )
-          if (mentionedUser) {
-            threadOwner = { id: mentionedUser.id }
-            break
-          }
-        }
-      }
-
-      if (messages.size < 100) break
-      before = messages.last()?.id
-    }
-
-    // Fallback: find the second non-bot message author (skip first speaker in case it's staff)
-    if (!threadOwner) {
-      let before: string | undefined
-      let secondNonBotMessage = null
-      let nonBotCount = 0
-
-      while (!secondNonBotMessage) {
-        const messages = await thread.messages.fetch({
-          limit: 100,
-          ...(before ? { before } : {}),
-        })
-
-        if (messages.size === 0) break
-
-        const nonBotMessages = Array.from(messages.values())
-          .filter((m) => !m.author.bot && m.author.id !== client.user?.id)
-          .reverse()
-
-        for (const msg of nonBotMessages) {
-          nonBotCount++
-          if (nonBotCount === 2) {
-            secondNonBotMessage = msg
-            break
-          }
-        }
-
-        if (secondNonBotMessage) break
-        if (messages.size < 100) break
-        before = messages.last()?.id
-      }
-
-      if (secondNonBotMessage) {
-        threadOwner = { id: secondNonBotMessage.author.id }
-      }
-    }
-
-    // Save transcript to database first to get the ID
-    let transcriptId: string | null = null
-    if (threadOwner) {
-      const owner = threadOwner
-      try {
-        transcriptId = await saveTranscript({
-          threadId: thread.id,
-          threadName: originalThreadName,
-          userId: owner.id,
-          transcriptHtml,
-          generatedAt: interaction.createdAt,
-          resolvedAt: interaction.createdAt,
-          resolvedBy: interaction.user.id,
-          isModTicket,
-        })
-      } catch (error) {
-        sendErrorLog(client, 'Failed to save transcript to database', error, {
-          threadId: thread.id,
-          threadName: thread.name,
-          userId: owner.id,
-        })
-      }
-    }
-
-    // Send DM with transcript link to everyone who spoke in the ticket
-    if (transcriptId) {
-      const transcriptUrl = getTranscriptUrl(transcriptId)
-
-      let participantIds: Array<string> = []
-      try {
-        participantIds = await collectTicketParticipantIds(
-          thread,
-          client.user?.id
-        )
-      } catch (error) {
-        await sendErrorLog(
-          client,
-          'Failed to collect ticket participants for transcript DMs',
-          error,
-          {
-            threadId: thread.id,
-            threadName: thread.name,
-          }
-        ).catch(() => void 0)
-      }
-
-      // The ticket opener may never have typed in the thread, so make sure
-      // they are always on the list.
-      const recipientIds = [
-        ...new Set(
-          threadOwner ? [threadOwner.id, ...participantIds] : participantIds
-        ),
-      ]
-
-      const failedRecipientIds: Array<string> = []
-
-      for (const recipientId of recipientIds) {
-        try {
-          const userForDm = await client.users.fetch(recipientId)
-          const dmResult = await sendTranscriptDm(
-            userForDm,
-            thread,
-            interaction.user.id,
-            transcriptUrl
-          )
-
-          if (!dmResult.success) {
-            failedRecipientIds.push(recipientId)
-            await sendErrorLog(
-              client,
-              'Failed to send transcript DM',
-              dmResult.error || 'Unknown error',
-              {
-                threadId: thread.id,
-                threadName: thread.name,
-                userId: recipientId,
-              }
-            ).catch(() => void 0)
-          }
-        } catch (error) {
-          failedRecipientIds.push(recipientId)
-          await sendErrorLog(
-            client,
-            'Failed to send transcript DM',
-            error,
-            {
-              threadId: thread.id,
-              threadName: thread.name,
-              userId: recipientId,
-            }
-          ).catch(() => void 0)
-        }
-      }
-
-      if (failedRecipientIds.length > 0) {
-        const mentions = failedRecipientIds.map((id) => `<@${id}>`).join(', ')
-        await thread.send({
-          content: `${mentions}, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
-          allowedMentions: { parse: ['users'] },
-        }).catch(() => void 0)
-      }
-    }
-
-    // Post transcript panel in channel
-    await thread.send({
       components: [
-        createTranscriptPanel({
-          threadName: originalThreadName,
-          isModTicket,
-          resolvedBy: interaction.user.id,
-          resolvedAt: interaction.createdAt,
-          ...(transcriptId
-            ? { transcriptUrl: getTranscriptUrl(transcriptId) }
-            : {}),
-        }),
+        createTextPanel({
+          accentColor: 0xff3366,
+          title: 'Before this dispute is resolved',
+          description: DISPUTE_AUDIT_QUESTION,
+        }).addActionRowComponents(
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`${DISPUTE_AUDIT_BUTTON}_yes_${thread.id}`)
+              .setLabel('Yes')
+              .setStyle(ButtonStyle.Success),
+            new ButtonBuilder()
+              .setCustomId(`${DISPUTE_AUDIT_BUTTON}_no_${thread.id}`)
+              .setLabel('No')
+              .setStyle(ButtonStyle.Danger)
+          )
+        ),
       ],
-      flags: COMPONENTS_V2_FLAGS,
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
       allowedMentions: { parse: [] },
-    }).catch((error) => {
-      sendErrorLog(client, 'Failed to post transcript in channel', error, {
-        threadId: thread.id,
-        threadName: thread.name,
-      })
     })
+    return
+  }
 
-    await removeTicketDmPreference(thread.id).catch((error) => {
-      console.error(
-        `Failed to remove DM preference for resolved ticket ${thread.id}:`,
-        error
-      )
+  try {
+    await resolveTicket({
+      client,
+      thread,
+      parentId: parent.id,
+      resolvedByUserId: interaction.user.id,
+      resolvedAt: interaction.createdAt,
+      command: 'resolve',
+      announce: (components) =>
+        interaction.reply({
+          components,
+          flags: COMPONENTS_V2_FLAGS,
+          allowedMentions: { parse: [] },
+        }),
     })
-
-    await removeThreadStaffTicketReminderPreferences(thread.id).catch(
-      (error) => {
-        console.error(
-          `Failed to remove staff reminders for resolved ticket ${thread.id}:`,
-          error
-        )
-      }
-    )
-
-    if (interaction.guild) {
-      await recordResolvedTicketCredit({
-        client,
-        command: 'resolve',
-        guildId: interaction.guildId ?? interaction.guild.id,
-        parentId: parent.id,
-        resolvedAt: interaction.createdAt,
-        resolvedByUserId: interaction.user.id,
-        threadId: thread.id,
-        threadName: originalThreadName,
-      })
-    }
-
-    await removeThread(thread.id)
-
-    if (!interaction.guild) {
-      throw new Error('Guild is not available on this interaction')
-    }
-
-    if (isModTicket) {
-      const fetched = await interaction.guild.channels.fetch(thread.id)
-
-      if (!(fetched instanceof ThreadChannel)) {
-        throw new Error('Channel is not a thread')
-      }
-
-      // Lock the thread (prevents new messages)
-      await fetched.setLocked(true, 'Ticket resolved and locked')
-
-      // Wait to let Discord process lock before archive
-      await new Promise((res) => setTimeout(res, 750))
-
-      await fetched.setArchived(true, 'Ticket resolved and archived')
-
-      // Double-check and force archive if needed
-      const updatedThread = await interaction.guild.channels.fetch(fetched.id)
-      if (updatedThread instanceof ThreadChannel && !updatedThread.archived) {
-        await updatedThread.setArchived(
-          true,
-          'Force archive after failed first attempt'
-        )
-      }
-    }
   } catch (err) {
     console.error('Failed to resolve ticket:', err)
 
