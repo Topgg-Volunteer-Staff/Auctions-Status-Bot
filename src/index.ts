@@ -29,6 +29,7 @@ import {
   initializeTicketDmStore,
   maybeNotifyTicketResponse,
 } from './utils/tickets/dmOnResponses'
+import { startWebServer } from './utils/webServer'
 import {
   initializeStaffTicketReminderStore,
   isStaffUserInGuild,
@@ -858,6 +859,10 @@ client.on('clientReady', async (readyClient) => {
 
   await initializeCustomAlertStore(readyClient).catch((error) => {
     void sendMongoErrorLog(readyClient, 'customAlert.store.init.failed', error)
+  })
+
+  await startWebServer().catch((error) => {
+    void sendErrorLog(readyClient, 'webServer.startup.failed', error)
   })
 
   startReminders(readyClient)

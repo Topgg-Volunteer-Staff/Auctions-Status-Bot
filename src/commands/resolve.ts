@@ -28,6 +28,7 @@ import { removeThread } from '../utils/tickets/trackActivity'
 import { generateTranscript } from '../utils/tickets/generateTranscript'
 import { sendTranscriptDm } from '../utils/tickets/sendTranscript'
 import { saveTranscript } from '../utils/db/transcripts'
+import { getTranscriptUrl } from '../utils/webServer'
 
 export const command = new SlashCommandBuilder()
   .setName('resolve')
@@ -177,14 +178,41 @@ export const execute = async (
       }
     }
 
+    // Save transcript to database first to get the ID
+    let transcriptId: string | null = null
     if (threadOwner) {
+      const owner = threadOwner
+      try {
+        transcriptId = await saveTranscript({
+          threadId: thread.id,
+          threadName: originalThreadName,
+          userId: owner.id,
+          transcriptHtml,
+          generatedAt: interaction.createdAt,
+          resolvedAt: interaction.createdAt,
+          resolvedBy: interaction.user.id,
+          isModTicket,
+        })
+      } catch (error) {
+        sendErrorLog(client, 'Failed to save transcript to database', error, {
+          threadId: thread.id,
+          threadName: thread.name,
+          userId: owner.id,
+        })
+      }
+    }
+
+    // Send DM with transcript link
+    if (threadOwner && transcriptId) {
       try {
         const userForDm = await client.users.fetch(threadOwner.id)
         try {
+          const transcriptUrl = getTranscriptUrl(transcriptId)
           const dmResult = await sendTranscriptDm(
             userForDm,
             thread,
-            interaction.user.id
+            interaction.user.id,
+            transcriptUrl
           )
 
           if (!dmResult.success) {
@@ -237,27 +265,6 @@ export const execute = async (
       }
     }
 
-    // Save transcript to database
-    if (threadOwner) {
-      const owner = threadOwner
-      await saveTranscript({
-        threadId: thread.id,
-        threadName: originalThreadName,
-        userId: owner.id,
-        transcriptHtml,
-        generatedAt: interaction.createdAt,
-        resolvedAt: interaction.createdAt,
-        resolvedBy: interaction.user.id,
-        isModTicket,
-      }).catch((error) => {
-        sendErrorLog(client, 'Failed to save transcript to database', error, {
-          threadId: thread.id,
-          threadName: thread.name,
-          userId: owner.id,
-        })
-      })
-    }
-
     // Post transcript embed in channel
     const disclaimerText = isModTicket
       ? 'These transcripts are available to yourself and our Support Associates, as well as our Moderator team and any reviewer that handled your ticket. Let us know if you have any questions or concerns.'
@@ -278,26 +285,37 @@ export const execute = async (
           inline: true,
         }
       )
-      .setColor(isModTicket ? 0xff6b6b : 0x4ecdc4)
-      .setTimestamp()
 
-    const transcriptButton = new ButtonBuilder()
-      .setCustomId(`transcript_view_${thread.id}`)
-      .setLabel('Transcript')
-      .setEmoji('📋')
-      .setStyle(ButtonStyle.Secondary)
+    transcriptEmbed.setColor(isModTicket ? 0xff6b6b : 0x4ecdc4).setTimestamp()
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
+    if (transcriptId) {
+      const transcriptButton = new ButtonBuilder()
+        .setURL(getTranscriptUrl(transcriptId))
+        .setLabel('Open Transcript')
+        .setEmoji('📋')
+        .setStyle(ButtonStyle.Link)
 
-    await thread.send({
-      embeds: [transcriptEmbed],
-      components: [row],
-    }).catch((error) => {
-      sendErrorLog(client, 'Failed to post transcript in channel', error, {
-        threadId: thread.id,
-        threadName: thread.name,
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
+
+      await thread.send({
+        embeds: [transcriptEmbed],
+        components: [row],
+      }).catch((error) => {
+        sendErrorLog(client, 'Failed to post transcript in channel', error, {
+          threadId: thread.id,
+          threadName: thread.name,
+        })
       })
-    })
+    } else {
+      await thread.send({
+        embeds: [transcriptEmbed],
+      }).catch((error) => {
+        sendErrorLog(client, 'Failed to post transcript in channel', error, {
+          threadId: thread.id,
+          threadName: thread.name,
+        })
+      })
+    }
 
     await removeTicketDmPreference(thread.id).catch((error) => {
       console.error(

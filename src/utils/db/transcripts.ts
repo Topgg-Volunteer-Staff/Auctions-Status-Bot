@@ -6,11 +6,14 @@ export interface StoredTranscript {
   threadName: string
   userId: string
   transcriptHtml: string
+  transcriptId: string
   generatedAt: Date
   resolvedAt: Date
   resolvedBy: string
   isModTicket: boolean
 }
+
+export type SaveTranscriptInput = Omit<StoredTranscript, 'transcriptId'>
 
 type TranscriptDocument = {
   _id: string
@@ -22,6 +25,15 @@ const collectionName =
 
 let transcriptsCollectionPromise: Promise<Collection<TranscriptDocument>> | null =
   null
+
+const generateTranscriptId = (): string => {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 16; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
 
 const hasEquivalentIndex = async (
   collection: Collection<TranscriptDocument>,
@@ -85,6 +97,14 @@ const getTranscriptsCollection = async (): Promise<
         },
       })
 
+      await ensureIndex(collection, { 'transcripts.transcriptId': 1 }, {
+        name: 'transcripts_transcriptId_unique',
+        unique: true,
+        partialFilterExpression: {
+          'transcripts.transcriptId': { $exists: true },
+        },
+      })
+
       return collection
     })()
   }
@@ -93,8 +113,8 @@ const getTranscriptsCollection = async (): Promise<
 }
 
 export const saveTranscript = async (
-  transcript: StoredTranscript
-): Promise<void> => {
+  transcript: SaveTranscriptInput
+): Promise<string> => {
   const collection = await getTranscriptsCollection()
 
   await collection.updateOne(
@@ -120,6 +140,7 @@ export const saveTranscript = async (
   )
 
   // Add new transcript
+  const transcriptId = generateTranscriptId()
   await collection.updateOne(
     { _id: transcript.userId },
     {
@@ -128,6 +149,7 @@ export const saveTranscript = async (
           threadId: transcript.threadId,
           threadName: transcript.threadName,
           transcriptHtml: transcript.transcriptHtml,
+          transcriptId,
           generatedAt: transcript.generatedAt,
           resolvedAt: transcript.resolvedAt,
           resolvedBy: transcript.resolvedBy,
@@ -136,6 +158,8 @@ export const saveTranscript = async (
       },
     }
   )
+
+  return transcriptId
 }
 
 export const getUserTranscripts = async (
@@ -164,6 +188,26 @@ export const getTranscript = async (
   if (!doc) return null
 
   const transcript = doc.transcripts.find((t) => t.threadId === threadId)
+  if (!transcript) return null
+
+  return {
+    ...transcript,
+    userId: doc._id,
+  }
+}
+
+export const getTranscriptById = async (
+  transcriptId: string
+): Promise<StoredTranscript | null> => {
+  const collection = await getTranscriptsCollection()
+
+  const doc = await collection.findOne({
+    'transcripts.transcriptId': transcriptId,
+  })
+
+  if (!doc) return null
+
+  const transcript = doc.transcripts.find((t) => t.transcriptId === transcriptId)
   if (!transcript) return null
 
   return {

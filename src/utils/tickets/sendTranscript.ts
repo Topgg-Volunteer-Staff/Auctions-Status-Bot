@@ -61,7 +61,8 @@ async function resolveDmFailureMessage(
 export const sendTranscriptDm = async (
   user: User,
   thread: ThreadChannel,
-  resolvedBy: string
+  resolvedBy: string,
+  transcriptUrl: string
 ): Promise<SendTranscriptResult> => {
   try {
     const isModTicket = thread.parent?.id === channelIds.modTickets
@@ -89,10 +90,10 @@ export const sendTranscriptDm = async (
       .setTimestamp()
 
     const transcriptButton = new ButtonBuilder()
-      .setCustomId(`transcript_view_${thread.id}`)
-      .setLabel('Transcript')
+      .setURL(transcriptUrl)
+      .setLabel('Open Transcript')
       .setEmoji('📋')
-      .setStyle(ButtonStyle.Secondary)
+      .setStyle(ButtonStyle.Link)
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
 
