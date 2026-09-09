@@ -1,7 +1,4 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   ChannelType,
   ChatInputCommandInteraction,
   Client,
@@ -38,7 +35,6 @@ import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 type MigrationTarget = 'auctions' | 'moderator' | 'reviewer'
 
 type MigrationTargetConfig = {
-  closeButton: boolean
   color: `#${string}`
   intakePrompt: string
   notifyRoleId: string
@@ -210,17 +206,6 @@ export const execute = async (
 
   await destinationThread.members.add(opener.id).catch(() => void 0)
 
-  const headerComponents = targetConfig.closeButton
-    ? [
-        new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`closeModTicket_${opener.id}`)
-            .setLabel('Close Ticket')
-            .setStyle(ButtonStyle.Danger)
-        ),
-      ]
-    : []
-
   const migrationPanel = new ContainerBuilder()
     .setAccentColor(targetColor)
     .addTextDisplayComponents(
@@ -264,10 +249,6 @@ export const execute = async (
         )}:f>`
       )
     )
-
-  if (headerComponents.length > 0) {
-    migrationPanel.addActionRowComponents(...headerComponents)
-  }
 
   await destinationThread.send({
     allowedMentions: {
@@ -400,7 +381,6 @@ function getTargetConfig(args: {
         : 'A Support Team member will be with you as soon as possible.'
 
     return {
-      closeButton: false,
       color: '#ff3366',
       intakePrompt:
         'If this is payment-related, include the FastSpring order ID that starts with `DBOTSBV` and any relevant screenshots.',
@@ -420,7 +400,6 @@ function getTargetConfig(args: {
       : roleIds.reviewer
 
     return {
-      closeButton: true,
       color: '#ff6b00',
       intakePrompt:
         'Keep any follow-up details, screenshots, and relevant links in this thread so the reviewer team has the full context.',
@@ -434,7 +413,6 @@ function getTargetConfig(args: {
   }
 
   return {
-    closeButton: true,
     color: '#ff3366',
     intakePrompt:
       'Keep all relevant context, screenshots, and links in this thread so the moderation team can pick up smoothly.',

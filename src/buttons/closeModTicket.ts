@@ -44,9 +44,12 @@ export const execute = async (
   const shouldAwardMostActiveStaff = isOpener && !isModerator
   const originalThreadName = thread.name
 
-  if (!isOpener && !isModerator) {
+  // Users can no longer close their own tickets — this button only survives
+  // on old ticket messages, and only staff may still use it.
+  if (!isModerator) {
     await interaction.reply({
-      content: 'You are not allowed to close this ticket.',
+      content:
+        'This feature is no longer available, let the staff member know you want to close the ticket.',
       flags: MessageFlags.Ephemeral,
     })
     return
@@ -98,7 +101,7 @@ export const execute = async (
     await removeThread(thread.id)
 
     await thread.setLocked(true, 'Ticket closed')
-    await thread.setArchived(true, 'Ticket closed by user')
+    await thread.setArchived(true, 'Ticket closed by staff')
   } catch (err) {
     console.error('Failed to close thread:', err)
   }

@@ -4,9 +4,6 @@ import {
   ChannelType,
   ContainerBuilder,
   TextChannel,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
   MessageFlags,
   MessageType,
   TextDisplayBuilder,
@@ -48,7 +45,6 @@ export function splitWebhookMessageContent(
 }
 
 function createModTicketPanel(options: {
-  closeButton: ActionRowBuilder<ButtonBuilder>
   description: string
   notificationContent: string
   ownershipTransfer: string
@@ -78,7 +74,7 @@ function createModTicketPanel(options: {
     )
   }
 
-  return ticketPanel.addActionRowComponents(options.closeButton)
+  return ticketPanel
 }
 
 export const modal = {
@@ -339,23 +335,15 @@ export const execute = async (
     autoArchiveDuration: 10080,
   })
 
-  const closeButton = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`closeModTicket_${interaction.user.id}`)
-      .setLabel('Close Ticket')
-      .setStyle(ButtonStyle.Danger)
-  )
-
   const notificationContent = `<@&${roleIds.modNotifications}>, <@${interaction.user.id}> has created a ticket.`
   const ticketPanel = createModTicketPanel({
-    closeButton,
     description: ticketDescription,
     notificationContent,
     ownershipTransfer,
     title: trimmedTitle,
   })
 
-  // Send the initial ticket panel together with the close button.
+  // Send the initial ticket panel.
   const alertContainer = createCustomAlertContainer()
   await thread.send({
     components: alertContainer ? [alertContainer, ticketPanel] : [ticketPanel],

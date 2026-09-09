@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from 'express'
 import cors from 'cors'
 import { getTranscriptById } from './db/transcripts'
+import { openTranscriptAssetDownloadStream } from './db/transcriptAssets'
 
 const PORT = parseInt(process.env.WEB_SERVER_PORT ?? '3000', 10)
 const TRANSCRIPT_DOMAIN = process.env.TRANSCRIPT_DOMAIN ?? 'localhost:3000'
@@ -41,6 +42,44 @@ export const startWebServer = async (): Promise<void> => {
     }
   })
 
+  app.get('/transcript-asset/:assetId', async (req: Request, res: Response): Promise<void> => {
+    try {
+      const assetId = req.params.assetId
+
+      if (!assetId || typeof assetId !== 'string') {
+        res.status(400).json({ error: 'Asset ID is required' })
+        return
+      }
+
+      const asset = await openTranscriptAssetDownloadStream(assetId)
+
+      if (!asset) {
+        res.status(404).json({ error: 'Asset not found' })
+        return
+      }
+
+      res.setHeader('Content-Type', asset.contentType)
+      res.setHeader(
+        'Content-Disposition',
+        `inline; filename="${encodeURIComponent(asset.filename)}"`
+      )
+      if (asset.length) {
+        res.setHeader('Content-Length', String(asset.length))
+      }
+      // Assets are immutable once uploaded — cache them aggressively.
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+
+      asset.stream.on('error', (error) => {
+        console.error('Error streaming transcript asset:', error)
+        res.destroy()
+      })
+      asset.stream.pipe(res)
+    } catch (error) {
+      console.error('Error serving transcript asset:', error)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
   app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok' })
   })
@@ -55,4 +94,8 @@ export const startWebServer = async (): Promise<void> => {
 
 export const getTranscriptUrl = (transcriptId: string): string => {
   return `https://${TRANSCRIPT_DOMAIN}/transcript/${transcriptId}`
+}
+
+export const getTranscriptAssetUrl = (assetId: string): string => {
+  return `https://${TRANSCRIPT_DOMAIN}/transcript-asset/${assetId}`
 }
