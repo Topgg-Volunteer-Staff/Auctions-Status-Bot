@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { Collection, CreateIndexesOptions } from 'mongodb'
 import { getMongoDatabase } from './mongo'
 
@@ -26,14 +27,7 @@ const collectionName =
 let transcriptsCollectionPromise: Promise<Collection<TranscriptDocument>> | null =
   null
 
-const generateTranscriptId = (): string => {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < 16; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
+const generateTranscriptId = (): string => randomUUID()
 
 const hasEquivalentIndex = async (
   collection: Collection<TranscriptDocument>,
