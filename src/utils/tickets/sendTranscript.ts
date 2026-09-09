@@ -15,6 +15,39 @@ type SendTranscriptResult = {
   error?: string
 }
 
+const MESSAGE_FETCH_PAGE_SIZE = 100
+
+// Everyone who actually typed in the ticket gets the transcript, not just the
+// person who opened it. Bots, webhooks and system messages never count.
+export const collectTicketParticipantIds = async (
+  thread: ThreadChannel,
+  botUserId?: string
+): Promise<Array<string>> => {
+  const participantIds = new Set<string>()
+  let before: string | undefined
+  let hasMoreMessages = true
+
+  while (hasMoreMessages) {
+    const messages = await thread.messages.fetch({
+      limit: MESSAGE_FETCH_PAGE_SIZE,
+      ...(before ? { before } : {}),
+    })
+    if (messages.size === 0) break
+
+    for (const message of messages.values()) {
+      if (message.author.bot || message.webhookId || message.system) continue
+      if (botUserId && message.author.id === botUserId) continue
+      participantIds.add(message.author.id)
+    }
+
+    before = messages.last()?.id
+    hasMoreMessages =
+      messages.size === MESSAGE_FETCH_PAGE_SIZE && typeof before === 'string'
+  }
+
+  return [...participantIds]
+}
+
 function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error
   if (error instanceof Error) return error.message

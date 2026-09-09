@@ -26,7 +26,10 @@ import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
 import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
 import { removeThread } from '../utils/tickets/trackActivity'
 import { generateTranscript } from '../utils/tickets/generateTranscript'
-import { sendTranscriptDm } from '../utils/tickets/sendTranscript'
+import {
+  collectTicketParticipantIds,
+  sendTranscriptDm,
+} from '../utils/tickets/sendTranscript'
 import { saveTranscript } from '../utils/db/transcripts'
 import { getTranscriptUrl } from '../utils/webServer'
 
@@ -202,12 +205,41 @@ export const execute = async (
       }
     }
 
-    // Send DM with transcript link
-    if (threadOwner && transcriptId) {
+    // Send DM with transcript link to everyone who spoke in the ticket
+    if (transcriptId) {
+      const transcriptUrl = getTranscriptUrl(transcriptId)
+
+      let participantIds: Array<string> = []
       try {
-        const userForDm = await client.users.fetch(threadOwner.id)
+        participantIds = await collectTicketParticipantIds(
+          thread,
+          client.user?.id
+        )
+      } catch (error) {
+        await sendErrorLog(
+          client,
+          'Failed to collect ticket participants for transcript DMs',
+          error,
+          {
+            threadId: thread.id,
+            threadName: thread.name,
+          }
+        ).catch(() => void 0)
+      }
+
+      // The ticket opener may never have typed in the thread, so make sure
+      // they are always on the list.
+      const recipientIds = [
+        ...new Set(
+          threadOwner ? [threadOwner.id, ...participantIds] : participantIds
+        ),
+      ]
+
+      const failedRecipientIds: Array<string> = []
+
+      for (const recipientId of recipientIds) {
         try {
-          const transcriptUrl = getTranscriptUrl(transcriptId)
+          const userForDm = await client.users.fetch(recipientId)
           const dmResult = await sendTranscriptDm(
             userForDm,
             thread,
@@ -216,6 +248,7 @@ export const execute = async (
           )
 
           if (!dmResult.success) {
+            failedRecipientIds.push(recipientId)
             await sendErrorLog(
               client,
               'Failed to send transcript DM',
@@ -223,45 +256,31 @@ export const execute = async (
               {
                 threadId: thread.id,
                 threadName: thread.name,
-                userId: threadOwner.id,
+                userId: recipientId,
               }
             ).catch(() => void 0)
-
-            // Notify in channel that DM failed
-            await thread.send({
-              content: `<@${threadOwner.id}>, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
-              allowedMentions: { parse: ['users'] },
-            }).catch(() => void 0)
           }
-        } catch (dmError) {
+        } catch (error) {
+          failedRecipientIds.push(recipientId)
           await sendErrorLog(
             client,
             'Failed to send transcript DM',
-            dmError,
+            error,
             {
               threadId: thread.id,
               threadName: thread.name,
-              userId: threadOwner.id,
+              userId: recipientId,
             }
           ).catch(() => void 0)
-
-          // Notify in channel that DM failed
-          await thread.send({
-            content: `<@${threadOwner.id}>, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
-            allowedMentions: { parse: ['users'] },
-          }).catch(() => void 0)
         }
-      } catch (error) {
-        await sendErrorLog(
-          client,
-          'Failed to fetch user for transcript DM',
-          error,
-          {
-            threadId: thread.id,
-            threadName: thread.name,
-            userId: threadOwner.id,
-          }
-        ).catch(() => void 0)
+      }
+
+      if (failedRecipientIds.length > 0) {
+        const mentions = failedRecipientIds.map((id) => `<@${id}>`).join(', ')
+        await thread.send({
+          content: `${mentions}, we could not send you the transcript via DM. This is likely because you have DMs disabled. The transcript has been generated but could not be delivered.`,
+          allowedMentions: { parse: ['users'] },
+        }).catch(() => void 0)
       }
     }
 
