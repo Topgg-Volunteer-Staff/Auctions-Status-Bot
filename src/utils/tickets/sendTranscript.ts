@@ -1,7 +1,10 @@
 import {
   User,
   ThreadChannel,
-  EmbedBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize,
   ButtonBuilder,
   ButtonStyle,
   ActionRowBuilder,
@@ -9,6 +12,8 @@ import {
   Client,
 } from 'discord.js'
 import { channelIds } from '../../globals'
+import { COMPONENTS_V2_FLAGS } from '../componentsV2'
+import { emoji } from '../emojis'
 
 type SendTranscriptResult = {
   success: boolean
@@ -91,6 +96,72 @@ async function resolveDmFailureMessage(
   return 'Failed to send transcript DM (likely DMs disabled for this server or bot blocked)'
 }
 
+export type TranscriptPanelOptions = {
+  threadName: string
+  isModTicket: boolean
+  resolvedBy: string
+  resolvedAt?: Date
+  transcriptUrl?: string
+}
+
+const MOD_TICKET_DISCLAIMER =
+  'Available to you, our Support Associates, our Moderator team, and any reviewer that handled this ticket.'
+const AUCTIONS_TICKET_DISCLAIMER =
+  'Available to you and the Support Associate that handled this ticket.'
+
+// One panel shared by the DM and the in-thread post so the two never drift.
+export const createTranscriptPanel = ({
+  threadName,
+  isModTicket,
+  resolvedBy,
+  resolvedAt = new Date(),
+  transcriptUrl,
+}: TranscriptPanelOptions): ContainerBuilder => {
+  const ticketType = isModTicket
+    ? `${emoji.bolt} Mod & Disputes`
+    : `${emoji.money} Auctions`
+  const resolvedTimestamp = Math.floor(resolvedAt.getTime() / 1000)
+
+  const container = new ContainerBuilder()
+    .setAccentColor(isModTicket ? 0xff3366 : 0x00cc88)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        [
+          `## ${emoji.note} Ticket Transcript`,
+          `**${threadName}**`,
+          '',
+          `${ticketType}  •  Resolved by <@${resolvedBy}>  •  <t:${resolvedTimestamp}:R>`,
+        ].join('\n')
+      )
+    )
+
+  if (transcriptUrl) {
+    container.addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setURL(transcriptUrl)
+          .setLabel('Open Transcript')
+          .setEmoji({ name: '📋' })
+          .setStyle(ButtonStyle.Link)
+      )
+    )
+  }
+
+  return container
+    .addSeparatorComponents(
+      new SeparatorBuilder()
+        .setDivider(true)
+        .setSpacing(SeparatorSpacingSize.Small)
+    )
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `-# ${emoji.lock} ${
+          isModTicket ? MOD_TICKET_DISCLAIMER : AUCTIONS_TICKET_DISCLAIMER
+        } Let us know if you have any questions or concerns.`
+      )
+    )
+}
+
 export const sendTranscriptDm = async (
   user: User,
   thread: ThreadChannel,
@@ -98,41 +169,16 @@ export const sendTranscriptDm = async (
   transcriptUrl: string
 ): Promise<SendTranscriptResult> => {
   try {
-    const isModTicket = thread.parent?.id === channelIds.modTickets
-
-    const disclaimerText = isModTicket
-      ? 'These transcripts are available to yourself and our Support Associates, as well as our Moderator team and any reviewer that handled your ticket. Let us know if you have any questions or concerns.'
-      : 'These transcripts are only available to yourself and the Support Associate that handled your ticket. Let us know if you have any questions or concerns.'
-
-    const transcriptEmbed = new EmbedBuilder()
-      .setTitle('📋 Ticket Transcript')
-      .setDescription(`**${thread.name}**\n\n${disclaimerText}`)
-      .addFields(
-        {
-          name: 'Ticket Type',
-          value: isModTicket ? '🔴 Mod/Dispute' : '🟢 Auctions',
-          inline: true,
-        },
-        {
-          name: 'Resolved By',
-          value: `<@${resolvedBy}>`,
-          inline: true,
-        }
-      )
-      .setColor(isModTicket ? 0xff6b6b : 0x4ecdc4)
-      .setTimestamp()
-
-    const transcriptButton = new ButtonBuilder()
-      .setURL(transcriptUrl)
-      .setLabel('Open Transcript')
-      .setEmoji('📋')
-      .setStyle(ButtonStyle.Link)
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
-
     await user.send({
-      embeds: [transcriptEmbed],
-      components: [row],
+      components: [
+        createTranscriptPanel({
+          threadName: thread.name,
+          isModTicket: thread.parent?.id === channelIds.modTickets,
+          resolvedBy,
+          transcriptUrl,
+        }),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
     })
 
     return { success: true }

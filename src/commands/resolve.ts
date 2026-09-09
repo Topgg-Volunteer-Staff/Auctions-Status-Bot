@@ -5,10 +5,6 @@ import {
   SlashCommandBuilder,
   InteractionContextType,
   ThreadChannel,
-  EmbedBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  ActionRowBuilder,
 } from 'discord.js'
 
 import { channelIds, resolvedFlag } from '../globals'
@@ -28,6 +24,7 @@ import { removeThread } from '../utils/tickets/trackActivity'
 import { generateTranscript } from '../utils/tickets/generateTranscript'
 import {
   collectTicketParticipantIds,
+  createTranscriptPanel,
   sendTranscriptDm,
 } from '../utils/tickets/sendTranscript'
 import { saveTranscript } from '../utils/db/transcripts'
@@ -284,57 +281,27 @@ export const execute = async (
       }
     }
 
-    // Post transcript embed in channel
-    const disclaimerText = isModTicket
-      ? 'These transcripts are available to yourself and our Support Associates, as well as our Moderator team and any reviewer that handled your ticket. Let us know if you have any questions or concerns.'
-      : 'These transcripts are only available to yourself and the Support Associate that handled your ticket. Let us know if you have any questions or concerns.'
-
-    const transcriptEmbed = new EmbedBuilder()
-      .setTitle('📋 Ticket Transcript')
-      .setDescription(`**${originalThreadName}**\n\n${disclaimerText}`)
-      .addFields(
-        {
-          name: 'Ticket Type',
-          value: isModTicket ? '🔴 Mod/Dispute' : '🟢 Auctions',
-          inline: true,
-        },
-        {
-          name: 'Resolved By',
-          value: `<@${interaction.user.id}>`,
-          inline: true,
-        }
-      )
-
-    transcriptEmbed.setColor(isModTicket ? 0xff6b6b : 0x4ecdc4).setTimestamp()
-
-    if (transcriptId) {
-      const transcriptButton = new ButtonBuilder()
-        .setURL(getTranscriptUrl(transcriptId))
-        .setLabel('Open Transcript')
-        .setEmoji('📋')
-        .setStyle(ButtonStyle.Link)
-
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(transcriptButton)
-
-      await thread.send({
-        embeds: [transcriptEmbed],
-        components: [row],
-      }).catch((error) => {
-        sendErrorLog(client, 'Failed to post transcript in channel', error, {
-          threadId: thread.id,
-          threadName: thread.name,
-        })
+    // Post transcript panel in channel
+    await thread.send({
+      components: [
+        createTranscriptPanel({
+          threadName: originalThreadName,
+          isModTicket,
+          resolvedBy: interaction.user.id,
+          resolvedAt: interaction.createdAt,
+          ...(transcriptId
+            ? { transcriptUrl: getTranscriptUrl(transcriptId) }
+            : {}),
+        }),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
+    }).catch((error) => {
+      sendErrorLog(client, 'Failed to post transcript in channel', error, {
+        threadId: thread.id,
+        threadName: thread.name,
       })
-    } else {
-      await thread.send({
-        embeds: [transcriptEmbed],
-      }).catch((error) => {
-        sendErrorLog(client, 'Failed to post transcript in channel', error, {
-          threadId: thread.id,
-          threadName: thread.name,
-        })
-      })
-    }
+    })
 
     await removeTicketDmPreference(thread.id).catch((error) => {
       console.error(
