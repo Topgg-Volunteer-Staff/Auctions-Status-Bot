@@ -1,108 +1,19 @@
-import {
-  ButtonInteraction,
-  ChannelType,
-  Client,
-  PermissionsBitField,
-  MessageFlags,
-} from 'discord.js'
-
-import { resolvedFlag } from '../globals'
-import { removeTicketDmPreference } from '../utils/tickets/dmOnResponses'
-import { getResolvedThreadName } from '../utils/tickets/resolvedThreadName'
-import {
-  getMostActiveStaffMemberId,
-  recordResolvedTicketCredit,
-} from '../utils/tickets/resolvedTicketCredit'
-import { removeThreadStaffTicketReminderPreferences } from '../utils/tickets/staffTicketReminders'
-import { removeThread } from '../utils/tickets/trackActivity'
+import { ButtonInteraction, Client, MessageFlags } from 'discord.js'
 
 export const button = {
   name: 'closeModTicket',
 }
 
+// Closing tickets via button is no longer allowed for anyone, including
+// staff — this only survives on old ticket messages. Staff now close
+// tickets with the /resolve command instead.
 export const execute = async (
-  client: Client,
+  _client: Client,
   interaction: ButtonInteraction
 ): Promise<void> => {
-  if (!interaction.inCachedGuild()) return
-
-  const thread = interaction.channel
-  if (!thread || thread.type !== ChannelType.PrivateThread) {
-    await interaction.reply({
-      content: 'This button must be used inside a private thread.',
-      flags: MessageFlags.Ephemeral,
-    })
-    return
-  }
-
-  const [, userId] = interaction.customId.split('_')
-
-  const isOpener = interaction.user.id === userId
-  const isModerator = interaction.member.permissions.has(
-    PermissionsBitField.Flags.ManageThreads
-  )
-  const shouldAwardMostActiveStaff = isOpener && !isModerator
-  const originalThreadName = thread.name
-
-  // Users can no longer close their own tickets — this button only survives
-  // on old ticket messages, and only staff may still use it.
-  if (!isModerator) {
-    await interaction.reply({
-      content:
-        'This feature is no longer available, let the staff member know you want to close the ticket.',
-      flags: MessageFlags.Ephemeral,
-    })
-    return
-  }
-
-  try {
-    await interaction.reply({
-      content: `This ticket has been locked and archived by <@${interaction.user.id}>. Still need help? Create another ticket in <#1285771377160491049>`,
-      allowedMentions: { users: [] },
-    })
-
-    if (!thread.name.startsWith(resolvedFlag)) {
-      await thread.setName(getResolvedThreadName(thread.name))
-    }
-
-    if (shouldAwardMostActiveStaff) {
-      const mostActiveStaffMemberId = await getMostActiveStaffMemberId(thread)
-
-      if (mostActiveStaffMemberId) {
-        await recordResolvedTicketCredit({
-          client,
-          command: 'closeModTicket',
-          guildId: interaction.guildId,
-          parentId: thread.parentId,
-          resolvedAt: interaction.createdAt,
-          resolvedByUserId: mostActiveStaffMemberId,
-          threadId: thread.id,
-          threadName: originalThreadName,
-        })
-      }
-    }
-
-    await removeTicketDmPreference(thread.id).catch((error) => {
-      console.error(
-        `Failed to remove DM preference for closed ticket ${thread.id}:`,
-        error
-      )
-    })
-
-    await removeThreadStaffTicketReminderPreferences(thread.id).catch(
-      (error) => {
-        console.error(
-          `Failed to remove staff reminders for closed ticket ${thread.id}:`,
-          error
-        )
-      }
-    )
-
-    await removeThread(thread.id)
-
-    await thread.setLocked(true, 'Ticket closed')
-    await thread.setArchived(true, 'Ticket closed by staff')
-  } catch (err) {
-    console.error('Failed to close thread:', err)
-  }
+  await interaction.reply({
+    content:
+      'This feature is no longer available, let the staff member know you want to close the ticket.',
+    flags: MessageFlags.Ephemeral,
+  })
 }
