@@ -68,6 +68,33 @@ const ensureIndex = async (
   await collection.createIndex(keys, options)
 }
 
+// Transcripts saved before `transcriptId` existed have array entries missing
+// that field. Mongo's `transcripts.transcriptId: { $exists: true }` partial
+// filter matches a document if ANY element has the field, but the multikey
+// index still generates a `null` entry for elements that don't — so once a
+// user has one old (fieldless) transcript and one new one, their document
+// gets indexed and produces a `null` key. Two such users collide on that
+// same `null` slot in the unique index. Backfilling a real id onto every
+// legacy entry removes all `null` keys so this can't happen again.
+const backfillMissingTranscriptIds = async (
+  collection: Collection<TranscriptDocument>
+): Promise<void> => {
+  const cursor = collection.find({
+    transcripts: { $elemMatch: { transcriptId: { $exists: false } } },
+  })
+
+  for await (const doc of cursor) {
+    const fixedTranscripts = doc.transcripts.map((t) =>
+      t.transcriptId ? t : { ...t, transcriptId: generateTranscriptId() }
+    )
+
+    await collection.updateOne(
+      { _id: doc._id },
+      { $set: { transcripts: fixedTranscripts } }
+    )
+  }
+}
+
 const getTranscriptsCollection = async (): Promise<
   Collection<TranscriptDocument>
 > => {
@@ -75,6 +102,8 @@ const getTranscriptsCollection = async (): Promise<
     transcriptsCollectionPromise = (async () => {
       const db = await getMongoDatabase()
       const collection = db.collection<TranscriptDocument>(collectionName)
+
+      await backfillMissingTranscriptIds(collection)
 
       await ensureIndex(collection, { 'transcripts.threadId': 1 }, {
         name: 'transcripts_threadId_unique',
