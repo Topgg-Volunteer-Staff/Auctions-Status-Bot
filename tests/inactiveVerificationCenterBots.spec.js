@@ -178,7 +178,7 @@ describe('inactive verification center bot reminders', () => {
     )
 
     expect(content).toBe(
-      "sending here as it's 7 days\n\n<@123456789012345678> -> Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nNone"
+      "sending here as it's 7 days\n\n<@311553339261321216>\n\n<@123456789012345678> -> Please check <@223456789012345678> (`Example Bot | 223456789012345678`) in the VC. It joined <t:1725000000:R>.\n\nCurrent Roles:\nNone"
     )
 
     const message = await buildVerificationCenterBotReminderMessage(

@@ -45,4 +45,8 @@ const roleIds =
 
 const resolvedFlag = '[Resolved]' // optionally, change this too if needed
 
-export { channelIds, roleIds, resolvedFlag }
+const userIds = {
+  modChatInactivityPing: '311553339261321216',
+}
+
+export { channelIds, roleIds, resolvedFlag, userIds }

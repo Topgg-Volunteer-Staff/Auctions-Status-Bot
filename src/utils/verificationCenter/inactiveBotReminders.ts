@@ -8,7 +8,7 @@ import {
   TextChannel,
 } from 'discord.js'
 
-import { channelIds, roleIds } from '../../globals'
+import { channelIds, roleIds, userIds } from '../../globals'
 import { COMPONENTS_V2_FLAGS, createTextPanel } from '../componentsV2'
 import {
   loadMongoBackedJson,
@@ -233,7 +233,9 @@ export function buildVerificationCenterBotReminderContent(
   sections.push(`Current Roles:\n${bot.roleNames?.join(', ') || 'None'}`)
 
   const content = sections.join('\n\n')
-  return options.noteText ? `${options.noteText}\n\n${content}` : content
+  if (!options.noteText) return content
+
+  return `${options.noteText}\n\n<@${userIds.modChatInactivityPing}>\n\n${content}`
 }
 
 export function buildKickVerificationCenterBotCustomId(
@@ -326,7 +328,9 @@ export async function buildVerificationCenterBotReminderMessage(
     components: [panel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
-      users: [reviewerId, bot.id],
+      users: contentOptions.noteText
+        ? [reviewerId, bot.id, userIds.modChatInactivityPing]
+        : [reviewerId, bot.id],
       roles: [],
       parse: [],
     },
@@ -374,7 +378,8 @@ async function sendReviewerReminder(
 async function sendModChatWeeklyEscalation(
   channel: TextChannel,
   reviewerId: string,
-  bot: VerificationCenterBotReminderTarget
+  bot: VerificationCenterBotReminderTarget,
+  ageDays: number
 ): Promise<void> {
   try {
     await channel.send(
@@ -382,7 +387,7 @@ async function sendModChatWeeklyEscalation(
         reviewerId,
         bot,
         {},
-        { noteText: "sending here as it's 7 days" }
+        { noteText: `sending here as it's been ${ageDays} days` }
       )
     )
   } catch (error) {
@@ -564,7 +569,8 @@ async function runVerificationCenterBotReminderCheck(
           await sendModChatWeeklyEscalation(
             modChatChannel,
             reviewer.id,
-            botWithRoles
+            botWithRoles,
+            reminder.minimumAgeDays
           )
         }
       }

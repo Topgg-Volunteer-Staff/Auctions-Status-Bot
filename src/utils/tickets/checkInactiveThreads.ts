@@ -13,7 +13,7 @@ import {
   TextDisplayBuilder,
   ThreadChannel,
 } from 'discord.js'
-import { channelIds, resolvedFlag, roleIds } from '../../globals'
+import { channelIds, resolvedFlag, roleIds, userIds } from '../../globals'
 import { COMPONENTS_V2_FLAGS } from '../componentsV2'
 import {
   getThreadLastMessage,
@@ -281,7 +281,8 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             targetAlertChannel,
             thread,
             idleSince,
-            lastRoutedStaff?.memberId ?? null
+            lastRoutedStaff?.memberId ?? null,
+            targetAlertChannel.id === defaultAlertChannel.id
           )
 
           if (
@@ -293,7 +294,8 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
               reviewerAlertChannel,
               thread,
               idleSince,
-              lastRoutedStaff.memberId
+              lastRoutedStaff.memberId,
+              reviewerAlertChannel.id === defaultAlertChannel.id
             )
             alertsSent = alertsSent && reviewerAlertSent
           }
@@ -342,6 +344,7 @@ export function buildMissingStaffResponseAlertContent(
   const displayedAlerts = alerts.slice(0, Math.max(0, maxDetails))
   const ticketLabel = alerts.length === 1 ? 'ticket has' : 'tickets have'
   const lines = [
+    `<@${userIds.modChatInactivityPing}>`,
     `:warning: ${alerts.length} open ${ticketLabel} not received a staff response in 14 days.`,
   ]
 
@@ -376,7 +379,7 @@ async function sendMissingStaffResponseAlerts(
       content: buildMissingStaffResponseAlertContent(alerts),
       allowedMentions: {
         roles: [],
-        users: [],
+        users: [userIds.modChatInactivityPing],
         parse: [],
       },
     })
@@ -391,11 +394,18 @@ export async function sendInactiveAlert(
   alertChannel: TextChannel,
   thread: ThreadChannel,
   idleSince: number,
-  lastStaffMemberId: string | null
+  lastStaffMemberId: string | null,
+  pingModChat = false
 ): Promise<boolean> {
   try {
     await alertChannel.send(
-      buildInactiveTicketAlertMessage(thread, idleSince, lastStaffMemberId)
+      buildInactiveTicketAlertMessage(
+        thread,
+        idleSince,
+        lastStaffMemberId,
+        null,
+        pingModChat
+      )
     )
     return true
   } catch (error) {
@@ -458,12 +468,14 @@ export function buildInactiveTicketAlertMessage(
   thread: Pick<ThreadChannel, 'id' | 'url'>,
   idleSince: number,
   lastStaffMemberId: string | null,
-  extraReminderHours: number | null = null
+  extraReminderHours: number | null = null,
+  pingModChat = false
 ): MessageCreateOptions {
   const handler = lastStaffMemberId
     ? `<@${lastStaffMemberId}>`
     : 'Unknown staff member'
-  const content = `${handler} -> Please check <#${
+  const pingPrefix = pingModChat ? `<@${userIds.modChatInactivityPing}>\n` : ''
+  const content = `${pingPrefix}${handler} -> Please check <#${
     thread.id
   }>. Idle since <t:${Math.floor(idleSince / 1000)}:R>.`
 
@@ -507,11 +519,14 @@ export function buildInactiveTicketAlertMessage(
       )
     )
 
+  const mentionedUsers = lastStaffMemberId ? [lastStaffMemberId] : []
+  if (pingModChat) mentionedUsers.push(userIds.modChatInactivityPing)
+
   return {
     components: [panel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: {
-      users: lastStaffMemberId ? [lastStaffMemberId] : [],
+      users: mentionedUsers,
       roles: [],
       parse: [],
     },
