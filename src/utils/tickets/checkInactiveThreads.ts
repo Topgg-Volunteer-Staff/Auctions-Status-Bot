@@ -277,12 +277,16 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
             : defaultAlertChannel
 
         if (alertToSend) {
+          const pingModChat =
+            due7DayInterval !== null &&
+            targetAlertChannel.id === defaultAlertChannel.id
+
           let alertsSent = await sendInactiveAlert(
             targetAlertChannel,
             thread,
             idleSince,
             lastRoutedStaff?.memberId ?? null,
-            targetAlertChannel.id === defaultAlertChannel.id
+            pingModChat
           )
 
           if (
@@ -295,7 +299,8 @@ async function runInactiveThreadCheck(client: Client): Promise<void> {
               thread,
               idleSince,
               lastRoutedStaff.memberId,
-              reviewerAlertChannel.id === defaultAlertChannel.id
+              due7DayInterval !== null &&
+                reviewerAlertChannel.id === defaultAlertChannel.id
             )
             alertsSent = alertsSent && reviewerAlertSent
           }
