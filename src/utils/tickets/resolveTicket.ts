@@ -197,29 +197,9 @@ export const resolveTicket = async ({
 
         if (!dmResult.success) {
           failedRecipientIds.push(recipientId)
-          const isDmsDisabled =
-            dmResult.error ===
-            'Failed to send transcript DM (likely DMs disabled for this server or bot blocked)'
-          if (!isDmsDisabled) {
-            await sendErrorLog(
-              client,
-              'Failed to send transcript DM',
-              dmResult.error || 'Unknown error',
-              {
-                threadId: thread.id,
-                threadName: thread.name,
-                userId: recipientId,
-              }
-            ).catch(() => void 0)
-          }
         }
-      } catch (error) {
+      } catch {
         failedRecipientIds.push(recipientId)
-        await sendErrorLog(client, 'Failed to send transcript DM', error, {
-          threadId: thread.id,
-          threadName: thread.name,
-          userId: recipientId,
-        }).catch(() => void 0)
       }
     }
 
