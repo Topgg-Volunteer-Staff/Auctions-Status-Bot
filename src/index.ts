@@ -1079,14 +1079,29 @@ client.on('guildMemberRemove', async (member) => {
     const modTicketsChannel = guild.channels.cache.get(
       channelIds.modTickets
     ) as TextChannel | undefined
+    const auctionsTicketsChannel = guild.channels.cache.get(
+      channelIds.auctionsTickets
+    ) as TextChannel | undefined
 
-    if (!modTicketsChannel) return
+    const userThreads: ThreadChannel[] = []
 
-    const activeThreads = await modTicketsChannel.threads.fetchActive()
+    if (modTicketsChannel) {
+      const activeThreads = await modTicketsChannel.threads.fetchActive()
+      userThreads.push(
+        ...Array.from(activeThreads.threads.values()).filter((thread) =>
+          thread.name.endsWith(`- ${member.user.username}`)
+        )
+      )
+    }
 
-    const userThreads = Array.from(activeThreads.threads.values()).filter(
-      (thread) => thread.name.endsWith(`- ${member.user.username}`)
-    )
+    if (auctionsTicketsChannel) {
+      const activeThreads = await auctionsTicketsChannel.threads.fetchActive()
+      userThreads.push(
+        ...Array.from(activeThreads.threads.values()).filter(
+          (thread) => thread.name === member.user.username
+        )
+      )
+    }
 
     for (const thread of userThreads) {
       try {
