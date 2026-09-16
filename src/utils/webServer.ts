@@ -61,6 +61,9 @@ export const startWebServer = async (): Promise<void> => {
         'Content-Security-Policy',
         "default-src 'none'; img-src 'self' data: https://cdn.discordapp.com https://media.discordapp.net; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
       )
+      // Transcripts are immutable once a ticket is resolved — safe to cache
+      // in the requester's browser indefinitely.
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.send(transcript.transcriptHtml)
     } catch (error) {
