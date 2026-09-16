@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express'
 import cors from 'cors'
+import rateLimit from 'express-rate-limit'
 import { getTranscriptById } from './db/transcripts'
 import { openTranscriptAssetDownloadStream } from './db/transcriptAssets'
 
@@ -7,6 +8,15 @@ const PORT = parseInt(process.env.WEB_SERVER_PORT ?? '3000', 10)
 const TRANSCRIPT_DOMAIN = process.env.TRANSCRIPT_DOMAIN ?? 'localhost:3000'
 
 let app: Express | null = null
+
+// Applied per-route below; keeps transcript links usable without auth while
+// bounding how hard a single client can hammer the DB/asset storage.
+const transcriptLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 export const startWebServer = async (): Promise<void> => {
   if (app) {
@@ -18,7 +28,7 @@ export const startWebServer = async (): Promise<void> => {
   app.use(cors())
   app.use(express.json())
 
-  app.get('/transcript/:transcriptId', async (req: Request, res: Response): Promise<void> => {
+  app.get('/transcript/:transcriptId', transcriptLimiter, async (req: Request, res: Response): Promise<void> => {
     try {
       const transcriptId = req.params.transcriptId
 
@@ -34,6 +44,13 @@ export const startWebServer = async (): Promise<void> => {
         return
       }
 
+      // Transcript HTML can embed user-submitted message content; a strict
+      // CSP blocks it from executing scripts or phoning home if anything
+      // slipped through unescaped.
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
+      )
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.send(transcript.transcriptHtml)
     } catch (error) {
@@ -42,7 +59,7 @@ export const startWebServer = async (): Promise<void> => {
     }
   })
 
-  app.get('/transcript-asset/:assetId', async (req: Request, res: Response): Promise<void> => {
+  app.get('/transcript-asset/:assetId', transcriptLimiter, async (req: Request, res: Response): Promise<void> => {
     try {
       const assetId = req.params.assetId
 
@@ -84,18 +101,22 @@ export const startWebServer = async (): Promise<void> => {
     res.json({ status: 'ok' })
   })
 
-  return new Promise<void>((resolve) => {
-    app!.listen(PORT, () => {
+  return new Promise<void>((resolve, reject) => {
+    const server = app!.listen(PORT, () => {
       console.log(`Web server running on http://localhost:${PORT}`)
       resolve()
+    })
+    server.on('error', (error) => {
+      app = null
+      reject(error)
     })
   })
 }
 
 export const getTranscriptUrl = (transcriptId: string): string => {
-  return `https://${TRANSCRIPT_DOMAIN}/transcript/${transcriptId}`
+  return `https://${TRANSCRIPT_DOMAIN}/transcript/${encodeURIComponent(transcriptId)}`
 }
 
 export const getTranscriptAssetUrl = (assetId: string): string => {
-  return `https://${TRANSCRIPT_DOMAIN}/transcript-asset/${assetId}`
+  return `https://${TRANSCRIPT_DOMAIN}/transcript-asset/${encodeURIComponent(assetId)}`
 }
