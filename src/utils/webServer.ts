@@ -25,6 +25,10 @@ export const startWebServer = async (): Promise<void> => {
 
   app = express()
 
+  // Running behind a reverse proxy in production; trust the first hop so
+  // express-rate-limit can read the real client IP from X-Forwarded-For.
+  app.set('trust proxy', 1)
+
   app.use(cors())
   app.use(express.json())
 
@@ -47,9 +51,15 @@ export const startWebServer = async (): Promise<void> => {
       // Transcript HTML can embed user-submitted message content; a strict
       // CSP blocks it from executing scripts or phoning home if anything
       // slipped through unescaped.
+      // Avatars and embedded screenshots in transcripts are hotlinked from
+      // Discord's CDN, so img-src has to allow those hosts. The transcript
+      // page also ships its own inline <script> (profile popup, export
+      // button) that needs script-src; message content is HTML-escaped
+      // before it ever reaches the page, so allowing inline script here
+      // doesn't reopen that up to injected user content.
       res.setHeader(
         'Content-Security-Policy',
-        "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"
+        "default-src 'none'; img-src 'self' data: https://cdn.discordapp.com https://media.discordapp.net; style-src 'unsafe-inline'; script-src 'unsafe-inline'"
       )
       res.setHeader('Content-Type', 'text/html; charset=utf-8')
       res.send(transcript.transcriptHtml)
