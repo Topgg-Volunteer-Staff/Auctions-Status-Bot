@@ -40,6 +40,7 @@ export interface TopggBotTeam {
 export interface TopggBotModPanelInfo {
   internalId: string
   reviewStatus: string | null
+  iconUrl: string | null
 }
 
 export type TopggLookupErrorKind =
@@ -116,6 +117,7 @@ const ENTITY_MOD_PANEL_INFO_QUERY = `
     entityExternal(externalId: $id, platform: $platform, type: $type) {
       internalId: id
       reviewStatus
+      iconUrl
     }
   }
 `
@@ -368,6 +370,7 @@ export async function fetchTopggEntityModPanelInfo(
     entityExternal: {
       internalId?: string
       reviewStatus?: string | null
+      iconUrl?: string | null
     } | null
   }>(ENTITY_MOD_PANEL_INFO_QUERY, { id, platform: 'DISCORD', type })
 
@@ -376,6 +379,7 @@ export async function fetchTopggEntityModPanelInfo(
   const info: TopggBotModPanelInfo = {
     internalId: data.entityExternal.internalId,
     reviewStatus: data.entityExternal.reviewStatus ?? null,
+    iconUrl: data.entityExternal.iconUrl ?? null,
   }
   setCached(entityModPanelInfoCache, cacheKey, info)
   return info

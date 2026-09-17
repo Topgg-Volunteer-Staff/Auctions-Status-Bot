@@ -107,6 +107,7 @@ export const execute = async (
   // use the external Discord ID directly.
   let linkId = id
   let reviewStatus: string | null
+  let serverIconUrl: string | null = null
 
   try {
     const modPanelInfo = await fetchTopggEntityModPanelInfo(
@@ -129,6 +130,9 @@ export const execute = async (
 
     if (sub === 'server-complete') {
       linkId = modPanelInfo.internalId
+      // The bot isn't a member of transferred servers, so the guild icon
+      // has to come from Top.gg's own listing data instead of the Discord API.
+      serverIconUrl = modPanelInfo.iconUrl
     }
     reviewStatus = modPanelInfo.reviewStatus
   } catch (error) {
@@ -159,17 +163,14 @@ export const execute = async (
       ? `https://top.gg/discord/servers/${linkId}`
       : `https://top.gg/bot/${linkId}`
 
-  let iconUrl: string | null = null
-  try {
-    if (sub === 'server-complete') {
-      const guild = await interaction.client.guilds.fetch(id)
-      iconUrl = guild.iconURL({ size: 256 })
-    } else {
+  let iconUrl: string | null = serverIconUrl
+  if (sub === 'bot-complete') {
+    try {
       const bot = await interaction.client.users.fetch(id)
       iconUrl = bot.displayAvatarURL({ size: 256 })
+    } catch {
+      iconUrl = null
     }
-  } catch {
-    iconUrl = null
   }
 
   const messageText = new TextDisplayBuilder().setContent(
