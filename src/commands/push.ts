@@ -4,8 +4,12 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   Client,
+  ContainerBuilder,
   InteractionContextType,
+  SectionBuilder,
   SlashCommandBuilder,
+  TextDisplayBuilder,
+  ThumbnailBuilder,
 } from 'discord.js'
 
 import { roleIds } from '../globals'
@@ -13,7 +17,6 @@ import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
   COMPONENTS_V2_FLAGS,
   createErrorPanel,
-  createTextPanel,
 } from '../utils/componentsV2'
 import { sendErrorLog } from '../utils/errorLogging'
 import { fetchTopggEntityModPanelInfo } from '../utils/topggTeams'
@@ -156,17 +159,46 @@ export const execute = async (
       ? `https://top.gg/discord/servers/${linkId}`
       : `https://top.gg/bot/${linkId}`
 
-  const panel = createTextPanel({
-    accentColor: 0x00cc88,
-    title: '<:DoggSunglasses:1400113207527477379> Transfer Complete',
-    description:
+  let iconUrl: string | null = null
+  try {
+    if (sub === 'server-complete') {
+      const guild = await interaction.client.guilds.fetch(id)
+      iconUrl = guild.iconURL({ size: 256 })
+    } else {
+      const bot = await interaction.client.users.fetch(id)
+      iconUrl = bot.displayAvatarURL({ size: 256 })
+    }
+  } catch {
+    iconUrl = null
+  }
+
+  const messageText = new TextDisplayBuilder().setContent(
+    `<:DoggSunglasses:1400113207527477379> **Transfer Complete**\n\n` +
       `<@${targetUser.id}>\n\n` +
       `Your ${entityLabel} has been transferred over! Here are the links and controls to your ${entityLabel}.\n\n` +
       `**Edit:** [Dashboard](${dashboardUrl})\n` +
       `**Public Page:** [View Listing](${publicUrl}) (only if your ${entityLabel} is live)\n\n` +
       'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>\n\n' +
-      `-# Review Status: ${reviewStatus ?? 'None'}`,
-  }).addActionRowComponents(
+      `-# Review Status: ${reviewStatus ?? 'None'}`
+  )
+
+  const panel = new ContainerBuilder()
+    .setAccentColor(0x00cc88)
+    .addSectionComponents(
+      iconUrl
+        ? [
+            new SectionBuilder()
+              .addTextDisplayComponents(messageText)
+              .setThumbnailAccessory(new ThumbnailBuilder().setURL(iconUrl)),
+          ]
+        : []
+    )
+
+  if (!iconUrl) {
+    panel.addTextDisplayComponents(messageText)
+  }
+
+  panel.addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setLabel('Edit Dashboard')
