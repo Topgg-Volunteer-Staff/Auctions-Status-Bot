@@ -1,17 +1,18 @@
 // scripts/test-modpanel-lookup.ts
-// Usage: npm run test:modpanel -- <discordBotId>
+// Usage: npm run test:modpanel -- <discordId> [BOT|SERVER]
 import path from 'node:path'
 import * as dotenv from 'dotenv'
 
 dotenv.config({ path: path.join(process.cwd(), '.env') })
 
 import {
-  fetchTopggBotModPanelInfo,
+  fetchTopggEntityModPanelInfo,
   getTopggModPanelUrl,
 } from '../utils/topggTeams'
 
 async function main(): Promise<void> {
-  const botId = process.argv[2] ?? '1515360272360013839'
+  const discordId = process.argv[2] ?? '1515360272360013839'
+  const type = process.argv[3] === 'SERVER' ? 'SERVER' : 'BOT'
 
   if (!process.env.GRAPHQL_API_TOKEN) {
     console.warn(
@@ -19,12 +20,12 @@ async function main(): Promise<void> {
     )
   }
 
-  console.log(`Looking up Top.gg mod panel info for bot ${botId}...`)
+  console.log(`Looking up Top.gg mod panel info for ${type} ${discordId}...`)
 
-  const info = await fetchTopggBotModPanelInfo(botId)
+  const info = await fetchTopggEntityModPanelInfo(discordId, type)
 
   if (!info) {
-    console.log('No internal ID found (bot is not listed on Top.gg).')
+    console.log(`No internal ID found (${type.toLowerCase()} is not listed on Top.gg).`)
     return
   }
 

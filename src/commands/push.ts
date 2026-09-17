@@ -127,7 +127,7 @@ export const execute = async (
 
   const panel = createTextPanel({
     accentColor: 0x00cc88,
-    title: '✅ Transfer Complete',
+    title: '<:DoggThumbsUp:1400113319905329264> Transfer Complete',
     description:
       `<@${targetUser.id}>\n\n` +
       `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
