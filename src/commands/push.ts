@@ -99,15 +99,20 @@ export const execute = async (
 
   const dashboardUrl =
     sub === 'server-complete'
-      ? `https://top.gg/discord/servers/${id}/dashboard/edit`
-      : `https://top.gg/bot/${id}/dashboard/edit`
+      ? `https://top.gg/discord/servers/${id}/dashboard`
+      : `https://top.gg/bot/${id}/dashboard`
+
+  const publicUrl =
+    sub === 'server-complete'
+      ? `https://top.gg/discord/servers/${id}`
+      : `https://top.gg/bot/${id}`
 
   const panel = createTextPanel({
     accentColor: 0x00cc88,
     description:
       `<@${targetUser.id}>\n\n` +
       `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
-      `${dashboardUrl}\n\n` +
+      `${dashboardUrl} (${publicUrl} — only if your ${sub === 'server-complete' ? 'server' : 'project'} is live)\n\n` +
       'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>',
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
