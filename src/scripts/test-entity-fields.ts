@@ -16,9 +16,7 @@ const PROBE_QUERY = `
       reviewStatus
       name
       icon
-      avatar
       iconUrl
-      avatarUrl
     }
   }
 `
