@@ -108,7 +108,7 @@ export const execute = async (
       `<@${targetUser.id}>\n\n` +
       `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
       `${dashboardUrl}\n\n` +
-      'Let me known if you have any other questions',
+      'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>',
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
