@@ -1,0 +1,126 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChatInputCommandInteraction,
+  Client,
+  InteractionContextType,
+  SlashCommandBuilder,
+} from 'discord.js'
+
+import { roleIds } from '../globals'
+import {
+  COMPONENTS_V2_EPHEMERAL_FLAGS,
+  COMPONENTS_V2_FLAGS,
+  createErrorPanel,
+  createTextPanel,
+} from '../utils/componentsV2'
+
+const SNOWFLAKE_PATTERN = /^\d{17,19}$/
+
+export const command = new SlashCommandBuilder()
+  .setName('push')
+  .setDescription('Notify a user that their server or bot has been transferred')
+  .setContexts(InteractionContextType.Guild)
+  .addSubcommand((sub) =>
+    sub
+      .setName('server-complete')
+      .setDescription('Notify a user their server has been transferred')
+      .addStringOption((option) =>
+        option
+          .setName('server-id')
+          .setDescription('The Top.gg server ID')
+          .setRequired(true)
+      )
+      .addUserOption((option) =>
+        option
+          .setName('user')
+          .setDescription('The user to notify')
+          .setRequired(true)
+      )
+  )
+  .addSubcommand((sub) =>
+    sub
+      .setName('bot-complete')
+      .setDescription('Notify a user their bot has been transferred')
+      .addStringOption((option) =>
+        option
+          .setName('bot-id')
+          .setDescription('The Top.gg bot ID')
+          .setRequired(true)
+      )
+      .addUserOption((option) =>
+        option
+          .setName('user')
+          .setDescription('The user to notify')
+          .setRequired(true)
+      )
+  )
+
+const hasPushAccess = (interaction: ChatInputCommandInteraction): boolean => {
+  if (!interaction.inCachedGuild()) return false
+
+  return [roleIds.supportTeam, roleIds.moderator].some((roleId) =>
+    interaction.member.roles.cache.has(roleId)
+  )
+}
+
+export const execute = async (
+  _client: Client,
+  interaction: ChatInputCommandInteraction
+): Promise<void> => {
+  if (!hasPushAccess(interaction)) {
+    await interaction.reply({
+      components: [createErrorPanel('You do not have permission to use this command!')],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    })
+    return
+  }
+
+  const sub = interaction.options.getSubcommand()
+  const targetUser = interaction.options.getUser('user', true)
+
+  const id =
+    sub === 'server-complete'
+      ? interaction.options.getString('server-id', true).trim()
+      : interaction.options.getString('bot-id', true).trim()
+
+  if (!SNOWFLAKE_PATTERN.test(id)) {
+    await interaction.reply({
+      components: [
+        createErrorPanel(
+          `Invalid ${sub === 'server-complete' ? 'server' : 'bot'} ID format!`
+        ),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    })
+    return
+  }
+
+  const dashboardUrl =
+    sub === 'server-complete'
+      ? `https://top.gg/discord/server/${id}/dashboard/edit`
+      : `https://top.gg/bot/${id}/dashboard/edit`
+
+  const panel = createTextPanel({
+    accentColor: 0x00cc88,
+    description:
+      `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
+      `${dashboardUrl}\n\n` +
+      'Let me known if you have any other questions',
+  }).addActionRowComponents(
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setLabel('Edit Dashboard')
+        .setStyle(ButtonStyle.Link)
+        .setURL(dashboardUrl)
+    )
+  )
+
+  await interaction.reply({
+    content: `<@${targetUser.id}>`,
+    components: [panel],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { users: [targetUser.id] },
+  })
+}
