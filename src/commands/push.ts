@@ -15,6 +15,8 @@ import {
   createErrorPanel,
   createTextPanel,
 } from '../utils/componentsV2'
+import { sendErrorLog } from '../utils/errorLogging'
+import { fetchTopggEntityModPanelInfo } from '../utils/topggTeams'
 
 const SNOWFLAKE_PATTERN = /^\d{17,19}$/
 
@@ -28,7 +30,7 @@ export const command = new SlashCommandBuilder()
       .setDescription('Notify a user their server has been transferred')
       .addStringOption((option) =>
         option
-          .setName('server-id')
+          .setName('internal-server-id')
           .setDescription('The internal server ID')
           .setRequired(true)
       )
@@ -45,8 +47,8 @@ export const command = new SlashCommandBuilder()
       .setDescription('Notify a user their bot has been transferred')
       .addStringOption((option) =>
         option
-          .setName('bot-id')
-          .setDescription('The Top.gg bot ID')
+          .setName('internal-bot-id')
+          .setDescription('The internal bot ID')
           .setRequired(true)
       )
       .addUserOption((option) =>
@@ -82,8 +84,8 @@ export const execute = async (
 
   const id =
     sub === 'server-complete'
-      ? interaction.options.getString('server-id', true).trim()
-      : interaction.options.getString('bot-id', true).trim()
+      ? interaction.options.getString('internal-server-id', true).trim()
+      : interaction.options.getString('internal-bot-id', true).trim()
 
   if (!SNOWFLAKE_PATTERN.test(id)) {
     await interaction.reply({
@@ -107,6 +109,22 @@ export const execute = async (
       ? `https://top.gg/discord/servers/${id}`
       : `https://top.gg/bot/${id}`
 
+  await interaction.deferReply()
+
+  let reviewStatus: string | null = null
+  try {
+    const modPanelInfo = await fetchTopggEntityModPanelInfo(
+      id,
+      sub === 'server-complete' ? 'SERVER' : 'BOT'
+    )
+    reviewStatus = modPanelInfo?.reviewStatus ?? null
+  } catch (error) {
+    await sendErrorLog(interaction.client, 'push.modPanelLookup.failed', error, {
+      id,
+      type: sub,
+    })
+  }
+
   const panel = createTextPanel({
     accentColor: 0x00cc88,
     title: '✅ Transfer Complete',
@@ -115,7 +133,8 @@ export const execute = async (
       `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
       `**Edit:** [Dashboard](${dashboardUrl})\n` +
       `**Public Page:** [View Listing](${publicUrl}) (only if your ${sub === 'server-complete' ? 'server' : 'bot'} is live)\n\n` +
-      'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>',
+      'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>\n\n' +
+      `-# Review Status: ${reviewStatus ?? 'None'}`,
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -125,7 +144,7 @@ export const execute = async (
     )
   )
 
-  await interaction.reply({
+  await interaction.editReply({
     components: [panel],
     flags: COMPONENTS_V2_FLAGS,
     allowedMentions: { users: [targetUser.id] },

@@ -73,7 +73,7 @@ const botOwnershipCache = new Map<
     team: TopggBotTeam | null
   }>
 >()
-const botModPanelInfoCache = new Map<string, CacheEntry<TopggBotModPanelInfo>>()
+const entityModPanelInfoCache = new Map<string, CacheEntry<TopggBotModPanelInfo>>()
 
 const USER_TEAMS_QUERY = `
   query UserTeams($id: String!) {
@@ -111,8 +111,8 @@ const BOT_TEAM_QUERY = `
   }
 `
 
-const BOT_MOD_PANEL_INFO_QUERY = `
-  query BotEntityModPanelInfo($id: String!, $platform: Platform!, $type: EntityType!) {
+const ENTITY_MOD_PANEL_INFO_QUERY = `
+  query EntityModPanelInfo($id: String!, $platform: Platform!, $type: EntityType!) {
     entityExternal(externalId: $id, platform: $platform, type: $type) {
       internalId: id
       reviewStatus
@@ -355,11 +355,13 @@ export async function fetchTopggBotOwnership(discordBotId: string): Promise<{
   return ownership
 }
 
-export async function fetchTopggBotModPanelInfo(
-  discordBotId: string
+export async function fetchTopggEntityModPanelInfo(
+  discordId: string,
+  type: 'BOT' | 'SERVER'
 ): Promise<TopggBotModPanelInfo | null> {
-  const id = validateDiscordId(discordBotId)
-  const cached = getCached(botModPanelInfoCache, id)
+  const id = validateDiscordId(discordId)
+  const cacheKey = `${type}:${id}`
+  const cached = getCached(entityModPanelInfoCache, cacheKey)
   if (cached) return cached
 
   const data = await topggGraphql<{
@@ -367,7 +369,7 @@ export async function fetchTopggBotModPanelInfo(
       internalId?: string
       reviewStatus?: string | null
     } | null
-  }>(BOT_MOD_PANEL_INFO_QUERY, { id, platform: 'DISCORD', type: 'BOT' })
+  }>(ENTITY_MOD_PANEL_INFO_QUERY, { id, platform: 'DISCORD', type })
 
   if (!data.entityExternal?.internalId) return null
 
@@ -375,8 +377,20 @@ export async function fetchTopggBotModPanelInfo(
     internalId: data.entityExternal.internalId,
     reviewStatus: data.entityExternal.reviewStatus ?? null,
   }
-  setCached(botModPanelInfoCache, id, info)
+  setCached(entityModPanelInfoCache, cacheKey, info)
   return info
+}
+
+export async function fetchTopggBotModPanelInfo(
+  discordBotId: string
+): Promise<TopggBotModPanelInfo | null> {
+  return fetchTopggEntityModPanelInfo(discordBotId, 'BOT')
+}
+
+export async function fetchTopggServerModPanelInfo(
+  discordServerId: string
+): Promise<TopggBotModPanelInfo | null> {
+  return fetchTopggEntityModPanelInfo(discordServerId, 'SERVER')
 }
 
 export async function fetchTopggTeamsForDiscordId(
@@ -422,5 +436,5 @@ export async function fetchTopggTeamsForDiscordId(
 export function clearTopggTeamCache(): void {
   userTeamCache.clear()
   botOwnershipCache.clear()
-  botModPanelInfoCache.clear()
+  entityModPanelInfoCache.clear()
 }
