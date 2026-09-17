@@ -29,7 +29,7 @@ export const command = new SlashCommandBuilder()
       .addStringOption((option) =>
         option
           .setName('server-id')
-          .setDescription('The Top.gg server ID')
+          .setDescription('The internal server ID')
           .setRequired(true)
       )
       .addUserOption((option) =>
