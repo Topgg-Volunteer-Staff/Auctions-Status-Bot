@@ -99,7 +99,7 @@ export const execute = async (
 
   const dashboardUrl =
     sub === 'server-complete'
-      ? `https://top.gg/discord/server/${id}/dashboard/edit`
+      ? `https://top.gg/discord/servers/${id}/dashboard/edit`
       : `https://top.gg/bot/${id}/dashboard/edit`
 
   const panel = createTextPanel({
