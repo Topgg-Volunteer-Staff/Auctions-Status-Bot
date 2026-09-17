@@ -149,7 +149,7 @@ export const execute = async (
   const dashboardUrl =
     sub === 'server-complete'
       ? `https://top.gg/discord/servers/${linkId}/dashboard`
-      : `https://top.gg/bot/${linkId}/dashboard`
+      : `https://top.gg/discord/bots/${linkId}/dashboard`
 
   const publicUrl =
     sub === 'server-complete'
