@@ -99,9 +99,10 @@ export const execute = async (
 
   await interaction.deferReply()
 
-  // Dashboard/public links use Top.gg's internal ID, so the external
-  // Discord ID entered here needs to be resolved to internal first.
-  let linkId: string
+  // Server dashboard/public links use Top.gg's internal ID, so the
+  // external Discord ID needs to be resolved to internal first. Bot links
+  // use the external Discord ID directly.
+  let linkId = id
   let reviewStatus: string | null
 
   try {
@@ -123,7 +124,9 @@ export const execute = async (
       return
     }
 
-    linkId = modPanelInfo.internalId
+    if (sub === 'server-complete') {
+      linkId = modPanelInfo.internalId
+    }
     reviewStatus = modPanelInfo.reviewStatus
   } catch (error) {
     await sendErrorLog(interaction.client, 'push.modPanelLookup.failed', error, {
