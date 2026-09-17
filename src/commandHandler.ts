@@ -10,6 +10,7 @@ import {
   ButtonInteraction,
   ModalSubmitInteraction,
   StringSelectMenuInteraction,
+  MessageFlags,
 } from 'discord.js'
 import type {
   APIApplicationCommand,
@@ -415,12 +416,12 @@ export const commandHandler = async (client: Client) => {
           if (interaction.deferred || interaction.replied) {
             await interaction.followUp({
               content: 'There was an error.',
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             })
           } else {
             await interaction.reply({
               content: 'There was an error.',
-              ephemeral: true,
+              flags: MessageFlags.Ephemeral,
             })
           }
         } catch {
