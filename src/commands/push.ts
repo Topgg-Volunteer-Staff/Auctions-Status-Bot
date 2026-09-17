@@ -109,10 +109,12 @@ export const execute = async (
 
   const panel = createTextPanel({
     accentColor: 0x00cc88,
+    title: '✅ Transfer Complete',
     description:
       `<@${targetUser.id}>\n\n` +
       `Your ${sub === 'server-complete' ? 'server' : 'bot'} has been transferred over! Here are the links and controls to your ${sub === 'server-complete' ? 'server' : 'bot'}.\n\n` +
-      `${dashboardUrl} (${publicUrl} — only if your ${sub === 'server-complete' ? 'server' : 'project'} is live)\n\n` +
+      `**Edit:** [Dashboard](${dashboardUrl})\n` +
+      `**Public Page:** [View Listing](${publicUrl}) (only if your ${sub === 'server-complete' ? 'server' : 'bot'} is live)\n\n` +
       'Let me know if you have any other questions! <:DoggThumbsUp:1400113319905329264>',
   }).addActionRowComponents(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
