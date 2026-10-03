@@ -30,6 +30,7 @@ import {
   maybeNotifyTicketResponse,
 } from './utils/tickets/dmOnResponses'
 import { startWebServer } from './utils/webServer'
+import { startTranscriptExpirySweep } from './utils/tickets/transcriptExpiry'
 import {
   initializeStaffTicketReminderStore,
   isStaffUserInGuild,
@@ -616,9 +617,11 @@ client.on('clientReady', async (readyClient) => {
     void sendMongoErrorLog(readyClient, 'customAlert.store.init.failed', error)
   })
 
-  await startWebServer().catch((error) => {
+  await startWebServer(readyClient).catch((error) => {
     void sendErrorLog(readyClient, 'webServer.startup.failed', error)
   })
+
+  startTranscriptExpirySweep(readyClient)
 
   startReminders(readyClient)
 })

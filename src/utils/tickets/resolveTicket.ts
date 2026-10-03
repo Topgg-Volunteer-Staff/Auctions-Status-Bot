@@ -133,6 +133,30 @@ export const resolveTicket = async ({
 
   const threadOwnerId = await findThreadOwnerId(client, thread)
 
+  let participantIds: Array<string> = []
+  try {
+    participantIds = await collectTicketParticipantIds(thread, client.user?.id)
+  } catch (error) {
+    await sendErrorLog(
+      client,
+      'Failed to collect ticket participants for transcript',
+      error,
+      {
+        threadId: thread.id,
+        threadName: thread.name,
+      }
+    ).catch(() => void 0)
+  }
+
+  // The ticket opener may never have typed in the thread, so make sure they
+  // are always on the list. This list both receives the DM and is what the
+  // hosted transcript page checks access against.
+  const recipientIds = [
+    ...new Set(
+      threadOwnerId ? [threadOwnerId, ...participantIds] : participantIds
+    ),
+  ]
+
   // Save transcript to database first to get the ID
   let transcriptId: string | null = null
   if (threadOwnerId) {
@@ -146,6 +170,7 @@ export const resolveTicket = async ({
         resolvedAt,
         resolvedBy: resolvedByUserId,
         isModTicket,
+        participantIds: recipientIds,
       })
     } catch (error) {
       sendErrorLog(client, 'Failed to save transcript to database', error, {
@@ -159,29 +184,6 @@ export const resolveTicket = async ({
   // Send DM with transcript link to everyone who spoke in the ticket
   if (transcriptId) {
     const transcriptUrl = getTranscriptUrl(transcriptId)
-
-    let participantIds: Array<string> = []
-    try {
-      participantIds = await collectTicketParticipantIds(thread, client.user?.id)
-    } catch (error) {
-      await sendErrorLog(
-        client,
-        'Failed to collect ticket participants for transcript DMs',
-        error,
-        {
-          threadId: thread.id,
-          threadName: thread.name,
-        }
-      ).catch(() => void 0)
-    }
-
-    // The ticket opener may never have typed in the thread, so make sure they
-    // are always on the list.
-    const recipientIds = [
-      ...new Set(
-        threadOwnerId ? [threadOwnerId, ...participantIds] : participantIds
-      ),
-    ]
 
     const failedRecipientIds: Array<string> = []
 

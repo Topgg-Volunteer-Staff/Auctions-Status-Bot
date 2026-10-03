@@ -12,6 +12,7 @@ import {
   Client,
 } from 'discord.js'
 import { channelIds } from '../../globals'
+import { getTranscriptExpiresAt } from '../db/transcripts'
 import { COMPONENTS_V2_FLAGS } from '../componentsV2'
 import { emoji } from '../emojis'
 
@@ -136,15 +137,25 @@ export const createTranscriptPanel = ({
     )
 
   if (transcriptUrl) {
-    container.addActionRowComponents(
-      new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setURL(transcriptUrl)
-          .setLabel('Open Transcript')
-          .setEmoji({ name: '📋' })
-          .setStyle(ButtonStyle.Link)
-      )
+    const expiresTimestamp = Math.floor(
+      getTranscriptExpiresAt(resolvedAt).getTime() / 1000
     )
+
+    container
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `-# Sign in with Discord to view. Expires <t:${expiresTimestamp}:R>.`
+        )
+      )
+      .addActionRowComponents(
+        new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setURL(transcriptUrl)
+            .setLabel('Open Transcript')
+            .setEmoji({ name: '📋' })
+            .setStyle(ButtonStyle.Link)
+        )
+      )
   }
 
   return container

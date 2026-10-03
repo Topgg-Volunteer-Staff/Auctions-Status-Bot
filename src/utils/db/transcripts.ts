@@ -12,9 +12,32 @@ export interface StoredTranscript {
   resolvedAt: Date
   resolvedBy: string
   isModTicket: boolean
+  /**
+   * Everyone who spoke in the ticket, used to gate the hosted transcript.
+   * Missing on transcripts saved before access control existed.
+   */
+  participantIds?: Array<string>
 }
 
-export type SaveTranscriptInput = Omit<StoredTranscript, 'transcriptId'>
+export type SaveTranscriptInput = Omit<
+  StoredTranscript,
+  'transcriptId' | 'participantIds'
+> & { participantIds: Array<string> }
+
+export const TRANSCRIPT_TTL_DAYS = 90
+export const TRANSCRIPT_TTL_MS = TRANSCRIPT_TTL_DAYS * 24 * 60 * 60 * 1000
+
+export const getTranscriptExpiresAt = (resolvedAt: Date): Date =>
+  new Date(resolvedAt.getTime() + TRANSCRIPT_TTL_MS)
+
+export const getTranscriptExpiryCutoff = (now = new Date()): Date =>
+  new Date(now.getTime() - TRANSCRIPT_TTL_MS)
+
+// The sweep only runs periodically, so reads also hide anything past its TTL
+// to make expiry exact rather than "up to an hour late".
+const isTranscriptExpired = (
+  transcript: Pick<StoredTranscript, 'resolvedAt'>
+): boolean => transcript.resolvedAt.getTime() < getTranscriptExpiryCutoff().getTime()
 
 type TranscriptDocument = {
   _id: string
@@ -162,7 +185,8 @@ export const saveTranscript = async (
     }
   )
 
-  // Add new transcript
+  // Add new transcript. Upsert in case the expiry sweep deleted the (now
+  // empty) user document between the steps above.
   const transcriptId = generateTranscriptId()
   await collection.updateOne(
     { _id: transcript.userId },
@@ -177,12 +201,58 @@ export const saveTranscript = async (
           resolvedAt: transcript.resolvedAt,
           resolvedBy: transcript.resolvedBy,
           isModTicket: transcript.isModTicket,
+          participantIds: transcript.participantIds,
         },
+      },
+    },
+    { upsert: true }
+  )
+
+  return transcriptId
+}
+
+/**
+ * Removes every transcript older than the TTL. Transcripts live in an array
+ * per user, so a Mongo TTL index can't be used — it would expire the whole
+ * user document (all of their transcripts) once the oldest one aged out.
+ */
+export const deleteExpiredTranscripts = async (): Promise<number> => {
+  const collection = await getTranscriptsCollection()
+  const cutoff = getTranscriptExpiryCutoff()
+
+  const result = await collection.updateMany(
+    { 'transcripts.resolvedAt': { $lt: cutoff } },
+    { $pull: { transcripts: { resolvedAt: { $lt: cutoff } } } }
+  )
+
+  await collection.deleteMany({ transcripts: { $size: 0 } })
+
+  return result.modifiedCount
+}
+
+/** Streams every non-expired transcript's thread ID and HTML. */
+export async function* iterateTranscriptHtml(): AsyncGenerator<{
+  threadId: string
+  transcriptHtml: string
+}> {
+  const collection = await getTranscriptsCollection()
+  const cursor = collection.find(
+    {},
+    {
+      projection: {
+        'transcripts.threadId': 1,
+        'transcripts.transcriptHtml': 1,
+        'transcripts.resolvedAt': 1,
       },
     }
   )
 
-  return transcriptId
+  for await (const doc of cursor) {
+    for (const t of doc.transcripts) {
+      if (isTranscriptExpired(t)) continue
+      yield { threadId: t.threadId, transcriptHtml: t.transcriptHtml }
+    }
+  }
 }
 
 export const getUserTranscripts = async (
@@ -193,10 +263,12 @@ export const getUserTranscripts = async (
   const doc = await collection.findOne({ _id: userId })
   if (!doc) return []
 
-  return (doc.transcripts ?? []).map((t) => ({
-    ...t,
-    userId,
-  }))
+  return (doc.transcripts ?? [])
+    .filter((t) => !isTranscriptExpired(t))
+    .map((t) => ({
+      ...t,
+      userId,
+    }))
 }
 
 export const getTranscript = async (
@@ -211,7 +283,7 @@ export const getTranscript = async (
   if (!doc) return null
 
   const transcript = doc.transcripts.find((t) => t.threadId === threadId)
-  if (!transcript) return null
+  if (!transcript || isTranscriptExpired(transcript)) return null
 
   return {
     ...transcript,
@@ -231,7 +303,7 @@ export const getTranscriptById = async (
   if (!doc) return null
 
   const transcript = doc.transcripts.find((t) => t.transcriptId === transcriptId)
-  if (!transcript) return null
+  if (!transcript || isTranscriptExpired(transcript)) return null
 
   return {
     ...transcript,
