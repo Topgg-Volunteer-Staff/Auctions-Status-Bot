@@ -21,11 +21,11 @@ import {
 } from '../utils/componentsV2'
 import { createCustomAlertContainer } from '../utils/customAlert'
 import {
+  buildDmNotificationsLine,
   createDmOnResponsesRow,
   getTicketDmResponsesState,
   registerTicketThread,
   setToggleMessageUrl,
-  sendDmOnResponsesPrompt,
 } from '../utils/tickets/dmOnResponses'
 import {
   findRecentBotReviewLog,
@@ -214,14 +214,13 @@ export const execute = async (
       })
     }
 
-    await sendDmOnResponsesPrompt(thread, interaction.user.id)
+    // The DM toggle lives on the dispute panel below, so no separate prompt.
+    await registerTicketThread(thread.id, interaction.user.id)
 
     const dmState = await getTicketDmResponsesState(
       thread.id,
       interaction.user.id
     )
-
-    const unknownDmStatusText = dmState.enabled ? 'On' : 'Off'
 
     const unknownBotPanel = new ContainerBuilder()
       .setAccentColor(0xff3366)
@@ -232,7 +231,11 @@ export const execute = async (
           [
             '**Bot ID:** `' + disputeID + '`',
             '',
-            '-# DM notifications: ' + unknownDmStatusText,
+            buildDmNotificationsLine(
+              dmState.enabled,
+              dmState.inheritedDisabled,
+              dmState.deliveryStatus
+            ),
           ].join('\n')
         )
       )
@@ -448,12 +451,6 @@ export const execute = async (
   }
 
   // Create a comprehensive panel combining all dispute information
-  const dmStatusText = dmState.enabled
-    ? 'On'
-    : dmState.inheritedDisabled
-      ? 'Off (global setting)'
-      : 'Off'
-
   const comprehensivePanel = new ContainerBuilder()
     .setAccentColor(0xff3366)
     .addTextDisplayComponents(
@@ -468,7 +465,11 @@ export const execute = async (
           ...(declineReason ? ['**Reason:** ' + declineReason] : []),
           '[See original decline](' + matchingMessage.url + ')',
           '',
-          '-# DM notifications: ' + dmStatusText,
+          buildDmNotificationsLine(
+            dmState.enabled,
+            dmState.inheritedDisabled,
+            dmState.deliveryStatus
+          ),
         ].join('\n')
       )
     )

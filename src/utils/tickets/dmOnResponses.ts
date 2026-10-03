@@ -1,8 +1,10 @@
 ﻿import {
   ActionRowBuilder,
+  APIMessageTopLevelComponent,
   ButtonBuilder,
   ButtonStyle,
   Client,
+  ComponentType,
   ContainerBuilder,
   EmbedBuilder,
   Message,
@@ -532,21 +534,112 @@ function getMessageIdFromUrl(url: string | undefined): string | null {
   return last
 }
 
-function buildDmDeliveryStatusLine(
+function describeDmDeliveryStatus(
   status: TicketDmDeliveryStatus | undefined
 ): string | null {
   if (!status) return null
 
+  const lastAttempt = `last attempt: <t:${Math.floor(status.attemptedAt / 1000)}:R>`
   if (status.state === 'active') {
-    return `DM Delivery Status: Actively Sending DMs (last attempt: <t:${Math.floor(
-      status.attemptedAt / 1000
-    )}:R>)`
+    return `Actively Sending DMs (${lastAttempt})`
   }
 
   const reason = status.reason?.trim() || 'Unknown reason'
-  return `DM Delivery Status: Unable to Send DMs due to ${reason} (last attempt: <t:${Math.floor(
-    status.attemptedAt / 1000
-  )}:R>)`
+  return `Unable to Send DMs due to ${reason} (${lastAttempt})`
+}
+
+function buildDmDeliveryStatusLine(
+  status: TicketDmDeliveryStatus | undefined
+): string | null {
+  const description = describeDmDeliveryStatus(status)
+  return description ? `DM Delivery Status: ${description}` : null
+}
+
+const DM_NOTIFICATIONS_LINE_PREFIX = '-# DM notifications: '
+
+/** The small status line shown on dispute panels, e.g. "-# DM notifications: On". */
+export function buildDmNotificationsLine(
+  enabled: boolean,
+  inheritedDisabled: boolean,
+  status?: TicketDmDeliveryStatus
+): string {
+  const stateText = enabled
+    ? 'On'
+    : inheritedDisabled
+      ? 'Off (global setting)'
+      : 'Off'
+  const deliveryText = describeDmDeliveryStatus(status)
+  return `${DM_NOTIFICATIONS_LINE_PREFIX}${stateText}${
+    deliveryText ? ` · ${deliveryText}` : ''
+  }`
+}
+
+type ComponentJsonNode = {
+  type: number
+  content?: unknown
+  custom_id?: unknown
+  components?: Array<ComponentJsonNode>
+}
+
+/**
+ * Updates the DM status line and toggle button inside a panel that embeds
+ * them (e.g. the dispute panel) without touching the rest of its content.
+ * Returns false if the panel has no DM status line to update.
+ */
+function patchEmbeddedDmStatus(
+  nodes: Array<ComponentJsonNode>,
+  pref: TicketDmPreference,
+  inheritedDisabled: boolean
+): boolean {
+  let foundStatusLine = false
+
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i]
+    if (!node) continue
+
+    if (
+      node.type === ComponentType.TextDisplay &&
+      typeof node.content === 'string'
+    ) {
+      const lines = node.content.split('\n')
+      const index = lines.findIndex((line) =>
+        line.startsWith(DM_NOTIFICATIONS_LINE_PREFIX)
+      )
+      if (index !== -1) {
+        lines[index] = buildDmNotificationsLine(
+          pref.enabled,
+          inheritedDisabled,
+          pref.lastDmDeliveryStatus
+        )
+        node.content = lines.join('\n')
+        foundStatusLine = true
+      }
+      continue
+    }
+
+    if (
+      node.type === ComponentType.ActionRow &&
+      node.components?.some(
+        (child) =>
+          typeof child.custom_id === 'string' &&
+          child.custom_id.startsWith('dmOnResponses_')
+      )
+    ) {
+      nodes[i] = createDmOnResponsesRow(
+        pref.openerId,
+        pref.enabled
+      ).toJSON() as ComponentJsonNode
+      continue
+    }
+
+    if (Array.isArray(node.components)) {
+      foundStatusLine =
+        patchEmbeddedDmStatus(node.components, pref, inheritedDisabled) ||
+        foundStatusLine
+    }
+  }
+
+  return foundStatusLine
 }
 
 async function updateTogglePromptEmbed(threadId: string): Promise<void> {
@@ -570,6 +663,23 @@ async function updateTogglePromptEmbed(threadId: string): Promise<void> {
   const inheritedDisabled = isInheritedDisabled(pref.openerId, pref.enabled)
 
   if (targetMessage.flags.has(MessageFlags.IsComponentsV2)) {
+    // Panels that carry their own DM status line (dispute panels) are patched
+    // in place so the rest of the panel isn't replaced.
+    const existingComponents = targetMessage.components.map(
+      (component) => component.toJSON() as ComponentJsonNode
+    )
+    if (patchEmbeddedDmStatus(existingComponents, pref, inheritedDisabled)) {
+      await targetMessage
+        .edit({
+          components:
+            existingComponents as unknown as Array<APIMessageTopLevelComponent>,
+          flags: COMPONENTS_V2_FLAGS,
+          allowedMentions: { parse: [] },
+        })
+        .catch(() => void 0)
+      return
+    }
+
     await targetMessage
       .edit({
         components: [
