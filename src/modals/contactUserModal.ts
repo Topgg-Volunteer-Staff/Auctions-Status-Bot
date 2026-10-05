@@ -86,7 +86,9 @@ export const execute = async (
   _client: Client,
   interaction: ModalSubmitInteraction
 ): Promise<void> => {
-  if (!interaction.inCachedGuild()) return
+  // /contactuser can be run from any guild; the ticket always lives in the
+  // main guild's mod tickets channel.
+  if (!interaction.inGuild()) return
   await interaction.deferReply({ flags: MessageFlags.Ephemeral })
 
   const modTickets = interaction.client.channels.cache.get(
@@ -186,7 +188,7 @@ export const execute = async (
       const dmPanel = createTextPanel({
         accentColor: 0xe91e63,
         title: 'A staff member opened a ticket for you',
-        description: `${interaction.user} opened a ticket for you in ${interaction.guild.name}.\n\n[Open Ticket](${sentMessage.url})`,
+        description: `${interaction.user} opened a ticket for you in ${modTickets.guild.name}.\n\n[Open Ticket](${sentMessage.url})`,
       }).addTextDisplayComponents(
         new TextDisplayBuilder().setContent(
           `-# <t:${Math.floor(Date.now() / 1000)}:f>`

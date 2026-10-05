@@ -10,7 +10,7 @@ import {
   LabelBuilder,
   FileUploadBuilder,
 } from 'discord.js'
-import { roleIds } from '../globals'
+import { guildIds, roleIds } from '../globals'
 
 export const command = new SlashCommandBuilder()
   .setName('contactuser')
@@ -23,19 +23,36 @@ export const command = new SlashCommandBuilder()
       .setRequired(true)
   )
 
+// Registered globally so staff can run it from other guilds too.
+export const global = true
+
 export const execute = async (
-  _client: Client,
+  client: Client,
   interaction: ChatInputCommandInteraction
 ) => {
-  if (!interaction.inCachedGuild()) return
+  if (!interaction.inGuild()) return
 
-  const invokingMember = interaction.member
-  const freshMember = await interaction.guild.members
+  // Staff roles only exist in the main guild, so permissions are checked there
+  // no matter which guild the command was run in.
+  const mainGuild =
+    client.guilds.cache.get(guildIds.main) ??
+    (await client.guilds.fetch(guildIds.main).catch(() => null))
+
+  if (!mainGuild) {
+    await interaction.reply({
+      content: 'Could not reach the main server to verify your permissions.',
+      flags: MessageFlags.Ephemeral,
+    })
+    return
+  }
+
+  const cachedMember = mainGuild.members.cache.get(interaction.user.id)
+  const freshMember = await mainGuild.members
     .fetch({ user: interaction.user.id, force: true })
     .catch(() => null)
 
   const roleIdsOnMember = new Set<string>([
-    ...invokingMember.roles.cache.keys(),
+    ...(cachedMember ? cachedMember.roles.cache.keys() : []),
     ...(freshMember ? freshMember.roles.cache.keys() : []),
   ])
 
@@ -55,14 +72,12 @@ export const execute = async (
   // fetch target user
   const user = interaction.options.getUser('user', true)
 
-  // ensure target user is in the server
+  // ensure target user is in the main server, where the ticket is created
   try {
-    const member = await interaction.guild.members
-      .fetch(user.id)
-      .catch(() => null)
+    const member = await mainGuild.members.fetch(user.id).catch(() => null)
     if (!member) {
       await interaction.reply({
-        content: `User **${user.username}** (\`${user.id}\`) is not in the server.`,
+        content: `User **${user.username}** (\`${user.id}\`) is not in **${mainGuild.name}**.`,
         flags: MessageFlags.Ephemeral,
       })
       return

@@ -22,6 +22,12 @@ const channelIds =
         inactiveThreadAlertsReviewers: '1402817633564491836',
       }
 
+// The guild that holds the staff roles and ticket channels above.
+const guildIds = {
+  main:
+    environment === 'PRODUCTION' ? '264445053596991498' : '333949691962195969',
+}
+
 const roleIds =
   environment === 'PRODUCTION'
     ? {
@@ -51,4 +57,4 @@ const userIds = {
   modChatInactivityPing: '311553339261321216',
 }
 
-export { channelIds, roleIds, resolvedFlag, userIds }
+export { channelIds, guildIds, roleIds, resolvedFlag, userIds }

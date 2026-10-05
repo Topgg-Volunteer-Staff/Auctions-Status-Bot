@@ -58,6 +58,8 @@ interface CommandModule {
   command: SlashCommandBuilder
   execute: CommandExecute
   autocomplete?: CommandAutocomplete
+  // Deploy application-wide even when DISCORD_GUILD_ID scopes the rest.
+  global?: boolean
 }
 
 interface ButtonModule {
@@ -81,6 +83,7 @@ const commands: Array<{
   data: SlashCommandBuilder
   execute: CommandExecute
   autocomplete?: CommandAutocomplete
+  global: boolean
 }> = []
 
 const buttons: Array<{
@@ -131,60 +134,16 @@ const isCodeFile = (file: string): boolean =>
   !file.endsWith('.d.ts') &&
   !file.endsWith('.map')
 
-export const commandHandler = async (client: Client) => {
-  // reset registries (in case of hot-reload)
-  commands.length = 0
-  buttons.length = 0
-  modals.length = 0
-  menus.length = 0
-
-  // ---- Load commands ----
-  for (const file of fs.readdirSync(commandsPath)) {
-    if (!isCodeFile(file)) continue
-    try {
-      const mod = (await import(path.join(commandsPath, file))) as unknown
-      if (!isCommandModule(mod)) {
-        console.warn(
-          `[commands] Skipped "${file}" (missing {command, execute})`
-        )
-        continue
-      }
-      const name = mod.command.name
-      const entry: {
-        name: string
-        data: SlashCommandBuilder
-        execute: CommandExecute
-        autocomplete?: CommandAutocomplete
-      } = {
-        name,
-        data: mod.command,
-        execute: mod.execute,
-      }
-
-      if (mod.autocomplete) {
-        entry.autocomplete = mod.autocomplete
-      }
-
-      commands.push(entry)
-      console.log('Registered command:', name)
-    } catch (err) {
-      console.error(`[commands] Failed to load "${file}"`, err)
-      await sendErrorLog(client, 'commands.load.failed', err, { file })
-    }
-  }
-
-  // ---- Decide whether to deploy ----
-  const clientId = process.env.DISCORD_CLIENT_ID || ''
-  const guildId = (process.env.DISCORD_GUILD_ID || '').trim()
-
+// Brings one command scope (a guild, or global when guildId is empty) in line
+// with `scoped`, skipping the PUT when nothing changed.
+const syncCommands = async (
+  client: Client,
+  clientId: string,
+  guildId: string,
+  scoped: typeof commands
+): Promise<void> => {
   const commandsData: Array<RESTPostAPIChatInputApplicationCommandsJSONBody> =
-    commands.map((c) => c.data.toJSON())
-
-  if (!guildId) {
-    console.warn(
-      'DISCORD_GUILD_ID is not set; deploying commands globally (may take time to appear).'
-    )
-  }
+    scoped.map((c) => c.data.toJSON())
 
   // Compare local vs remote (scoped to where we plan to deploy)
   const hasNonSyncedChanges = async (): Promise<boolean> => {
@@ -200,12 +159,12 @@ export const commandHandler = async (client: Client) => {
 
     // quick name set diffs
     const remoteNames = new Set(remote.map((r) => r.name))
-    const localNames = new Set(commands.map((c) => c.name))
+    const localNames = new Set(scoped.map((c) => c.name))
     if (remote.some((r) => !localNames.has(r.name))) return true
-    if (commands.some((c) => !remoteNames.has(c.name))) return true
+    if (scoped.some((c) => !remoteNames.has(c.name))) return true
 
     // Compare command payload fields that impact visibility/access and invocation shape.
-    for (const c of commands) {
+    for (const c of scoped) {
       const localJson = c.data.toJSON()
       const r = remote.find((x) => x.name === c.name)
       if (!r) return true
@@ -296,12 +255,84 @@ export const commandHandler = async (client: Client) => {
       route
     )) as unknown as Array<APIApplicationCommand>
     const names = remote.map((c) => c.name).join(', ') || '(none)'
-    console.log('Remote commands:', names)
+    console.log(
+      `Remote commands (${guildId ? `guild ${guildId}` : 'global'}):`,
+      names
+    )
   } catch (e) {
     console.warn('Could not fetch remote commands:', e)
     await sendErrorLog(client, 'commands.fetchRemote.failed', e, {
       guildId: guildId || 'global',
     })
+  }
+}
+
+export const commandHandler = async (client: Client) => {
+  // reset registries (in case of hot-reload)
+  commands.length = 0
+  buttons.length = 0
+  modals.length = 0
+  menus.length = 0
+
+  // ---- Load commands ----
+  for (const file of fs.readdirSync(commandsPath)) {
+    if (!isCodeFile(file)) continue
+    try {
+      const mod = (await import(path.join(commandsPath, file))) as unknown
+      if (!isCommandModule(mod)) {
+        console.warn(
+          `[commands] Skipped "${file}" (missing {command, execute})`
+        )
+        continue
+      }
+      const name = mod.command.name
+      const entry: {
+        name: string
+        data: SlashCommandBuilder
+        execute: CommandExecute
+        autocomplete?: CommandAutocomplete
+        global: boolean
+      } = {
+        name,
+        data: mod.command,
+        execute: mod.execute,
+        global: mod.global === true,
+      }
+
+      if (mod.autocomplete) {
+        entry.autocomplete = mod.autocomplete
+      }
+
+      commands.push(entry)
+      console.log('Registered command:', name)
+    } catch (err) {
+      console.error(`[commands] Failed to load "${file}"`, err)
+      await sendErrorLog(client, 'commands.load.failed', err, { file })
+    }
+  }
+
+  // ---- Decide whether to deploy ----
+  const clientId = process.env.DISCORD_CLIENT_ID || ''
+  const guildId = (process.env.DISCORD_GUILD_ID || '').trim()
+
+  if (!guildId) {
+    console.warn(
+      'DISCORD_GUILD_ID is not set; deploying commands globally (may take time to appear).'
+    )
+    await syncCommands(client, clientId, '', commands)
+  } else {
+    await syncCommands(
+      client,
+      clientId,
+      guildId,
+      commands.filter((c) => !c.global)
+    )
+    await syncCommands(
+      client,
+      clientId,
+      '',
+      commands.filter((c) => c.global)
+    )
   }
 
   // ---- Load buttons ----
