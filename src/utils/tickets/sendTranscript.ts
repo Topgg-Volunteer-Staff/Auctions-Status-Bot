@@ -120,7 +120,7 @@ export const createTranscriptPanel = ({
 }: TranscriptPanelOptions): ContainerBuilder => {
   const ticketType = isModTicket
     ? `${emoji.bolt} Mod & Disputes`
-    : `${emoji.money} Auctions`
+    : `${emoji.money} Ads`
   const resolvedTimestamp = Math.floor(resolvedAt.getTime() / 1000)
 
   const container = new ContainerBuilder()

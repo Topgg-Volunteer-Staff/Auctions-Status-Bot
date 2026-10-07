@@ -35,7 +35,7 @@ const buildResolvedPanel = (parentId: string): ContainerBuilder => {
     'If your issue persists or if you need help with a different issue, please open a new ticket in'
 
   if (parentId === channelIds.auctionsTickets) {
-    resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Auctions! ${emoji.dogThumbUp}`
+    resolveString += ` <#${channelIds.auctionsTickets}>!\n\nThank you for using Top.gg Ads! ${emoji.dogThumbUp}`
   } else {
     resolveString += ` <#${channelIds.modTickets}>!\n\nThank you for contacting our staff! ${emoji.dogThumbUp}`
   }
