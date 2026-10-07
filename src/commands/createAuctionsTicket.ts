@@ -7,6 +7,7 @@ import {
   InteractionContextType,
   MessageFlags,
   SlashCommandBuilder,
+  TextChannel,
 } from 'discord.js'
 import { roleIds } from '../globals'
 import { createTextPanel } from '../utils/componentsV2'
@@ -40,9 +41,16 @@ export const execute = async (
     description: `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.supportTeam}>, official employees of Top.gg.\n\nFeel free to open a private ticket for any reason, but especially for any issue that may contain confidential information, such as order IDs or email addresses.`,
   }).addActionRowComponents(embedButtons)
 
-  interaction.reply({
+  const channel = interaction.channel as TextChannel
+
+  await channel.send({
     components: [panel],
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: { parse: [] },
+  })
+
+  await interaction.reply({
+    content: 'Ads support ticket panel sent.',
+    flags: MessageFlags.Ephemeral,
   })
 }
