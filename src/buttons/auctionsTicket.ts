@@ -19,7 +19,7 @@ export const execute = async (
 
   const modal = new ModalBuilder()
     .setCustomId('auctionsModal') // must match modal handler name
-    .setTitle('Auctions Support Ticket')
+    .setTitle('Ads Support Ticket')
 
   const issueInput = new TextInputBuilder()
     .setCustomId('issueDescription')

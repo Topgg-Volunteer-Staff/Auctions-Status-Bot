@@ -55,7 +55,7 @@ export const execute = async (
       components: [
         createErrorPanel(
           `Can't open a new ticket!`,
-          `You already have an open Auctions support ticket. Please go to <#${existing.id}> for support.`
+          `You already have an open Ads support ticket. Please go to <#${existing.id}> for support.`
         ),
       ],
       flags: COMPONENTS_V2_FLAGS,
@@ -73,17 +73,15 @@ export const execute = async (
   })
 
   // Prepare ticket notification
-  let description = `${emoji.dotred} If your issue is related to payments you have made, please include your FastSpring order ID starting with \`DBOTSBV••••\`.`
-  if (date.getDay() === 6 || date.getDay() === 0) {
-    description += `\n\n${emoji.warning} Please note that weekend support is limited. A Support Team member will be with you as soon as possible on Monday morning!`
-  } else {
-    description += `\n\nA Support Team member will be with you as soon as possible!`
-  }
+  const description =
+    date.getDay() === 6 || date.getDay() === 0
+      ? `${emoji.warning} Please note that weekend support is limited. A Support Team member will be with you as soon as possible on Monday morning!`
+      : `A Support Team member will be with you as soon as possible!`
 
-  const notificationContent = `<@&${roleIds.supportTeam}>, <@${interaction.user.id}> has created an Auctions ticket.`
+  const notificationContent = `<@&${roleIds.supportTeam}>, <@${interaction.user.id}> has created an Ads ticket.`
   const ticketPanel = createAuctionsTicketPanel(
     notificationContent,
-    `This is your Private Top.gg Auctions Support Thread, ${interaction.user.username}!`,
+    `This is your Private Top.gg Ads Support Thread, ${interaction.user.username}!`,
     description
   )
 

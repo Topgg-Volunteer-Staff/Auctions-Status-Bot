@@ -601,6 +601,7 @@ function addMentionedUserIds(text: string, userIds: Set<string>): void {
 const TICKET_NOTIFICATION_PHRASES = [
   'has created a ticket',
   'has created an auctions ticket',
+  'has created an ads ticket',
   'has opened a dispute',
   'has had a dispute opened by',
   'would like to talk to you',

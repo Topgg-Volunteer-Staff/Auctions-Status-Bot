@@ -36,7 +36,7 @@ export const execute = async (
 
   const panel = createTextPanel({
     accentColor: 0xff3366,
-    title: 'Private Auctions Support',
+    title: 'Ads Support',
     description: `Click the button below to open a **private thread/support ticket** with the <@&${roleIds.supportTeam}>, official employees of Top.gg.\n\nFeel free to open a private ticket for any reason, but especially for any issue that may contain confidential information, such as order IDs or email addresses.`,
   }).addActionRowComponents(embedButtons)
 

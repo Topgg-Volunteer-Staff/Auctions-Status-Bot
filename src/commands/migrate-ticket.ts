@@ -383,10 +383,10 @@ function getTargetConfig(args: {
     return {
       color: '#ff3366',
       intakePrompt:
-        'If this is payment-related, include the FastSpring order ID that starts with `DBOTSBV` and any relevant screenshots.',
+        'Keep any relevant details, screenshots, and links in this thread so the Support Team has the full context.',
       notifyRoleId: roleIds.supportTeam,
       notifyRoleMention: `<@&${roleIds.supportTeam}>`,
-      queueLabel: 'Auctions Support',
+      queueLabel: 'Ads Support',
       responseExpectation: weekendLine,
       threadName: args.opener.username,
     }
@@ -604,6 +604,7 @@ function findOpenerIdInComponents(message: Message): string | null {
 const ticketNotificationPhrases = [
   'has created a ticket',
   'has created an Auctions ticket',
+  'has created an Ads ticket',
   'has opened a dispute',
   'would like to talk to you',
 ]
