@@ -18,6 +18,7 @@ import {
   createTextPanel,
 } from '../utils/componentsV2'
 import { sendDmOnResponsesPrompt } from '../utils/tickets/dmOnResponses'
+import { getMentorIdForTrialReviewer } from '../utils/trialReviewerMentors'
 
 const EXPECTED_DM_ERROR_CODES = new Set([50007, 50278])
 
@@ -154,6 +155,17 @@ export const execute = async (
 
     await sendDmOnResponsesPrompt(thread, userId)
 
+    // If the opener is a trial reviewer with a linked mentor, pull the mentor in too.
+    const mappedMentorId = await getMentorIdForTrialReviewer(
+      interaction.user.id
+    ).catch(() => null)
+    const mentorId =
+      mappedMentorId &&
+      mappedMentorId !== interaction.user.id &&
+      mappedMentorId !== userId
+        ? mappedMentorId
+        : null
+
     const ticketPanel = createTextPanel({
       accentColor: 0xe91e63,
       title: `Contact ${username}`,
@@ -165,7 +177,9 @@ export const execute = async (
         0,
         0,
         new TextDisplayBuilder().setContent(
-          `<@${userId}>, ${interaction.user} would like to talk to you!`
+          `<@${userId}>, ${interaction.user} would like to talk to you!${
+            mentorId ? ` (Mentor: <@${mentorId}>)` : ''
+          }`
         )
       )
       .addTextDisplayComponents(
@@ -179,7 +193,7 @@ export const execute = async (
       flags: COMPONENTS_V2_FLAGS,
       allowedMentions: {
         parse: [],
-        users: [userId, interaction.user.id],
+        users: [userId, interaction.user.id, ...(mentorId ? [mentorId] : [])],
       },
     })
 
