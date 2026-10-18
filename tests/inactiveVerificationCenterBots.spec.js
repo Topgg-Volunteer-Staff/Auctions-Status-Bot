@@ -49,11 +49,17 @@ describe('inactive verification center bot reminders', () => {
         cache: new Map([['357194464776814603', {}]]),
       },
     }
+    const secondExemptBot = {
+      roles: {
+        cache: new Map([['1560976271804997762', {}]]),
+      },
+    }
     const regularBot = {
       roles: { cache: new Map([['357194464776814604', {}]]) },
     }
 
     expect(hasVerificationCenterReminderExemptRole(exemptBot)).toBeTrue()
+    expect(hasVerificationCenterReminderExemptRole(secondExemptBot)).toBeTrue()
     expect(hasVerificationCenterReminderExemptRole(regularBot)).toBeFalse()
   })
 

@@ -26,7 +26,10 @@ const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
 const REMINDER_WINDOW = 24 * 60 * 60 * 1000
 const STORE_KEY = 'inactive-verification-center-bot-alerts'
 const REMINDER_ALERT_COLOR = 0xff3366
-const VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID = '357194464776814603'
+const VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_IDS = [
+  '357194464776814603',
+  '1560976271804997762',
+]
 
 export const kickVerificationCenterBotButtonName = 'kickVerificationCenterBot'
 
@@ -147,7 +150,9 @@ function queuePersistReminderStates(): Promise<void> {
 export function hasVerificationCenterReminderExemptRole(
   member: GuildMember
 ): boolean {
-  return member.roles.cache.has(VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_ID)
+  return VERIFICATION_CENTER_REMINDER_EXEMPT_ROLE_IDS.some((roleId) =>
+    member.roles.cache.has(roleId)
+  )
 }
 
 export function getVerificationCenterBotRoleNames(
