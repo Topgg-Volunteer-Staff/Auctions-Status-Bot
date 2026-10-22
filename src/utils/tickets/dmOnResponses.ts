@@ -1146,6 +1146,13 @@ export async function registerTicketThread(
   await queuePersist().catch(() => void 0)
 }
 
+export async function getTicketOpenerId(
+  threadId: string
+): Promise<string | null> {
+  await initStore()
+  return ticketDmPreferences.get(threadId)?.openerId ?? null
+}
+
 export async function getTicketDmResponsesState(
   threadId: string,
   openerId: string

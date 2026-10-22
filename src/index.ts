@@ -26,6 +26,7 @@ import {
   updateThreadActivity,
 } from './utils/tickets/trackActivity'
 import {
+  getTicketOpenerId,
   initializeTicketDmStore,
   maybeNotifyTicketResponse,
 } from './utils/tickets/dmOnResponses'
@@ -760,21 +761,33 @@ client.on('guildMemberRemove', async (member) => {
 
     const userThreads: ThreadChannel[] = []
 
+    // Match on the opener ID recorded at ticket creation; thread names go
+    // stale when the user changes their username and don't cover every
+    // ticket type (e.g. disputes). Name matching is only a fallback for
+    // threads that were never registered.
+    const collectUserThreads = async (
+      channel: TextChannel,
+      matchesName: (name: string) => boolean
+    ): Promise<void> => {
+      const activeThreads = await channel.threads.fetchActive()
+      for (const thread of activeThreads.threads.values()) {
+        const openerId = await getTicketOpenerId(thread.id)
+        if (openerId ? openerId === member.id : matchesName(thread.name)) {
+          userThreads.push(thread)
+        }
+      }
+    }
+
     if (modTicketsChannel) {
-      const activeThreads = await modTicketsChannel.threads.fetchActive()
-      userThreads.push(
-        ...Array.from(activeThreads.threads.values()).filter((thread) =>
-          thread.name.endsWith(`- ${member.user.username}`)
-        )
+      await collectUserThreads(modTicketsChannel, (name) =>
+        name.endsWith(`- ${member.user.username}`)
       )
     }
 
     if (auctionsTicketsChannel) {
-      const activeThreads = await auctionsTicketsChannel.threads.fetchActive()
-      userThreads.push(
-        ...Array.from(activeThreads.threads.values()).filter(
-          (thread) => thread.name === member.user.username
-        )
+      await collectUserThreads(
+        auctionsTicketsChannel,
+        (name) => name === member.user.username
       )
     }
 
