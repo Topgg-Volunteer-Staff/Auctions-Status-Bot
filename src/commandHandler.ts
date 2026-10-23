@@ -17,6 +17,10 @@ import type {
   RESTPostAPIChatInputApplicationCommandsJSONBody,
 } from 'discord-api-types/v10'
 import { sendErrorLog } from './utils/errorLogging'
+import {
+  guardInteraction,
+  isUnknownInteractionError,
+} from './utils/interactionGuard'
 
 // --- Paths / REST ---
 const commandsPath = path.join(__dirname, 'commands')
@@ -400,6 +404,12 @@ export const commandHandler = async (client: Client) => {
 
   // ---- Interaction routing (with safety) ----
   client.on('interactionCreate', async (interaction) => {
+    const receivedAt = Date.now()
+    // Autocomplete can't be deferred; everything else gets auto-deferred if
+    // its handler is slow to respond.
+    const guard = interaction.isRepliable()
+      ? guardInteraction(interaction)
+      : null
     try {
       if (interaction.isAutocomplete()) {
         const cmd = commands.find((c) => c.name === interaction.commandName)
@@ -428,8 +438,7 @@ export const commandHandler = async (client: Client) => {
           )
       }
     } catch (err) {
-      console.error('Interaction handler error:', err)
-      await sendErrorLog(client, 'interaction.handler.failed', err, {
+      const meta = {
         type: interaction.type,
         customId:
           'customId' in interaction && typeof interaction.customId === 'string'
@@ -440,11 +449,34 @@ export const commandHandler = async (client: Client) => {
           typeof interaction.commandName === 'string'
             ? interaction.commandName
             : undefined,
-      })
+      }
+
+      // The interaction expired before we could respond, so there's nothing
+      // left to reply to. Log how late it was to tell gateway lag (already
+      // old on arrival) apart from a handler that stalled.
+      if (isUnknownInteractionError(err)) {
+        console.warn('Interaction expired before it could be answered:', err)
+        await sendErrorLog(client, 'interaction.expired', err, {
+          ...meta,
+          ageOnArrivalMs: receivedAt - interaction.createdTimestamp,
+          handlerMs: Date.now() - receivedAt,
+        })
+        return
+      }
+
+      console.error('Interaction handler error:', err)
+      await sendErrorLog(client, 'interaction.handler.failed', err, meta)
       // Best-effort: avoid throwing
       if (interaction.isRepliable()) {
         try {
-          if (interaction.deferred || interaction.replied) {
+          if (
+            interaction.deferred &&
+            !interaction.replied &&
+            interaction.ephemeral !== null
+          ) {
+            // Fill in the pending "thinking" reply instead of leaving it.
+            await interaction.editReply({ content: 'There was an error.' })
+          } else if (interaction.deferred || interaction.replied) {
             await interaction.followUp({
               content: 'There was an error.',
               flags: MessageFlags.Ephemeral,
@@ -459,6 +491,8 @@ export const commandHandler = async (client: Client) => {
           /* ignore */
         }
       }
+    } finally {
+      await guard?.finish().catch(() => undefined)
     }
   })
 }

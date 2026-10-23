@@ -141,6 +141,25 @@ export const execute = async (
     return
   }
 
+  // /contactuser skips this check when Discord is too slow to answer before
+  // the modal has to open, so confirm it here.
+  const targetMember = await modTickets.guild.members
+    .fetch(userId)
+    .catch(() => null)
+  if (!targetMember) {
+    await interaction.editReply({
+      components: [
+        createErrorPanel(
+          'User not in server',
+          `<@${userId}> is not in **${modTickets.guild.name}**.`
+        ),
+      ],
+      flags: COMPONENTS_V2_FLAGS,
+      allowedMentions: { parse: [] },
+    })
+    return
+  }
+
   try {
     const user = await interaction.client.users.fetch(userId)
     const username = user.username

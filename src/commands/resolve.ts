@@ -56,6 +56,10 @@ export const execute = async (
     return
   }
 
+  // Renaming the thread can be held up by Discord's channel rename rate limit,
+  // so acknowledge before resolveTicket gets that far.
+  await interaction.deferReply()
+
   try {
     await resolveTicket({
       client,
@@ -65,7 +69,7 @@ export const execute = async (
       resolvedAt: interaction.createdAt,
       command: 'resolve',
       announce: (components) =>
-        interaction.reply({
+        interaction.editReply({
           components,
           flags: COMPONENTS_V2_FLAGS,
           allowedMentions: { parse: [] },
@@ -74,21 +78,17 @@ export const execute = async (
   } catch (err) {
     console.error('Failed to resolve ticket:', err)
 
-    // If you already replied, use followUp else reply
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        components: [
-          createErrorPanel(`Failed to resolve ticket. Please try again later.`),
-        ],
-        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
-      })
-    } else {
-      await interaction.reply({
-        components: [
-          createErrorPanel(`Failed to resolve ticket. Please try again later.`),
-        ],
-        flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
-      })
+    // Swap the public "thinking" message for a private error, unless the
+    // resolved announcement already went out
+    if (!interaction.replied) {
+      await interaction.deleteReply().catch(() => undefined)
     }
+
+    await interaction.followUp({
+      components: [
+        createErrorPanel(`Failed to resolve ticket. Please try again later.`),
+      ],
+      flags: COMPONENTS_V2_EPHEMERAL_FLAGS,
+    })
   }
 }
