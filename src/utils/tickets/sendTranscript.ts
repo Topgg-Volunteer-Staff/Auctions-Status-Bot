@@ -103,7 +103,10 @@ export type TranscriptPanelOptions = {
   resolvedBy: string
   resolvedAt?: Date
   transcriptUrl?: string
+  showFeedbackButton?: boolean
 }
+
+const FEEDBACK_FORM_URL = 'https://forms.gle/kuxtS14hEeYRox4x7'
 
 const MOD_TICKET_DISCLAIMER =
   'Available to you, our Support Associates, our Moderator team, and any reviewer that handled this ticket.'
@@ -117,6 +120,7 @@ export const createTranscriptPanel = ({
   resolvedBy,
   resolvedAt = new Date(),
   transcriptUrl,
+  showFeedbackButton = false,
 }: TranscriptPanelOptions): ContainerBuilder => {
   const ticketType = isModTicket
     ? `${emoji.bolt} Mod & Disputes`
@@ -136,26 +140,42 @@ export const createTranscriptPanel = ({
       )
     )
 
+  const buttons: Array<ButtonBuilder> = []
+
   if (transcriptUrl) {
     const expiresTimestamp = Math.floor(
       getTranscriptExpiresAt(resolvedAt).getTime() / 1000
     )
 
-    container
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent(
-          `-# Sign in with Discord to view. Expires <t:${expiresTimestamp}:R>.`
-        )
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `-# Sign in with Discord to view. Expires <t:${expiresTimestamp}:R>.`
       )
-      .addActionRowComponents(
-        new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setURL(transcriptUrl)
-            .setLabel('Open Transcript')
-            .setEmoji({ name: '📋' })
-            .setStyle(ButtonStyle.Link)
-        )
-      )
+    )
+
+    buttons.push(
+      new ButtonBuilder()
+        .setURL(transcriptUrl)
+        .setLabel('Open Transcript')
+        .setEmoji({ name: '📋' })
+        .setStyle(ButtonStyle.Link)
+    )
+  }
+
+  if (showFeedbackButton) {
+    buttons.push(
+      new ButtonBuilder()
+        .setURL(FEEDBACK_FORM_URL)
+        .setLabel('Give Feedback')
+        .setEmoji({ name: '💬' })
+        .setStyle(ButtonStyle.Link)
+    )
+  }
+
+  if (buttons.length > 0) {
+    container.addActionRowComponents(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(buttons)
+    )
   }
 
   return container
@@ -187,6 +207,7 @@ export const sendTranscriptDm = async (
           isModTicket: thread.parent?.id === channelIds.modTickets,
           resolvedBy,
           transcriptUrl,
+          showFeedbackButton: true,
         }),
       ],
       flags: COMPONENTS_V2_FLAGS,
