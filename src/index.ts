@@ -16,7 +16,7 @@ import {
 } from 'discord.js'
 import startReminders from './utils/status/startReminders'
 import commandHandler from './commandHandler'
-import { channelIds, resolvedFlag } from './globals'
+import { channelIds, resolvedFlag, roleIds } from './globals'
 import { threadAlerts } from './commands/alert'
 import { getOpenThreadsForStaffMember } from './utils/tickets/staffOwnedThreads'
 import {
@@ -52,6 +52,10 @@ import {
   sendErrorLog,
 } from './utils/errorLogging'
 import { getBotsForStaffMember } from './utils/verificationCenter/botMembers'
+import {
+  getMentorIdForTrialReviewer,
+  removeTrialReviewerMentor,
+} from './utils/trialReviewerMentors'
 
 // const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
@@ -59,9 +63,9 @@ const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
 const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
 const STAFF_BREAK_NOTIFICATION_STORE_KEY = 'staff-break-notifications'
 const STAFF_BREAK_EVENT_LOG_LIMIT = 200
-const STAFF_BREAK_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
-const STAFF_BREAK_AUDIT_LOG_ATTEMPTS = 3
-const STAFF_BREAK_AUDIT_LOG_RETRY_MS = 1000
+const ROLE_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
+const ROLE_AUDIT_LOG_ATTEMPTS = 3
+const ROLE_AUDIT_LOG_RETRY_MS = 1000
 // const fourImageFlagCounts = new Map<string, number>()
 
 type StaffBreakNotificationAction =
@@ -330,24 +334,26 @@ function setStaffBreakNotificationRecord(
   staffBreakNotificationRecords.set(userId, record)
 }
 
-function auditChangeAddsBreakRole(change: AuditRoleChange): boolean {
-  if (change.key !== '$add' || !Array.isArray(change.new)) return false
+type AuditRoleChangeKey = '$add' | '$remove'
+
+function auditChangeIncludesRole(
+  change: AuditRoleChange,
+  key: AuditRoleChangeKey,
+  roleId: string
+): boolean {
+  if (change.key !== key || !Array.isArray(change.new)) return false
 
   return change.new.some((role: AuditRoleValue) => {
-    return (
-      role && typeof role === 'object' && role.id === STAFF_ON_BREAK_ROLE_ID
-    )
+    return role && typeof role === 'object' && role.id === roleId
   })
 }
 
-async function hasRecentBreakRoleAddAuditLog(
-  member: GuildMember
+async function hasRecentRoleChangeAuditLog(
+  member: GuildMember,
+  roleId: string,
+  key: AuditRoleChangeKey
 ): Promise<boolean | null> {
-  for (
-    let attempt = 0;
-    attempt < STAFF_BREAK_AUDIT_LOG_ATTEMPTS;
-    attempt += 1
-  ) {
+  for (let attempt = 0; attempt < ROLE_AUDIT_LOG_ATTEMPTS; attempt += 1) {
     try {
       const auditLogs = await member.guild.fetchAuditLogs({
         type: AuditLogEvent.MemberRoleUpdate,
@@ -357,23 +363,26 @@ async function hasRecentBreakRoleAddAuditLog(
       const now = Date.now()
       const matchingEntry = auditLogs.entries.find((entry) => {
         if (entry.targetId !== member.id) return false
-        if (now - entry.createdTimestamp > STAFF_BREAK_AUDIT_LOG_WINDOW_MS) {
+        if (now - entry.createdTimestamp > ROLE_AUDIT_LOG_WINDOW_MS) {
           return false
         }
 
         return entry.changes.some((change) =>
-          auditChangeAddsBreakRole(change as AuditRoleChange)
+          auditChangeIncludesRole(change as AuditRoleChange, key, roleId)
         )
       })
 
       if (matchingEntry) return true
     } catch (error) {
-      console.error('Failed to fetch audit logs for break-role check:', error)
+      console.error(
+        `Failed to fetch audit logs for role ${key} check (role ${roleId}):`,
+        error
+      )
       return null
     }
 
-    if (attempt < STAFF_BREAK_AUDIT_LOG_ATTEMPTS - 1) {
-      await sleep(STAFF_BREAK_AUDIT_LOG_RETRY_MS)
+    if (attempt < ROLE_AUDIT_LOG_ATTEMPTS - 1) {
+      await sleep(ROLE_AUDIT_LOG_RETRY_MS)
     }
   }
 
@@ -454,7 +463,11 @@ async function maybeNotifyStaffBreakOpenThreads(
     return
   }
 
-  const auditLogConfirmed = await hasRecentBreakRoleAddAuditLog(newMember)
+  const auditLogConfirmed = await hasRecentRoleChangeAuditLog(
+    newMember,
+    STAFF_ON_BREAK_ROLE_ID,
+    '$add'
+  )
 
   if (auditLogConfirmed !== true) {
     setStaffBreakNotificationRecord(newMember.id, {
@@ -543,6 +556,63 @@ async function maybeNotifyStaffBreakOpenThreads(
     reason: 'Confirmed break-role add notification sent.',
     auditLogConfirmed,
     messageId: notificationMessage.id,
+  })
+}
+
+async function maybeUnlinkRemovedTrialReviewer(
+  oldMember: GuildMember | PartialGuildMember,
+  newMember: GuildMember
+): Promise<void> {
+  const trialRoleId = roleIds.trialReviewer
+  if (newMember.roles.cache.has(trialRoleId)) return
+
+  if (oldMember.partial) {
+    // The old snapshot has no role data (member wasn't cached yet), so we
+    // can't diff. Only act if they're linked and the audit log confirms the
+    // trial role was just removed — this avoids unlinking someone who was
+    // added via /trial add before being given the role.
+    const linkedMentorId = await getMentorIdForTrialReviewer(newMember.id)
+    if (!linkedMentorId) return
+
+    const auditLogConfirmed = await hasRecentRoleChangeAuditLog(
+      newMember,
+      trialRoleId,
+      '$remove'
+    )
+    if (auditLogConfirmed !== true) return
+  } else if (!oldMember.roles.cache.has(trialRoleId)) {
+    return
+  }
+
+  const { removed, previousMentorId } = await removeTrialReviewerMentor(
+    newMember.id
+  )
+  if (!removed) return
+
+  console.info(
+    `[trial-reviewer] Removed mentor link for ${newMember.id} (mentor ${
+      previousMentorId ?? 'unknown'
+    }) after trial reviewer role removal.`
+  )
+
+  const moderatorsChat = (await newMember.guild.channels
+    .fetch(MODERATORS_CHAT_CHANNEL_ID)
+    .catch(() => null)) as TextChannel | null
+
+  if (!moderatorsChat) {
+    console.error(
+      `[trial-reviewer] Could not fetch mod chat to announce mentor unlink for ${newMember.id}.`
+    )
+    return
+  }
+
+  const mentorText = previousMentorId
+    ? ` to their mentor <@${previousMentorId}>`
+    : ''
+
+  await moderatorsChat.send({
+    content: `Hey, I noticed <@${newMember.id}> no longer has the Trial Reviewer role, so I automatically removed their mentor link${mentorText}.`,
+    allowedMentions: { parse: [] },
   })
 }
 
@@ -816,6 +886,12 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     await maybeNotifyStaffBreakOpenThreads(oldMember, newMember)
   } catch (error) {
     console.error('Error in guildMemberUpdate break-role handler:', error)
+  }
+
+  try {
+    await maybeUnlinkRemovedTrialReviewer(oldMember, newMember)
+  } catch (error) {
+    console.error('Error in guildMemberUpdate trial-reviewer handler:', error)
   }
 })
 
