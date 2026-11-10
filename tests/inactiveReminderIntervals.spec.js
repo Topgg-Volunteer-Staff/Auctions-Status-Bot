@@ -7,7 +7,7 @@ const {
   ComponentType,
   MessageFlags,
 } = require('discord.js')
-const { roleIds } = require('../dist/globals')
+const { roleIds, userIds } = require('../dist/globals')
 const {
   getDue7DayAlertInterval,
   is48HourAlertDue,
@@ -348,6 +348,65 @@ describe('recurring inactive ticket reminders', () => {
       roles: [],
       parse: [],
     })
+  })
+
+  it('pings the mod chat user on 7-day alerts for other handlers', async () => {
+    const alertChannel = { send: jasmine.createSpy('send').and.resolveTo() }
+    const handlerId = '123456789012345678'
+
+    expect(
+      await sendInactiveAlert(
+        alertChannel,
+        {
+          id: 'thread-id',
+          url: 'https://discord.com/channels/guild-id/thread-id',
+        },
+        1_725_000_000_000,
+        handlerId,
+        true
+      )
+    ).toBeTrue()
+
+    const payload = alertChannel.send.calls.mostRecent().args[0]
+    const panel = payload.components[0].toJSON()
+
+    expect(payload.allowedMentions).toEqual({
+      users: [handlerId, userIds.modChatInactivityPing],
+      roles: [],
+      parse: [],
+    })
+    expect(panel.components[0].components[0].content).toBe(
+      `<@${userIds.modChatInactivityPing}>\n<@${handlerId}> -> Please check <#thread-id>. Idle since <t:1725000000:R>.`
+    )
+  })
+
+  it('does not ping the mod chat user twice when they are the handler', async () => {
+    const alertChannel = { send: jasmine.createSpy('send').and.resolveTo() }
+
+    expect(
+      await sendInactiveAlert(
+        alertChannel,
+        {
+          id: 'thread-id',
+          url: 'https://discord.com/channels/guild-id/thread-id',
+        },
+        1_725_000_000_000,
+        userIds.modChatInactivityPing,
+        true
+      )
+    ).toBeTrue()
+
+    const payload = alertChannel.send.calls.mostRecent().args[0]
+    const panel = payload.components[0].toJSON()
+
+    expect(payload.allowedMentions).toEqual({
+      users: [userIds.modChatInactivityPing],
+      roles: [],
+      parse: [],
+    })
+    expect(panel.components[0].components[0].content).toBe(
+      `<@${userIds.modChatInactivityPing}> -> Please check <#thread-id>. Idle since <t:1725000000:R>.`
+    )
   })
 })
 

@@ -479,7 +479,14 @@ export function buildInactiveTicketAlertMessage(
   const handler = lastStaffMemberId
     ? `<@${lastStaffMemberId}>`
     : 'Unknown staff member'
-  const pingPrefix = pingModChat ? `<@${userIds.modChatInactivityPing}>\n` : ''
+  // If the handler is already the mod chat ping user, they're mentioned once
+  // as the handler. Mentioning them again duplicates the ID in
+  // allowedMentions.users, which Discord rejects (SET_TYPE_ALREADY_CONTAINS_VALUE).
+  const shouldPingModChat =
+    pingModChat && lastStaffMemberId !== userIds.modChatInactivityPing
+  const pingPrefix = shouldPingModChat
+    ? `<@${userIds.modChatInactivityPing}>\n`
+    : ''
   const content = `${pingPrefix}${handler} -> Please check <#${
     thread.id
   }>. Idle since <t:${Math.floor(idleSince / 1000)}:R>.`
@@ -525,7 +532,7 @@ export function buildInactiveTicketAlertMessage(
     )
 
   const mentionedUsers = lastStaffMemberId ? [lastStaffMemberId] : []
-  if (pingModChat) mentionedUsers.push(userIds.modChatInactivityPing)
+  if (shouldPingModChat) mentionedUsers.push(userIds.modChatInactivityPing)
 
   return {
     components: [panel],
