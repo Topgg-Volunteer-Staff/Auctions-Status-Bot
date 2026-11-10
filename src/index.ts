@@ -56,12 +56,17 @@ import {
   getMentorIdForTrialReviewer,
   removeTrialReviewerMentor,
 } from './utils/trialReviewerMentors'
+import {
+  TRIAL_REVIEWER_CHANNEL_ID,
+  buildTrialMentorPromptPanel,
+  buildTrialMentorUnlinkedPanel,
+} from './utils/trialReviewerOnboarding'
+import { COMPONENTS_V2_FLAGS } from './utils/componentsV2'
 
 // const FOUR_IMAGE_LOG_CHANNEL_ID = '396848636081733632'
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
 const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
-const TRIAL_REVIEWER_UNLINK_CHANNEL_ID = '1469804108020977800'
 const STAFF_BREAK_NOTIFICATION_STORE_KEY = 'staff-break-notifications'
 const STAFF_BREAK_EVENT_LOG_LIMIT = 200
 const ROLE_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
@@ -597,23 +602,67 @@ async function maybeUnlinkRemovedTrialReviewer(
   )
 
   const announceChannel = (await newMember.guild.channels
-    .fetch(TRIAL_REVIEWER_UNLINK_CHANNEL_ID)
+    .fetch(TRIAL_REVIEWER_CHANNEL_ID)
     .catch(() => null)) as TextChannel | null
 
   if (!announceChannel) {
     console.error(
-      `[trial-reviewer] Could not fetch channel ${TRIAL_REVIEWER_UNLINK_CHANNEL_ID} to announce mentor unlink for ${newMember.id}.`
+      `[trial-reviewer] Could not fetch channel ${TRIAL_REVIEWER_CHANNEL_ID} to announce mentor unlink for ${newMember.id}.`
     )
     return
   }
 
-  const mentorText = previousMentorId
-    ? ` to their mentor <@${previousMentorId}>`
-    : ''
+  await announceChannel.send({
+    components: [buildTrialMentorUnlinkedPanel(newMember.id, previousMentorId)],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { parse: [] },
+  })
+}
+
+async function maybePromptTrialReviewerMentor(
+  oldMember: GuildMember | PartialGuildMember,
+  newMember: GuildMember
+): Promise<void> {
+  const trialRoleId = roleIds.trialReviewer
+  if (!newMember.roles.cache.has(trialRoleId)) return
+
+  if (oldMember.partial) {
+    // No old role data to diff against (member wasn't cached yet), so make
+    // sure this update really is the role being added and not just the first
+    // update we've seen for someone who already had it.
+    const auditLogConfirmed = await hasRecentRoleChangeAuditLog(
+      newMember,
+      trialRoleId,
+      '$add'
+    )
+    if (auditLogConfirmed !== true) return
+  } else if (oldMember.roles.cache.has(trialRoleId)) {
+    return
+  }
+
+  const existingMentorId = await getMentorIdForTrialReviewer(newMember.id)
+  if (existingMentorId) {
+    console.info(
+      `[trial-reviewer] ${newMember.id} got the trial role but is already linked to mentor ${existingMentorId}; skipping mentor prompt.`
+    )
+    return
+  }
+
+  const announceChannel = (await newMember.guild.channels
+    .fetch(TRIAL_REVIEWER_CHANNEL_ID)
+    .catch(() => null)) as TextChannel | null
+
+  if (!announceChannel) {
+    console.error(
+      `[trial-reviewer] Could not fetch channel ${TRIAL_REVIEWER_CHANNEL_ID} to post mentor prompt for ${newMember.id}.`
+    )
+    return
+  }
 
   await announceChannel.send({
-    content: `Hey, I noticed <@${newMember.id}> no longer has the Trial Reviewer role, so I automatically removed their mentor link${mentorText}.`,
-    allowedMentions: { parse: [] },
+    components: [buildTrialMentorPromptPanel(newMember.id)],
+    flags: COMPONENTS_V2_FLAGS,
+    allowedMentions: { users: [newMember.id], roles: [], parse: [] },
   })
 }
 
@@ -893,6 +942,12 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     await maybeUnlinkRemovedTrialReviewer(oldMember, newMember)
   } catch (error) {
     console.error('Error in guildMemberUpdate trial-reviewer handler:', error)
+  }
+
+  try {
+    await maybePromptTrialReviewerMentor(oldMember, newMember)
+  } catch (error) {
+    console.error('Error in guildMemberUpdate trial-mentor prompt:', error)
   }
 })
 

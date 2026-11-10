@@ -10,6 +10,7 @@ import {
   ButtonInteraction,
   ModalSubmitInteraction,
   StringSelectMenuInteraction,
+  UserSelectMenuInteraction,
   MessageFlags,
 } from 'discord.js'
 import type {
@@ -58,6 +59,11 @@ type MenuExecute = (
   interaction: StringSelectMenuInteraction
 ) => Promise<unknown> | unknown
 
+type UserMenuExecute = (
+  client: Client,
+  interaction: UserSelectMenuInteraction
+) => Promise<unknown> | unknown
+
 interface CommandModule {
   command: SlashCommandBuilder
   execute: CommandExecute
@@ -79,6 +85,13 @@ interface ModalModule {
 interface MenuModule {
   menu: { name: string }
   execute: MenuExecute
+}
+
+// User select menus live in the menus folder too, but export `userMenu`
+// instead of `menu` and are matched on the customId prefix.
+interface UserMenuModule {
+  userMenu: { name: string }
+  execute: UserMenuExecute
 }
 
 // --- Registries (typed; no any) ---
@@ -103,6 +116,11 @@ const modals: Array<{
 const menus: Array<{
   name: string
   execute: MenuExecute
+}> = []
+
+const userMenus: Array<{
+  name: string
+  execute: UserMenuExecute
 }> = []
 
 const isObject = (x: unknown): x is Record<string, unknown> =>
@@ -131,6 +149,12 @@ const isMenuModule = (m: unknown): m is MenuModule =>
   typeof (m as Record<string, unknown>).execute === 'function' &&
   isObject((m as Record<string, unknown>).menu) &&
   typeof (m as { menu: { name: unknown } }).menu.name === 'string'
+
+const isUserMenuModule = (m: unknown): m is UserMenuModule =>
+  isObject(m) &&
+  typeof (m as Record<string, unknown>).execute === 'function' &&
+  isObject((m as Record<string, unknown>).userMenu) &&
+  typeof (m as { userMenu: { name: unknown } }).userMenu.name === 'string'
 
 // --- Helpers ---
 const isCodeFile = (file: string): boolean =>
@@ -277,6 +301,7 @@ export const commandHandler = async (client: Client) => {
   buttons.length = 0
   modals.length = 0
   menus.length = 0
+  userMenus.length = 0
 
   // ---- Load commands ----
   for (const file of fs.readdirSync(commandsPath)) {
@@ -390,6 +415,9 @@ export const commandHandler = async (client: Client) => {
         if (isMenuModule(mod)) {
           menus.push({ name: mod.menu.name, execute: mod.execute })
           console.log('Registered menu:', mod.menu.name)
+        } else if (isUserMenuModule(mod)) {
+          userMenus.push({ name: mod.userMenu.name, execute: mod.execute })
+          console.log('Registered user menu:', mod.userMenu.name)
         } else {
           console.warn(
             `[menus] Skipped "${file}" (missing {menu.name, execute})`
@@ -435,6 +463,14 @@ export const commandHandler = async (client: Client) => {
         else
           console.warn(
             `No menu found for value "${selected}" from customId "${interaction.customId}"`
+          )
+      } else if (interaction.isUserSelectMenu()) {
+        const key = interaction.customId.split('_')[0]
+        const mnu = userMenus.find((m) => m.name === key)
+        if (mnu) await mnu.execute(client, interaction)
+        else
+          console.warn(
+            `No user menu found for customId "${interaction.customId}"`
           )
       }
     } catch (err) {

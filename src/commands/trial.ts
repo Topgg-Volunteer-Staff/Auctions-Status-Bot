@@ -11,6 +11,7 @@ import {
   removeTrialReviewerMentor,
   setMentorForTrialReviewer,
 } from '../utils/trialReviewerMentors'
+import { TRIAL_MENTOR_MANAGER_ROLE_IDS } from '../utils/trialReviewerOnboarding'
 
 import {
   COMPONENTS_V2_EPHEMERAL_FLAGS,
@@ -87,9 +88,10 @@ export const execute = async (
     return
   }
 
-  const allowedRoleIds = ['774710870185869342', '742408262648987748'] as const
   const member = interaction.member
-  const hasAllowedRole = allowedRoleIds.some((id) => member.roles.cache.has(id))
+  const hasAllowedRole = TRIAL_MENTOR_MANAGER_ROLE_IDS.some((id) =>
+    member.roles.cache.has(id)
+  )
 
   if (!hasAllowedRole) {
     await interaction.reply({
