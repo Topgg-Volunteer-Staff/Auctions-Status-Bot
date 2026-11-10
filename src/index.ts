@@ -61,6 +61,7 @@ import {
 const EXTERNAL_BOT_THREAD_PARENT_ID = '563259383400890388'
 const STAFF_ON_BREAK_ROLE_ID = '976592440591024149'
 const MODERATORS_CHAT_CHANNEL_ID = '264890171575631873'
+const TRIAL_REVIEWER_UNLINK_CHANNEL_ID = '1469804108020977800'
 const STAFF_BREAK_NOTIFICATION_STORE_KEY = 'staff-break-notifications'
 const STAFF_BREAK_EVENT_LOG_LIMIT = 200
 const ROLE_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
@@ -595,13 +596,13 @@ async function maybeUnlinkRemovedTrialReviewer(
     }) after trial reviewer role removal.`
   )
 
-  const moderatorsChat = (await newMember.guild.channels
-    .fetch(MODERATORS_CHAT_CHANNEL_ID)
+  const announceChannel = (await newMember.guild.channels
+    .fetch(TRIAL_REVIEWER_UNLINK_CHANNEL_ID)
     .catch(() => null)) as TextChannel | null
 
-  if (!moderatorsChat) {
+  if (!announceChannel) {
     console.error(
-      `[trial-reviewer] Could not fetch mod chat to announce mentor unlink for ${newMember.id}.`
+      `[trial-reviewer] Could not fetch channel ${TRIAL_REVIEWER_UNLINK_CHANNEL_ID} to announce mentor unlink for ${newMember.id}.`
     )
     return
   }
@@ -610,7 +611,7 @@ async function maybeUnlinkRemovedTrialReviewer(
     ? ` to their mentor <@${previousMentorId}>`
     : ''
 
-  await moderatorsChat.send({
+  await announceChannel.send({
     content: `Hey, I noticed <@${newMember.id}> no longer has the Trial Reviewer role, so I automatically removed their mentor link${mentorText}.`,
     allowedMentions: { parse: [] },
   })
