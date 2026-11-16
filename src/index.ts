@@ -796,7 +796,7 @@ client.on('clientReady', async (readyClient) => {
   console.log(`Logged in as ${readyClient.user.tag}!`)
   readyClient.user.setPresence({
     status: 'online',
-    activities: [{ name: 'the clock!', type: 3 }],
+    activities: [{ name: 'Watching your ticket', type: 3 }],
   })
 
   await initializeTicketDmStore(readyClient).catch((error) => {
