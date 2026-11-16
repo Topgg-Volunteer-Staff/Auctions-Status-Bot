@@ -72,6 +72,9 @@ const STAFF_BREAK_EVENT_LOG_LIMIT = 200
 const ROLE_AUDIT_LOG_WINDOW_MS = 2 * 60 * 1000
 const ROLE_AUDIT_LOG_ATTEMPTS = 3
 const ROLE_AUDIT_LOG_RETRY_MS = 1000
+// Promotions swap the trial role for the reviewer role, but the two changes
+// can land a few seconds apart, so wait before deciding it wasn't a promotion.
+const TRIAL_PROMOTION_CHECK_DELAY_MS = 10 * 1000
 // const fourImageFlagCounts = new Map<string, number>()
 
 type StaffBreakNotificationAction =
@@ -613,6 +616,26 @@ async function maybeHandleRemovedTrialReviewer(
 async function notifyRemovedTrialReviewerOpenWork(
   member: GuildMember
 ): Promise<void> {
+  await sleep(TRIAL_PROMOTION_CHECK_DELAY_MS)
+
+  // If they left the server the fetch fails; still post, since whatever they
+  // had open is now unowned.
+  const refreshedMember = await member.guild.members
+    .fetch({ user: member.id, force: true })
+    .catch(() => null)
+
+  if (refreshedMember?.roles.cache.has(roleIds.reviewer)) {
+    console.info(
+      `[trial-reviewer] ${member.id} was promoted to reviewer; skipping open work alert.`
+    )
+    return
+  }
+
+  if (refreshedMember?.roles.cache.has(roleIds.trialReviewer)) {
+    // Trial role was removed and re-added (e.g. a mistake), nothing to report.
+    return
+  }
+
   const [openThreads, staffBots] = await Promise.all([
     getOpenThreadsForStaffMember(member.id, member.guild),
     getBotsForStaffMember(member),
