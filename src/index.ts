@@ -565,7 +565,7 @@ async function maybeNotifyStaffBreakOpenThreads(
   })
 }
 
-async function maybeUnlinkRemovedTrialReviewer(
+async function maybeHandleRemovedTrialReviewer(
   oldMember: GuildMember | PartialGuildMember,
   newMember: GuildMember
 ): Promise<void> {
@@ -576,7 +576,8 @@ async function maybeUnlinkRemovedTrialReviewer(
     // The old snapshot has no role data (member wasn't cached yet), so we
     // can't diff. Only act if they're linked and the audit log confirms the
     // trial role was just removed — this avoids unlinking someone who was
-    // added via /trial add before being given the role.
+    // added via /trial add before being given the role, and avoids an audit
+    // log lookup for every uncached member update.
     const linkedMentorId = await getMentorIdForTrialReviewer(newMember.id)
     if (!linkedMentorId) return
 
@@ -590,6 +591,79 @@ async function maybeUnlinkRemovedTrialReviewer(
     return
   }
 
+  try {
+    await unlinkRemovedTrialReviewer(newMember)
+  } catch (error) {
+    console.error(
+      `[trial-reviewer] Failed to unlink mentor for ${newMember.id}:`,
+      error
+    )
+  }
+
+  try {
+    await notifyRemovedTrialReviewerOpenWork(newMember)
+  } catch (error) {
+    console.error(
+      `[trial-reviewer] Failed to check open work for ${newMember.id}:`,
+      error
+    )
+  }
+}
+
+async function notifyRemovedTrialReviewerOpenWork(
+  member: GuildMember
+): Promise<void> {
+  const [openThreads, staffBots] = await Promise.all([
+    getOpenThreadsForStaffMember(member.id, member.guild),
+    getBotsForStaffMember(member),
+  ])
+
+  // Only worth posting when there's something left for someone to pick up.
+  if (!openThreads.length && !staffBots.length) return
+
+  const mentorshipChat = (await member.guild.channels
+    .fetch(TRIAL_REVIEWER_CHANNEL_ID)
+    .catch(() => null)) as TextChannel | null
+
+  if (!mentorshipChat) {
+    console.error(
+      `[trial-reviewer] Could not fetch channel ${TRIAL_REVIEWER_CHANNEL_ID} to post open work for ${member.id}.`
+    )
+    return
+  }
+
+  // Only mention what was actually found.
+  const findings: Array<string> = []
+
+  if (openThreads.length) {
+    findings.push(
+      `here are their open threads: ${openThreads
+        .map((thread) => `<#${thread.id}>`)
+        .join(', ')}.`
+    )
+  }
+
+  if (staffBots.length) {
+    findings.push(
+      `${findings.length ? 'They also still have' : 'they still have'} ${
+        staffBots.length === 1 ? 'a bot' : 'bots'
+      } ${staffBots
+        .map((bot) => `"${bot.name}" (${bot.id})`)
+        .join(', ')} in the VC.`
+    )
+  }
+
+  await mentorshipChat.send({
+    content: `Hey, I noticed <@${
+      member.id
+    }> had their trial reviewer role removed, ${findings.join('\n')}`,
+    allowedMentions: { parse: [] },
+  })
+}
+
+async function unlinkRemovedTrialReviewer(
+  newMember: GuildMember
+): Promise<void> {
   const { removed, previousMentorId } = await removeTrialReviewerMentor(
     newMember.id
   )
@@ -939,7 +1013,7 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
   }
 
   try {
-    await maybeUnlinkRemovedTrialReviewer(oldMember, newMember)
+    await maybeHandleRemovedTrialReviewer(oldMember, newMember)
   } catch (error) {
     console.error('Error in guildMemberUpdate trial-reviewer handler:', error)
   }
